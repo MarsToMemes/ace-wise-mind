@@ -163,11 +163,11 @@ const Index = () => {
 
   const handleSeatClick = (i: number) => {
     if (seatMode === "dealer") {
+      // Dealer and "You" may overlap — both roles can coexist on the same seat
       setDealerIdx(i);
-      if (userIdx === i) setUserIdx(-1);
       setSeatMode("user");
     } else {
-      if (i === dealerIdx) { toast.error(t("toast.dealerSeat")); return; }
+      // "You" can sit on the dealer seat (user is the BTN)
       setUserIdx(i);
     }
   };
