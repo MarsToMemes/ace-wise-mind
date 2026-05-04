@@ -352,7 +352,12 @@ const Index = () => {
                     userIdx={userIdx}
                     mode={seatMode}
                     folded={folded}
+                    streetContribs={streetContribs}
+                    lastActions={lastActions}
+                    currentBet={currentBet}
+                    defaultRaise={defaultRaise}
                     onSeatClick={handleSeatClick}
+                    onPlayerAction={handlePlayerAction}
                     onModeChange={setSeatMode}
                     onSizeChange={handleSizeChange}
                   />
