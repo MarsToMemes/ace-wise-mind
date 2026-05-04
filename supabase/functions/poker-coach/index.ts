@@ -83,6 +83,7 @@ CRITICAL RULES:
 5. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively.
 6. Be precise, structured, actionable. Never vague.
 7. When sizing is provided by the engine, quote it exactly (BB amount and % of pot range) and explain WHY this size fits the current street: what it achieves (pressure, value extraction, fold equity, protection, pot control), and how it interacts with board texture, range advantage, opponent's likely response, AND the number of active players still in the hand (heads-up vs multiway). Multiway pots tighten ranges, increase value sizing, and suppress bluffs — explain how this affects the current decision.
+8. USE the action history. Read the sequence of actions across streets to infer aggression levels, range narrowing, and betting patterns (e.g., a 3-bettor's range is much tighter than an opener's; a passive caller capping their range; multiple raisers compressing the field). Mention specific actions when relevant ("villain's flop check-raise", "BTN's 3x open", etc.).
 
 Tailor output to the current street: ${streetGuidance[street]}
 
