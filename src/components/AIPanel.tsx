@@ -3,10 +3,16 @@ import { Badge } from "@/components/ui/badge";
 import { Brain, Target, Route, Users, Lightbulb, AlertTriangle } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
+export interface ConditionalLineUI {
+  condition: string;
+  action: string;
+  explanation: string;
+}
+
 export interface AIAnalysis {
   decision_explanation: { action: string; reasoning: string; confidence: number };
   street_strategy: { current_street_plan: string; turn_plan: string; river_plan: string };
-  conditional_lines: string[];
+  conditional_lines: (string | ConditionalLineUI)[];
   range_thinking: { what_you_represent: string; what_opponent_represents: string };
   key_concepts: string[];
   mistakes_to_avoid: string[];
