@@ -152,6 +152,20 @@ const Index = () => {
     const facingRaise = heroBetThisStreet && userToCall > 0;
     const betSizePct = dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : 0;
 
+    const handClass = classifyHandStrength({
+      baseScore: ev.score,
+      category: ev.category,
+      outs: draws.outs,
+      drawType: draws.drawType,
+      equityPct: effEquityPct,
+      texture,
+      opponents,
+      position,
+      street: currentStreet,
+      facingAggression: userToCall > 0 || facingRaise,
+      betSizePct,
+    });
+
     const decision = decide({
       baseScore: ev.score,
       adjScore: effAdjScore,
@@ -165,6 +179,7 @@ const Index = () => {
       texture,
       opponents,
       position,
+      handClass,
     });
     const sizing = recommendSizing({
       street: currentStreet,
