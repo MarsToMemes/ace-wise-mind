@@ -81,7 +81,7 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
               <Coins className="w-3.5 h-3.5" /> {t("engine.sizing")}
             </div>
             <div className="flex gap-1.5">
-              <Badge variant="outline" className="text-xs">{result.sizing.heroAction}</Badge>
+              <Badge variant="outline" className="text-xs">{t(`act.${result.sizing.heroAction}`) || result.sizing.heroAction}</Badge>
               <Badge variant="outline" className="text-xs">{result.sizing.intent}</Badge>
               <Badge variant="outline" className="text-xs">{result.sizing.inPosition ? "IP" : "OOP"}</Badge>
             </div>
