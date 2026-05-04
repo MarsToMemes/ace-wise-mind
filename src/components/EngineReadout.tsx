@@ -136,7 +136,7 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground mb-1">
             <Flame className="w-3.5 h-3.5" /> {t("engine.texture")}
           </div>
-          <Badge variant="outline" className={textureStyles[result.texture]}>{result.texture}</Badge>
+          <Badge variant="outline" className={textureStyles[result.texture]}>{t(`texture.${result.texture}`)}</Badge>
         </Card>
 
         <Card className="glass-panel p-4">
