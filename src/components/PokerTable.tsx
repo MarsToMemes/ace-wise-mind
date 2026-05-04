@@ -40,13 +40,14 @@ interface Props {
   size: TableSize;
   dealerIdx: number;
   userIdx: number;
-  mode: "dealer" | "user";
+  mode: "dealer" | "user" | "fold";
+  folded: boolean[]; // length === size; true = folded/out of hand
   onSeatClick: (i: number) => void;
-  onModeChange: (m: "dealer" | "user") => void;
+  onModeChange: (m: "dealer" | "user" | "fold") => void;
   onSizeChange: (s: TableSize) => void;
 }
 
-export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onModeChange, onSizeChange }: Props) => {
+export const PokerTable = ({ size, dealerIdx, userIdx, mode, folded, onSeatClick, onModeChange, onSizeChange }: Props) => {
   const { t } = useI18n();
   // seat positions on an ellipse
   const seats = Array.from({ length: size }, (_, i) => {
