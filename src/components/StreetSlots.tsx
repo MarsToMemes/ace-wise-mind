@@ -1,6 +1,7 @@
 import { PlayingCard } from "./PlayingCard";
 import { cn } from "@/lib/utils";
 import { Lock } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 
