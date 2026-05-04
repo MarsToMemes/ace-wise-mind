@@ -396,15 +396,16 @@ export function buildExplanation(inp: ExplanationInputs): Explanation {
   const rangePhrase = pick(rangePool, s3);
 
   // ----- Module: strategic intent -----
+  const action = engine.suggestedAction;
   const intent = engine.sizing?.intent;
   let intentPool = P.iControl;
   if (action === "Fold") intentPool = P.iGiveup;
   else if (action === "Raise") {
     intentPool =
-      intent === "value" ? P.iValue :
-      intent === "bluff" ? P.iBluff :
-      intent === "semibluff" ? P.iSemibluff :
-      intent === "protection" ? P.iProtect :
+      intent === "Value" ? P.iValue :
+      intent === "Bluff" ? P.iBluff :
+      intent === "Semi-Bluff" ? P.iSemibluff :
+      intent === "Protection" ? P.iProtect :
       (cat === "Strong" ? P.iValue : cat === "Draw" ? P.iSemibluff : P.iBluff);
   } else if (action === "Call") {
     intentPool = cat === "Draw" ? P.iSemibluff : P.iControl;
@@ -418,18 +419,17 @@ export function buildExplanation(inp: ExplanationInputs): Explanation {
   if (street === "River") planPool = action === "Fold" ? P.fNextFold : P.fNextControl;
   else if (action === "Fold") planPool = P.fNextFold;
   else if (cat === "Draw") planPool = P.fNextDraw;
-  else if (action === "Raise" && (cat === "Strong" || intent === "value")) planPool = P.fNextValue;
+  else if (action === "Raise" && (cat === "Strong" || intent === "Value")) planPool = P.fNextValue;
   else if (action === "Raise") planPool = P.fNextBluff;
   else planPool = P.fNextControl;
   const planPhrase = pick(planPool, seed);
 
   // ----- Module: decision conclusion -----
-  const action2 = action; // alias
   const concPool =
-    action2 === "Raise" ? P.cRaise :
-    action2 === "Call"  ? P.cCall  :
-    action2 === "Fold"  ? P.cFold  :
-                           P.cCheck;
+    action === "Raise" ? P.cRaise :
+    action === "Call"  ? P.cCall  :
+    action === "Fold"  ? P.cFold  :
+                          P.cCheck;
   const conclusion = pick(concPool, seed);
 
   // ----- Compose: 3–4 sentences covering all required components -----
