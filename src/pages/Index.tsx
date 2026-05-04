@@ -199,13 +199,16 @@ const Index = () => {
               <Spade className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="display text-2xl gold-text leading-none">Ace Analyst</h1>
-              <p className="text-xs text-muted-foreground">AI poker hand analyzer</p>
+              <h1 className="display text-2xl gold-text leading-none">{t("app.title")}</h1>
+              <p className="text-xs text-muted-foreground">{t("app.subtitle")}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={reset} className="gold-border">
-            <RotateCcw className="w-4 h-4 mr-2" /> Reset
-          </Button>
+          <div className="flex items-center gap-2">
+            <LanguageSelector />
+            <Button variant="outline" size="sm" onClick={reset} className="gold-border">
+              <RotateCcw className="w-4 h-4 mr-2" /> {t("btn.reset")}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -223,13 +226,13 @@ const Index = () => {
               currentStreet={currentStreet}
             />
             <div className="pt-5 mt-5 border-t border-border/40">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Deck</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{t("section.deck")}</p>
               <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
             </div>
           </Card>
 
           <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">Table & Position</h2>
+            <h2 className="display text-xl mb-4">{t("section.tableAndPosition")}</h2>
             <PokerTable
               size={tableSize}
               dealerIdx={dealerIdx}
@@ -242,18 +245,18 @@ const Index = () => {
           </Card>
 
           <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">Stakes</h2>
+            <h2 className="display text-xl mb-4">{t("section.stakes")}</h2>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Stack (BB)</Label>
+                <Label>{t("field.stack")}</Label>
                 <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>Pot (BB)</Label>
+                <Label>{t("field.pot")}</Label>
                 <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label>Call amount (BB) — optional</Label>
+                <Label>{t("field.call")}</Label>
                 <Input type="number" min={0} value={call} onChange={e => setCall(+e.target.value)} />
               </div>
             </div>
@@ -270,7 +273,7 @@ const Index = () => {
             style={{ background: "var(--gradient-gold)", color: "hsl(var(--primary-foreground))" }}
           >
             <Sparkles className="w-5 h-5 mr-2" />
-            {aiLoading ? "Analyzing…" : `Run Pro Coach (${currentStreet})`}
+            {aiLoading ? t("btn.analyzing") : `${t("btn.runAi")} (${currentStreet})`}
           </Button>
 
           <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
@@ -278,7 +281,7 @@ const Index = () => {
       </main>
 
       <footer className="container py-8 text-center text-xs text-muted-foreground">
-        Deterministic engine + AI strategic explanation. For educational use.
+        {t("footer.note")}
       </footer>
     </div>
   );
