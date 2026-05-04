@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { SizingOutput } from "@/lib/pokerEngine";
+import type { RangeReadout } from "@/lib/rangeInference";
 
 export interface EngineResult {
   category: string;
@@ -20,6 +21,7 @@ export interface EngineResult {
   suggestedAction: "Raise" | "Call" | "Check" | "Fold";
   decisionReason: string;
   sizing: SizingOutput;
+  rangeReadout?: RangeReadout;
 }
 
 const actionStyles: Record<string, string> = {
