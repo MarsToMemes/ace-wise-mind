@@ -8,7 +8,8 @@ import { CardPicker } from "@/components/CardPicker";
 import { StreetSlots } from "@/components/StreetSlots";
 import { EngineReadout, EngineResult } from "@/components/EngineReadout";
 import { AIPanel, AIAnalysis } from "@/components/AIPanel";
-import { PokerTable, TableSize, labelToPosition, seatLabel } from "@/components/PokerTable";
+import { PokerTable, TableSize, SeatMode, labelToPosition, seatLabel } from "@/components/PokerTable";
+import { PlayerAction, ActionType } from "@/components/ActionMenu";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
@@ -34,11 +35,12 @@ const Index = () => {
   const [tableSize, setTableSize] = useState<TableSize>(6);
   const [dealerIdx, setDealerIdx] = useState<number>(-1);
   const [userIdx, setUserIdx] = useState<number>(-1);
-  const [seatMode, setSeatMode] = useState<"dealer" | "user" | "fold">("dealer");
+  const [seatMode, setSeatMode] = useState<SeatMode>("dealer");
   const [folded, setFolded] = useState<boolean[]>(() => Array(6).fill(false));
   const [stack, setStack] = useState(100);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
+  const [actionHistory, setActionHistory] = useState<PlayerAction[]>([]);
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -72,6 +74,37 @@ const Index = () => {
     return "Preflop";
   }, [board.length]);
 
+  // === Action tracking (per current street) ===
+  const streetActions = useMemo(
+    () => actionHistory.filter(a => a.street === currentStreet),
+    [actionHistory, currentStreet],
+  );
+  const streetContribs = useMemo(() => {
+    const arr = Array(tableSize).fill(0);
+    for (const a of streetActions) {
+      if (a.amountBB > 0) arr[a.seatIdx] = Math.max(arr[a.seatIdx], a.amountBB);
+    }
+    return arr;
+  }, [streetActions, tableSize]);
+  const lastActions = useMemo(() => {
+    const arr: (PlayerAction | null)[] = Array(tableSize).fill(null);
+    for (const a of streetActions) arr[a.seatIdx] = a;
+    return arr;
+  }, [streetActions, tableSize]);
+  const currentBet = useMemo(
+    () => streetContribs.reduce((m, v) => Math.max(m, v), 0),
+    [streetContribs],
+  );
+  const totalCommitted = useMemo(
+    () => actionHistory.reduce((s, a) => s + (a.amountBB || 0), 0),
+    [actionHistory],
+  );
+  const dynamicPot = pot + totalCommitted;
+  const userToCall = userIdx >= 0
+    ? Math.max(0, currentBet - (streetContribs[userIdx] || 0))
+    : call;
+  const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(dynamicPot * 0.66));
+
   const engine = useMemo<EngineResult | null>(() => {
     if (hole.length < 2) return null;
     const all = [...hole, ...board];
@@ -79,7 +112,7 @@ const Index = () => {
     const draws = detectDraws(hole, board);
     const texture = classifyTexture(board);
     const ra = rangeAdvantage(position, board);
-    const po = potOdds(call, pot);
+    const po = potOdds(userToCall, dynamicPot);
     const equityPct = estimateEquity(draws.outs, board.length);
     const adjScore = adjustedScore({ baseScore: ev.score, outs: draws.outs, texture, position });
     const decision = decide({
@@ -98,8 +131,8 @@ const Index = () => {
       equityPct,
       texture,
       position,
-      pot,
-      call,
+      pot: dynamicPot,
+      call: userToCall,
       opponents,
       action: decision.action,
     });
@@ -114,7 +147,7 @@ const Index = () => {
       decisionReason: decision.reason,
       sizing,
     };
-  }, [hole, board, position, pot, call, currentStreet]);
+  }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents]);
 
   const removeCard = (card: string) => {
     if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
@@ -166,11 +199,11 @@ const Index = () => {
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setFolded(Array(tableSize).fill(false));
     setStack(100); setPot(10); setCall(0);
+    setActionHistory([]);
   };
 
   const handleSeatClick = (i: number) => {
     if (seatMode === "fold") {
-      // Toggle this seat's active/folded state — instant, no reset required
       setFolded(prev => {
         const next = [...prev];
         next[i] = !next[i];
@@ -178,13 +211,23 @@ const Index = () => {
       });
       return;
     }
+    if (seatMode === "action") return; // handled by ActionMenu inside table
     if (seatMode === "dealer") {
-      // Dealer and "You" may overlap — both roles can coexist on the same seat
       setDealerIdx(i);
       setSeatMode("user");
     } else {
-      // "You" can sit on the dealer seat (user is the BTN)
       setUserIdx(i);
+    }
+  };
+
+  const handlePlayerAction = (seatIdx: number, type: ActionType, amountBB: number) => {
+    setActionHistory(prev => [...prev, { seatIdx, street: currentStreet, type, amountBB }]);
+    if (type === "Fold") {
+      setFolded(prev => {
+        const next = [...prev];
+        next[seatIdx] = true;
+        return next;
+      });
     }
   };
 
@@ -192,6 +235,7 @@ const Index = () => {
     setTableSize(s);
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setFolded(Array(s).fill(false));
+    setActionHistory([]);
   };
 
   const runAI = async () => {
@@ -203,7 +247,10 @@ const Index = () => {
           hole, board, flop, turn, river,
           currentStreet,
           lang,
-          position, opponents, stack, pot, call,
+          position, opponents, stack,
+          pot: dynamicPot,
+          basePot: pot,
+          call: userToCall,
           userPosition: userLabel || position,
           inPosition: ["BTN", "CO", "HJ"].includes(position),
           relativePosition: ["BTN", "CO", "HJ"].includes(position) ? "IP" : "OOP",
@@ -219,6 +266,20 @@ const Index = () => {
             folded_seats: folded.map((f, i) => f ? i : -1).filter(i => i >= 0),
             multiway: opponents >= 2,
           },
+          action_history: actionHistory.map(a => ({
+            seat: a.seatIdx,
+            position: dealerIdx >= 0 ? seatLabel(a.seatIdx, dealerIdx, tableSize) : `S${a.seatIdx + 1}`,
+            street: a.street,
+            type: a.type,
+            amount_bb: a.amountBB,
+          })),
+          current_street_actions: streetActions.map(a => ({
+            seat: a.seatIdx,
+            type: a.type,
+            amount_bb: a.amountBB,
+          })),
+          current_bet_to_match_bb: currentBet,
+          total_committed_bb: totalCommitted,
           handCategory: engine.category,
           handScore: engine.score,
           adjScore: engine.adjScore,
@@ -308,7 +369,12 @@ const Index = () => {
                     userIdx={userIdx}
                     mode={seatMode}
                     folded={folded}
+                    streetContribs={streetContribs}
+                    lastActions={lastActions}
+                    currentBet={currentBet}
+                    defaultRaise={defaultRaise}
                     onSeatClick={handleSeatClick}
+                    onPlayerAction={handlePlayerAction}
                     onModeChange={setSeatMode}
                     onSizeChange={handleSizeChange}
                   />

@@ -34,8 +34,14 @@ Table:
 
 Stakes:
 - Stack: ${ctx.stack}bb
-- Pot: ${ctx.pot}bb
-- Call amount: ${ctx.call ?? 0}bb
+- Pot (dynamic, includes committed bets): ${ctx.pot}bb${ctx.basePot != null ? ` (base ${ctx.basePot}bb + committed ${(ctx.total_committed_bb ?? 0)}bb)` : ""}
+- Call amount for hero: ${ctx.call ?? 0}bb
+- Current bet to match this street: ${ctx.current_bet_to_match_bb ?? 0}bb
+
+Action history (chronological, all streets):
+${(ctx.action_history || []).length === 0 ? "(none yet)" : (ctx.action_history || []).map((a: any) => `- [${a.street}] seat ${a.seat} (${a.position}) ${a.type}${a.amount_bb > 0 ? ` ${a.amount_bb}bb` : ""}`).join("\n")}
+
+Current street actions: ${(ctx.current_street_actions || []).length === 0 ? "(none yet)" : (ctx.current_street_actions || []).map((a: any) => `${a.type}${a.amount_bb > 0 ? ` ${a.amount_bb}bb` : ""}`).join(" → ")}
 
 Deterministic engine readout (TRUSTED — DO NOT RECALCULATE):
 - Hand: ${ctx.handCategory} (raw score ${ctx.handScore}, adjusted ${ctx.adjScore})
@@ -77,6 +83,7 @@ CRITICAL RULES:
 5. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively.
 6. Be precise, structured, actionable. Never vague.
 7. When sizing is provided by the engine, quote it exactly (BB amount and % of pot range) and explain WHY this size fits the current street: what it achieves (pressure, value extraction, fold equity, protection, pot control), and how it interacts with board texture, range advantage, opponent's likely response, AND the number of active players still in the hand (heads-up vs multiway). Multiway pots tighten ranges, increase value sizing, and suppress bluffs — explain how this affects the current decision.
+8. USE the action history. Read the sequence of actions across streets to infer aggression levels, range narrowing, and betting patterns (e.g., a 3-bettor's range is much tighter than an opener's; a passive caller capping their range; multiple raisers compressing the field). Mention specific actions when relevant ("villain's flop check-raise", "BTN's 3x open", etc.).
 
 Tailor output to the current street: ${streetGuidance[street]}
 
