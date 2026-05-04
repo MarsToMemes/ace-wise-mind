@@ -55,6 +55,12 @@ Deterministic engine readout (TRUSTED — DO NOT RECALCULATE):
 ${ctx.sizing ? `- Hero action: ${ctx.sizing.heroAction} (${ctx.sizing.facingBet ? "facing a bet" : "first to act"}, ${ctx.sizing.inPosition ? "IP" : "OOP"})
 - Strategic intent: ${ctx.sizing.intent}
 - Recommended sizing: ${ctx.sizing.amountBB} BB (${ctx.sizing.pctMin}–${ctx.sizing.pctMax}% of pot) — ${ctx.sizing.explanation}` : ""}
+${ctx.range_inference ? `
+Range inference (engine-derived from action history — TRUSTED):
+- Aggregate opponent range strength: ${ctx.range_inference.aggregate_strength}/100
+- Dominant range type: ${ctx.range_inference.dominant_range_type}
+- Aggregate bluff frequency: ${(ctx.range_inference.aggregate_bluff_frequency * 100).toFixed(0)}%
+${(ctx.range_inference.opponents || []).map((o: any) => `  • Seat ${o.seat} (${o.position || "?"}): strength ${o.estimated_strength}/100, ${o.range_type}, bluff ${(o.bluff_frequency * 100).toFixed(0)}% — ${(o.notes || []).join("; ")}`).join("\n")}` : ""}
 ${ctx.training ? `
 Training context (interpret, do not recompute):
 - User chose: ${ctx.training.userChoice} ${ctx.training.timeout ? "(TIMEOUT auto-fold)" : ""}
