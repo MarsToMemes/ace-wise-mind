@@ -110,7 +110,7 @@ export const PokerTable = ({
           <div className="text-center">
             <p className="display gold-text text-lg leading-none">Ace Analyst</p>
             <p className="text-[10px] uppercase tracking-widest text-[hsl(45_30%_70%/0.6)] mt-1">
-              {dealerIdx < 0 ? "Click a seat: Dealer" : userIdx < 0 ? "Click your seat" : mode === "action" ? "Click seat to record action" : "Ready"}
+              {dealerIdx < 0 ? t("table.clickDealer") : userIdx < 0 ? t("table.clickUser") : mode === "action" ? t("table.clickAction") : t("table.ready")}
             </p>
           </div>
         </div>
