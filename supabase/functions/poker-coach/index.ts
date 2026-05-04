@@ -34,8 +34,14 @@ Table:
 
 Stakes:
 - Stack: ${ctx.stack}bb
-- Pot: ${ctx.pot}bb
-- Call amount: ${ctx.call ?? 0}bb
+- Pot (dynamic, includes committed bets): ${ctx.pot}bb${ctx.basePot != null ? ` (base ${ctx.basePot}bb + committed ${(ctx.total_committed_bb ?? 0)}bb)` : ""}
+- Call amount for hero: ${ctx.call ?? 0}bb
+- Current bet to match this street: ${ctx.current_bet_to_match_bb ?? 0}bb
+
+Action history (chronological, all streets):
+${(ctx.action_history || []).length === 0 ? "(none yet)" : (ctx.action_history || []).map((a: any) => `- [${a.street}] seat ${a.seat} (${a.position}) ${a.type}${a.amount_bb > 0 ? ` ${a.amount_bb}bb` : ""}`).join("\n")}
+
+Current street actions: ${(ctx.current_street_actions || []).length === 0 ? "(none yet)" : (ctx.current_street_actions || []).map((a: any) => `${a.type}${a.amount_bb > 0 ? ` ${a.amount_bb}bb` : ""}`).join(" → ")}
 
 Deterministic engine readout (TRUSTED — DO NOT RECALCULATE):
 - Hand: ${ctx.handCategory} (raw score ${ctx.handScore}, adjusted ${ctx.adjScore})
