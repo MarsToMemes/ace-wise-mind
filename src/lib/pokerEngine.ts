@@ -248,6 +248,111 @@ export function decide(d: DecisionInput): DecisionOutput {
   return { action: "Fold", reason: `Equity ${equityPct.toFixed(0)}% < required ${potOddsPct.toFixed(0)}% — fold.` };
 }
 
+// Street-based sizing strategy
+export type Street = "Preflop" | "Flop" | "Turn" | "River";
+export type SizingIntent = "Value" | "Bluff" | "Protection" | "Pot Control";
+
+export interface SizingInput {
+  street: Street;
+  baseScore: number;
+  adjScore: number;
+  outs: number;
+  equityPct: number;
+  texture: "Dry" | "Semi-wet" | "Wet";
+  position: string;
+  pot: number;
+  action: "Raise" | "Call" | "Check" | "Fold";
+}
+
+export interface SizingOutput {
+  intent: SizingIntent;
+  pctMin: number;        // % of pot (lower bound)
+  pctMax: number;        // % of pot (upper bound)
+  pctTarget: number;     // recommended % of pot
+  amountBB: number;      // recommended size in BB
+  reason: string;
+}
+
+export function recommendSizing(s: SizingInput): SizingOutput {
+  const { street, baseScore, adjScore, outs, equityPct, texture, position, pot, action } = s;
+
+  // Classify strategic intent
+  let intent: SizingIntent;
+  if (baseScore >= 110) intent = "Value";
+  else if (baseScore >= 50 && adjScore >= 60) intent = "Value";
+  else if (outs >= 8 && baseScore < 30) intent = "Bluff";
+  else if (baseScore >= 30 && baseScore < 70 && texture !== "Dry") intent = "Protection";
+  else if (baseScore >= 30 && baseScore < 70) intent = "Pot Control";
+  else if (action === "Raise" && baseScore < 30) intent = "Bluff";
+  else intent = "Pot Control";
+
+  let pctMin = 33, pctMax = 66, reason = "";
+
+  if (street === "Preflop") {
+    pctMin = 200; pctMax = 300;
+    if (["BTN", "CO"].includes(position)) { pctMin = 220; pctMax = 250; }
+    if (["UTG", "MP", "HJ"].includes(position)) { pctMin = 250; pctMax = 300; }
+    reason = "Preflop open: 2.2–3x BB depending on position.";
+  } else if (street === "Flop") {
+    if (texture === "Dry") {
+      pctMin = 20; pctMax = 40;
+      reason = "Dry flop — small range bet (20–40% pot) to deny equity cheaply.";
+    } else if (texture === "Wet") {
+      pctMin = 50; pctMax = 80;
+      reason = "Wet flop — larger sizing (50–80% pot) for protection vs draws.";
+    } else {
+      pctMin = 33; pctMax = 60;
+      reason = "Semi-wet flop — medium sizing (33–60% pot).";
+    }
+  } else if (street === "Turn") {
+    if (intent === "Value" && baseScore >= 90) {
+      pctMin = 60; pctMax = 100;
+      reason = "Polarized turn value — 60–100% pot to charge draws.";
+    } else if (intent === "Bluff" || (outs >= 8 && baseScore < 50)) {
+      pctMin = 50; pctMax = 80;
+      intent = "Bluff";
+      reason = "Turn semi-bluff — 50–80% pot to maximize fold equity + equity realization.";
+    } else if (intent === "Protection") {
+      pctMin = 55; pctMax = 75;
+      reason = "Turn protection bet — 55–75% pot vs medium-strong holdings.";
+    } else {
+      pctMin = 40; pctMax = 60;
+      reason = "Turn pot-control sizing — 40–60% pot.";
+    }
+  } else { // River
+    if (intent === "Value" && baseScore >= 110) {
+      pctMin = 70; pctMax = 120;
+      reason = "River value — 70–120% pot with strong made hand.";
+    } else if (intent === "Value") {
+      pctMin = 30; pctMax = 60;
+      reason = "Thin river value — 30–60% pot to get called by worse.";
+    } else if (intent === "Bluff") {
+      pctMin = 80; pctMax = 120;
+      reason = "River bluff — large 80–120% pot for max fold equity.";
+    } else {
+      pctMin = 0; pctMax = 0;
+      reason = "River pot control — check / give up.";
+    }
+  }
+
+  // Fold/Call: no sizing recommendation
+  if (action === "Fold" || action === "Call") {
+    return {
+      intent: action === "Call" ? "Pot Control" : intent,
+      pctMin: 0, pctMax: 0, pctTarget: 0, amountBB: 0,
+      reason: action === "Fold" ? "No sizing — folding." : "No sizing — calling, not betting.",
+    };
+  }
+
+  const pctTarget = Math.round((pctMin + pctMax) / 2);
+  // Preflop: pct values represent xBB, not % of pot
+  const amountBB = street === "Preflop"
+    ? +(pctTarget / 100).toFixed(2)
+    : +((pctTarget / 100) * pot).toFixed(2);
+
+  return { intent, pctMin, pctMax, pctTarget, amountBB, reason };
+}
+
 // Legacy simple helper kept for compatibility
 export function suggestAction(opts: {
   score: number; outs: number; potOdds: number | null;
