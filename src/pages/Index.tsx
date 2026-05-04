@@ -313,7 +313,7 @@ const Index = () => {
         },
         conditional_lines: conditional,
         range_thinking: {
-          what_you_represent: `${ip ? "IP" : "OOP"} ${userLabel || position}: ${engine.heroRA >= 55 ? "range advantage — credible value & bluffs" : "capped range — lean to merged value"}.`,
+          what_you_represent: `${ip ? "IP" : "OOP"} ${userLabel || position}: ${Number(engine.heroRA) >= 55 ? "range advantage — credible value & bluffs" : "capped range — lean to merged value"}.`,
           what_opponent_represents: rangeLine,
         },
         key_concepts: [
