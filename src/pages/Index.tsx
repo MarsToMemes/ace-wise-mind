@@ -233,8 +233,6 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container py-8 grid lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
       <div className="container pt-6">
         <Tabs value={appMode} onValueChange={(v) => setAppMode(v as "analyzer" | "training")}>
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
