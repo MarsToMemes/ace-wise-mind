@@ -12,15 +12,23 @@ Deno.serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const userMessage = `Analyze this poker spot:
-- Hole cards: ${ctx.hole.join(" ")}
-- Board: ${ctx.board.length ? ctx.board.join(" ") : "(preflop)"}
-- Position: ${ctx.position}
-- Opponents: ${ctx.opponents}
-- Stack: ${ctx.stack}bb
-- Pot: ${ctx.pot}bb
-- Call amount: ${ctx.call ?? 0}bb
-- Detected hand: ${ctx.handCategory} (score ${ctx.handScore})
+    const street = ctx.currentStreet || "Preflop";
+    const userMessage = `Analyze this poker spot.
+
+Current street: ${street}
+Hole cards: ${ctx.hole.join(" ")}
+Flop: ${ctx.flop?.length ? ctx.flop.join(" ") : "(none)"}
+Turn: ${ctx.turn ?? "(none)"}
+River: ${ctx.river ?? "(none)"}
+
+Position: ${ctx.position}
+Opponents: ${ctx.opponents}
+Stack: ${ctx.stack}bb
+Pot: ${ctx.pot}bb
+Call amount: ${ctx.call ?? 0}bb
+
+Engine readout:
+- Hand: ${ctx.handCategory} (score ${ctx.handScore})
 - Draw: ${ctx.drawType} (~${ctx.outs} outs)
 - Board texture: ${ctx.texture}
 - Pot odds: ${ctx.potOdds ?? "n/a"}
@@ -28,7 +36,14 @@ Deno.serve(async (req) => {
 - Range advantage hero/villain: ${ctx.heroRA}/${ctx.villainRA}
 - Engine suggestion: ${ctx.suggestedAction}`;
 
-    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Justify decisions using range, board, EV, position. Never vague.`;
+    const streetGuidance: Record<string, string> = {
+      Preflop: "Plan preflop action, then describe flop and turn strategy.",
+      Flop: "Plan the flop action, then provide turn and river strategy.",
+      Turn: "Plan the turn action, then provide river strategy. river_plan is the key forward-looking plan.",
+      River: "This is the river — provide the FINAL decision only. For turn_plan and river_plan, briefly recap reasoning rather than projecting future streets.",
+    };
+
+    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Justify decisions using range, board, EV, position. Never vague. Tailor your output to the current street: ${streetGuidance[street]}`;
 
     const tool = {
       type: "function",

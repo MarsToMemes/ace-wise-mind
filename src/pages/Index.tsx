@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sparkles, RotateCcw, Spade } from "lucide-react";
 import { CardPicker } from "@/components/CardPicker";
-import { PlayingCard } from "@/components/PlayingCard";
+import { StreetSlots } from "@/components/StreetSlots";
 import { EngineReadout, EngineResult } from "@/components/EngineReadout";
 import { AIPanel, AIAnalysis } from "@/components/AIPanel";
 import {
@@ -17,11 +17,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 type Position = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
-type PickMode = "hole" | "board";
+type PickMode = "hole" | "flop" | "turn" | "river";
+type Street = "Preflop" | "Flop" | "Turn" | "River";
 
 const Index = () => {
   const [hole, setHole] = useState<string[]>([]);
-  const [board, setBoard] = useState<string[]>([]);
+  const [flop, setFlop] = useState<string[]>([]);
+  const [turn, setTurn] = useState<string | null>(null);
+  const [river, setRiver] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>("hole");
   const [opponents, setOpponents] = useState(2);
   const [position, setPosition] = useState<Position>("BTN");
@@ -32,7 +35,22 @@ const Index = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  const board = useMemo(() => {
+    const b = [...flop];
+    if (turn) b.push(turn);
+    if (river) b.push(river);
+    return b;
+  }, [flop, turn, river]);
+
   const selected = [...hole, ...board];
+
+  const currentStreet: Street = useMemo(() => {
+    if (board.length === 0) return "Preflop";
+    if (board.length === 3) return "Flop";
+    if (board.length === 4) return "Turn";
+    if (board.length === 5) return "River";
+    return "Preflop";
+  }, [board.length]);
 
   const engine = useMemo<EngineResult | null>(() => {
     if (hole.length < 2) return null;
@@ -44,34 +62,60 @@ const Index = () => {
     const po = potOdds(call, pot);
     const action = suggestAction({ score: ev.score, outs: draws.outs, potOdds: po?.odds ?? null });
     return {
-      category: ev.category,
-      score: ev.score,
-      drawType: draws.drawType,
-      outs: draws.outs,
-      texture,
-      heroRA: ra.hero,
-      villainRA: ra.villain,
-      potOdds: po?.odds ?? null,
-      reqEquity: po?.reqEquity ?? null,
+      category: ev.category, score: ev.score,
+      drawType: draws.drawType, outs: draws.outs,
+      texture, heroRA: ra.hero, villainRA: ra.villain,
+      potOdds: po?.odds ?? null, reqEquity: po?.reqEquity ?? null,
       suggestedAction: action,
     };
   }, [hole, board, position, pot, call]);
 
-  const handlePick = (card: string) => {
-    if (hole.includes(card)) { setHole(hole.filter(c => c !== card)); return; }
-    if (board.includes(card)) { setBoard(board.filter(c => c !== card)); return; }
+  const removeCard = (card: string) => {
+    if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
+    if (flop.includes(card)) {
+      // removing a flop card invalidates turn/river
+      setFlop(flop.filter(c => c !== card));
+      setTurn(null); setRiver(null);
+      return;
+    }
+    if (turn === card) { setTurn(null); setRiver(null); return; }
+    if (river === card) { setRiver(null); return; }
+  };
+
+  const pickCard = (card: string) => {
+    if (selected.includes(card)) return removeCard(card);
+
     if (pickMode === "hole") {
       if (hole.length >= 2) { toast.error("Hole cards already chosen"); return; }
-      setHole([...hole, card]);
-      if (hole.length + 1 === 2) setPickMode("board");
-    } else {
-      if (board.length >= 5) { toast.error("Board is full"); return; }
-      setBoard([...board, card]);
+      const next = [...hole, card];
+      setHole(next);
+      if (next.length === 2) setPickMode("flop");
+      return;
+    }
+    if (pickMode === "flop") {
+      if (flop.length >= 3) { toast.error("Flop is full"); return; }
+      const next = [...flop, card];
+      setFlop(next);
+      if (next.length === 3) setPickMode("turn");
+      return;
+    }
+    if (pickMode === "turn") {
+      if (flop.length < 3) { toast.error("Complete the flop first"); return; }
+      if (turn) { toast.error("Turn already set"); return; }
+      setTurn(card);
+      setPickMode("river");
+      return;
+    }
+    if (pickMode === "river") {
+      if (!turn) { toast.error("Set the turn first"); return; }
+      if (river) { toast.error("River already set"); return; }
+      setRiver(card);
     }
   };
 
   const reset = () => {
-    setHole([]); setBoard([]); setAiResult(null); setAiError(null);
+    setHole([]); setFlop([]); setTurn(null); setRiver(null);
+    setAiResult(null); setAiError(null);
     setPickMode("hole"); setOpponents(2); setPosition("BTN");
     setStack(100); setPot(10); setCall(0);
   };
@@ -82,7 +126,9 @@ const Index = () => {
     try {
       const { data, error } = await supabase.functions.invoke("poker-coach", {
         body: {
-          hole, board, position, opponents, stack, pot, call,
+          hole, board, flop, turn, river,
+          currentStreet,
+          position, opponents, stack, pot, call,
           handCategory: engine.category,
           handScore: engine.score,
           drawType: engine.drawType,
@@ -129,47 +175,21 @@ const Index = () => {
       </header>
 
       <main className="container py-8 grid lg:grid-cols-2 gap-8">
-        {/* LEFT */}
         <div className="space-y-6">
-          <Card className="glass-panel p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="display text-xl">Your Hand</h2>
-              <div className="flex gap-1 text-xs">
-                <button
-                  onClick={() => setPickMode("hole")}
-                  className={`px-3 py-1.5 rounded-md transition ${pickMode === "hole" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-                >Hole</button>
-                <button
-                  onClick={() => setPickMode("board")}
-                  className={`px-3 py-1.5 rounded-md transition ${pickMode === "board" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-                >Board</button>
-              </div>
-            </div>
-
-            <div className="space-y-4 mb-5">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Hole cards</p>
-                <div className="flex gap-2 min-h-[64px]">
-                  {hole.length === 0 && <p className="text-sm text-muted-foreground/60 self-center">Select 2 cards</p>}
-                  {hole.map(c => (
-                    <PlayingCard key={c} card={c} animated onClick={() => setHole(hole.filter(x => x !== c))} />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Board</p>
-                <div className="flex gap-2 min-h-[64px]">
-                  {board.length === 0 && <p className="text-sm text-muted-foreground/60 self-center">Up to 5 community cards</p>}
-                  {board.map(c => (
-                    <PlayingCard key={c} card={c} animated onClick={() => setBoard(board.filter(x => x !== c))} />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-border/40">
+          <Card className="glass-panel p-5">
+            <StreetSlots
+              hole={hole}
+              flop={flop}
+              turn={turn}
+              river={river}
+              pickMode={pickMode}
+              setPickMode={setPickMode}
+              onRemove={removeCard}
+              currentStreet={currentStreet}
+            />
+            <div className="pt-5 mt-5 border-t border-border/40">
               <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Deck</p>
-              <CardPicker selected={selected} hole={hole} board={board} onPick={handlePick} />
+              <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
             </div>
           </Card>
 
@@ -205,7 +225,6 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* RIGHT */}
         <div className="space-y-6">
           <EngineReadout result={engine} />
 
@@ -216,7 +235,7 @@ const Index = () => {
             style={{ background: "var(--gradient-gold)", color: "hsl(var(--primary-foreground))" }}
           >
             <Sparkles className="w-5 h-5 mr-2" />
-            {aiLoading ? "Analyzing…" : "Run Pro Coach Analysis"}
+            {aiLoading ? "Analyzing…" : `Run Pro Coach (${currentStreet})`}
           </Button>
 
           <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
