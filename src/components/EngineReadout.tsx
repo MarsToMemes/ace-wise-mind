@@ -100,6 +100,29 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
         </Card>
       )}
 
+      {result.rangeReadout && result.rangeReadout.opponents.length > 0 && (
+        <Card className="glass-panel p-5">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <TrendingUp className="w-3.5 h-3.5" /> Opponent Range Read
+            </div>
+            <div className="flex gap-1.5 flex-wrap justify-end">
+              <Badge variant="outline" className="text-xs">{result.rangeReadout.dominantRangeType}</Badge>
+              <Badge variant="outline" className="text-xs">~{result.rangeReadout.aggregateStrength}/100</Badge>
+              <Badge variant="outline" className="text-xs">Bluff {(result.rangeReadout.aggregateBluffFreq * 100).toFixed(0)}%</Badge>
+            </div>
+          </div>
+          <ul className="text-xs text-muted-foreground space-y-1 mt-2">
+            {result.rangeReadout.opponents.map(o => (
+              <li key={o.seatIdx}>
+                <span className="text-foreground font-medium">{o.position || `Seat ${o.seatIdx + 1}`}</span>
+                : {o.estimatedStrength}/100 · {o.rangeType} · bluff {(o.bluffFrequency * 100).toFixed(0)}%
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <Card className="glass-panel p-4">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground mb-1">
