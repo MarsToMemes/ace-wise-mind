@@ -11,7 +11,7 @@ import { AIPanel, AIAnalysis } from "@/components/AIPanel";
 import { PokerTable, TableSize, labelToPosition, seatLabel } from "@/components/PokerTable";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
-  potOdds, estimateEquity, adjustedScore, decide,
+  potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
 } from "@/lib/pokerEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -84,6 +84,17 @@ const Index = () => {
       potOddsPct: po ? po.reqEquity : null,
       boardLen: board.length,
     });
+    const sizing = recommendSizing({
+      street: currentStreet,
+      baseScore: ev.score,
+      adjScore,
+      outs: draws.outs,
+      equityPct,
+      texture,
+      position,
+      pot,
+      action: decision.action,
+    });
     return {
       category: ev.category, score: ev.score,
       adjScore,
@@ -93,8 +104,9 @@ const Index = () => {
       potOdds: po?.odds ?? null, reqEquity: po?.reqEquity ?? null,
       suggestedAction: decision.action,
       decisionReason: decision.reason,
+      sizing,
     };
-  }, [hole, board, position, pot, call]);
+  }, [hole, board, position, pot, call, currentStreet]);
 
   const removeCard = (card: string) => {
     if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
@@ -194,6 +206,7 @@ const Index = () => {
           villainRA: engine.villainRA,
           suggestedAction: engine.suggestedAction,
           decisionReason: engine.decisionReason,
+          sizing: engine.sizing,
         },
       });
       if (error) throw error;

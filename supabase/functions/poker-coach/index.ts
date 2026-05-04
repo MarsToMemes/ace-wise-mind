@@ -43,6 +43,7 @@ Deterministic engine readout (TRUSTED — DO NOT RECALCULATE):
 - Required equity: ${ctx.reqEquity ?? "n/a"}
 - Range advantage hero/villain: ${ctx.heroRA}/${ctx.villainRA}
 - Engine decision: ${ctx.suggestedAction} — ${ctx.decisionReason ?? ""}
+${ctx.sizing ? `- Recommended sizing: ${ctx.sizing.amountBB} BB (${ctx.sizing.pctMin}–${ctx.sizing.pctMax}% of pot) — intent: ${ctx.sizing.intent}. Reason: ${ctx.sizing.reason}` : ""}
 ${ctx.training ? `
 Training context (interpret, do not recompute):
 - User chose: ${ctx.training.userChoice} ${ctx.training.timeout ? "(TIMEOUT auto-fold)" : ""}
@@ -70,6 +71,7 @@ CRITICAL RULES:
 4. Your job is to INTERPRET: explain WHY using range logic, board texture, position, EV (equity vs pot odds), and forward planning.
 5. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively.
 6. Be precise, structured, actionable. Never vague.
+7. When sizing is provided by the engine, quote it exactly (BB amount and % of pot range) and explain WHY this size fits the current street: what it achieves (pressure, value extraction, fold equity, protection, pot control), and how it interacts with board texture, range advantage, and opponent's likely response.
 
 Tailor output to the current street: ${streetGuidance[street]}
 

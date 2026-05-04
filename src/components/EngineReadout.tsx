@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import type { SizingOutput } from "@/lib/pokerEngine";
 
 export interface EngineResult {
   category: string;
@@ -18,6 +19,7 @@ export interface EngineResult {
   reqEquity: number | null;
   suggestedAction: "Raise" | "Call" | "Check" | "Fold";
   decisionReason: string;
+  sizing: SizingOutput;
 }
 
 const actionStyles: Record<string, string> = {
@@ -69,6 +71,24 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
           </div>
         </div>
       </Card>
+
+      {result.sizing && result.sizing.pctMax > 0 && (
+        <Card className="glass-panel p-5">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <Coins className="w-3.5 h-3.5" /> {t("engine.sizing")}
+            </div>
+            <Badge variant="outline" className="text-xs">{result.sizing.intent}</Badge>
+          </div>
+          <div className="flex items-baseline gap-3 mb-1">
+            <p className="text-2xl display gold-text">{result.sizing.amountBB} BB</p>
+            <p className="text-sm text-muted-foreground">
+              {result.sizing.pctMin}–{result.sizing.pctMax}% {t("engine.ofPot")}
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground italic">{result.sizing.reason}</p>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Card className="glass-panel p-4">
