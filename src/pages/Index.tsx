@@ -46,6 +46,8 @@ const Index = () => {
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [geminiText, setGeminiText] = useState<string | null>(null);
+  const [geminiLoading, setGeminiLoading] = useState(false);
 
   const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
   const position = userLabel ? labelToPosition(userLabel) : "BTN";
@@ -354,7 +356,45 @@ const Index = () => {
     }
   };
 
-  
+  const explainWithGemini = async () => {
+    if (!engine) { toast.error(t("toast.pickHole")); return; }
+    setGeminiLoading(true); setGeminiText(null);
+    try {
+      const ctx: string[] = [];
+      if (engine.equityPct && engine.reqEquity) {
+        ctx.push(engine.equityPct >= engine.reqEquity ? "equity exceeds pot odds" : "equity below pot odds");
+      }
+      if (engine.drawType && engine.drawType !== "None") ctx.push(engine.drawType);
+      if (engine.texture) ctx.push(`${engine.texture} board`);
+      if (opponents >= 2) ctx.push("multiway pot");
+      if (engine.sizing?.facingBet) ctx.push("facing a bet");
+      const lastAggressive = [...actionHistory].reverse().find(a => a.type === "Bet" || a.type === "Raise");
+      if (lastAggressive) ctx.push(`opponent ${lastAggressive.type.toLowerCase()} ${lastAggressive.amountBB}bb`);
+
+      const { data, error } = await supabase.functions.invoke("gemini-explain", {
+        body: {
+          hand: hole.join(" "),
+          board: board.join(" "),
+          street: currentStreet,
+          position,
+          action_taken: actionHistory.length ? actionHistory[actionHistory.length - 1].type : "",
+          recommended_action: engine.suggestedAction,
+          bet_size: userToCall,
+          pot_size: dynamicPot,
+          active_players: opponents + 1,
+          explanation_context: ctx,
+          lang,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setGeminiText(data?.explanation || "");
+    } catch (e: any) {
+      toast.error(e?.message || "Gemini error");
+    } finally {
+      setGeminiLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -459,6 +499,19 @@ const Index = () => {
                 </Button>
 
                 <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
+
+                {aiResult && (
+                  <Card className="glass-panel p-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="display text-lg gold-text">{lang === "fr" ? "Explication IA (Gemini)" : "AI Explanation (Gemini)"}</h4>
+                      <Button size="sm" variant="outline" onClick={explainWithGemini} disabled={geminiLoading}>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {geminiLoading ? (lang === "fr" ? "Analyse..." : "Thinking...") : (lang === "fr" ? "Expliquer la décision" : "Explain decision")}
+                      </Button>
+                    </div>
+                    {geminiText && <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{geminiText}</p>}
+                  </Card>
+                )}
               </div>
             </main>
           </TabsContent>
