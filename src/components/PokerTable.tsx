@@ -81,7 +81,7 @@ export const PokerTable = ({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 rounded-md bg-muted p-1 text-xs">
-          <label htmlFor="table-size" className="px-2 text-muted-foreground">Seats</label>
+          <label htmlFor="table-size" className="px-2 text-muted-foreground">{t("table.seats")}</label>
           <select
             id="table-size"
             value={size}
@@ -92,10 +92,10 @@ export const PokerTable = ({
           </select>
         </div>
         <div className="flex gap-1 rounded-md bg-muted p-1 text-xs flex-wrap">
-          <button onClick={() => onModeChange("dealer")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "dealer" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><Crown className="w-3 h-3" /> Dealer</button>
-          <button onClick={() => onModeChange("user")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "user" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><User className="w-3 h-3" /> You</button>
-          <button onClick={() => onModeChange("fold")} className={cn("px-2.5 py-1 rounded transition", mode === "fold" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}>Fold</button>
-          <button onClick={() => onModeChange("action")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "action" ? "bg-primary text-primary-foreground" : "text-muted-foreground")} title="Record player actions"><Coins className="w-3 h-3" /> Action</button>
+          <button onClick={() => onModeChange("dealer")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "dealer" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><Crown className="w-3 h-3" /> {t("table.dealer")}</button>
+          <button onClick={() => onModeChange("user")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "user" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><User className="w-3 h-3" /> {t("table.you")}</button>
+          <button onClick={() => onModeChange("fold")} className={cn("px-2.5 py-1 rounded transition", mode === "fold" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}>{t("table.fold")}</button>
+          <button onClick={() => onModeChange("action")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "action" ? "bg-primary text-primary-foreground" : "text-muted-foreground")} title={t("table.clickAction")}><Coins className="w-3 h-3" /> {t("table.action")}</button>
         </div>
       </div>
 
