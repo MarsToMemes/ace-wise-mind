@@ -35,11 +35,12 @@ const Index = () => {
   const [tableSize, setTableSize] = useState<TableSize>(6);
   const [dealerIdx, setDealerIdx] = useState<number>(-1);
   const [userIdx, setUserIdx] = useState<number>(-1);
-  const [seatMode, setSeatMode] = useState<"dealer" | "user" | "fold">("dealer");
+  const [seatMode, setSeatMode] = useState<SeatMode>("dealer");
   const [folded, setFolded] = useState<boolean[]>(() => Array(6).fill(false));
   const [stack, setStack] = useState(100);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
+  const [actionHistory, setActionHistory] = useState<PlayerAction[]>([]);
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
