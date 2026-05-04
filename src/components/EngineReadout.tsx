@@ -62,6 +62,14 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground mb-3 italic">{result.decisionReason}</p>
+        {result.handClass && (
+          <div className="flex items-center gap-2 mb-3">
+            <Badge variant="outline" className="text-xs">{result.handClass.hand_category}</Badge>
+            <span className="text-xs text-muted-foreground">
+              {Math.round(result.handClass.confidence_level * 100)}% — {result.handClass.reason}
+            </span>
+          </div>
+        )}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{t("engine.handStrength")}</span>
