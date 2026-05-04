@@ -280,10 +280,23 @@ export interface SizingOutput {
   explanation: string;     // human-readable summary for UI/AI
 }
 
+/**
+ * GLOBAL BET SIZING STRATEGY ENGINE — single source of truth.
+ *
+ * Sizing is jointly determined by:
+ *   street · texture · active opponents (HU vs multiway) ·
+ *   hand strength · strategic intent · position
+ *
+ * Multiway dynamics (3+ active players) tighten ranges, increase value sizing,
+ * and suppress bluff frequency. Heads-up widens ranges and allows more bluffs
+ * and flexible sizing. All previous isolated rules are unified here.
+ */
 export function recommendSizing(s: SizingInput): SizingOutput {
   const { street, baseScore, adjScore, outs, equityPct, texture, position, pot, call, opponents, action } = s;
   const facingBet = call > 0;
   const inPosition = ["BTN", "CO", "HJ"].includes(position);
+  const multiway = opponents >= 2; // 3+ players in the hand (hero + 2+ opps)
+  const headsUp = opponents <= 1;
 
   // Map engine action to user-facing hero action
   let heroAction: HeroAction;
@@ -292,7 +305,7 @@ export function recommendSizing(s: SizingInput): SizingOutput {
   else if (action === "Check") heroAction = "Check";
   else heroAction = facingBet ? "Raise" : "Bet";
 
-  // Classify strategic intent (street-aware)
+  // Classify strategic intent (street + multiway aware)
   let intent: SizingIntent;
   if (baseScore >= 110) intent = "Value";
   else if (baseScore >= 50 && adjScore >= 60) intent = "Value";
@@ -302,58 +315,65 @@ export function recommendSizing(s: SizingInput): SizingOutput {
   else if (heroAction === "Bet" || heroAction === "Raise") intent = "Bluff";
   else intent = "Pot Control";
 
+  // In multiway pots, suppress pure bluffs unless we have real equity
+  if (multiway && intent === "Bluff" && outs < 8) {
+    intent = "Pot Control";
+  }
+
   let pctMin = 33, pctMax = 66, reason = "";
 
   if (street === "Preflop") {
     pctMin = 220; pctMax = 300;
     if (inPosition) { pctMin = 220; pctMax = 250; }
     else if (["UTG", "MP"].includes(position)) { pctMin = 270; pctMax = 300; }
+    if (multiway) { pctMin += 30; pctMax += 50; } // larger preflop opens vs multiway field
     reason = "Preflop open: 2.2–3x BB depending on position.";
   } else if (street === "Flop") {
     if (intent === "Value") {
-      pctMin = 50; pctMax = 80;
-      reason = "Flop value — 50–80% pot to build with strong hands.";
+      pctMin = headsUp ? 50 : 60; pctMax = headsUp ? 80 : 100;
+      reason = `Flop value (${headsUp ? "HU" : "multiway"}) — build pot with strong hands.`;
     } else if (intent === "Semi-Bluff") {
-      pctMin = 40; pctMax = 70;
-      reason = "Flop semi-bluff — 40–70% pot, leveraging equity + fold equity.";
+      pctMin = 50; pctMax = headsUp ? 75 : 80;
+      reason = "Flop semi-bluff — leverage equity + fold equity.";
     } else if (intent === "Bluff") {
+      // HU: small/medium range bet on dry, larger on wet
       pctMin = texture === "Dry" ? 20 : 33;
       pctMax = texture === "Dry" ? 40 : 50;
-      reason = `Flop bluff on ${texture.toLowerCase()} board — small/medium range bet.`;
+      reason = `Flop bluff on ${texture.toLowerCase()} board — ${headsUp ? "small/medium range bet" : "selective high-equity only"}.`;
     } else if (intent === "Protection") {
       pctMin = 50; pctMax = 75;
-      reason = "Flop protection — 50–75% pot vs draws on wet board.";
+      reason = "Flop protection — charge draws on wet board.";
     } else {
       pctMin = 25; pctMax = 45;
       reason = "Flop pot control — small sizing to keep pot manageable.";
     }
   } else if (street === "Turn") {
     if (intent === "Value") {
-      pctMin = 60; pctMax = 100;
-      reason = "Turn value — 60–100% pot to charge draws and build.";
+      pctMin = headsUp ? 60 : 70; pctMax = headsUp ? 100 : 110;
+      reason = "Turn value — polarize and charge draws.";
     } else if (intent === "Semi-Bluff") {
       pctMin = 50; pctMax = 80;
-      reason = "Turn semi-bluff — 50–80% pot for fold equity + equity realization.";
+      reason = "Turn semi-bluff — fold equity + equity realization.";
     } else if (intent === "Bluff") {
       pctMin = 60; pctMax = 90;
-      reason = "Turn bluff — 60–90% pot to apply real pressure.";
+      reason = "Turn bluff — apply real pressure with polarized sizing.";
     } else if (intent === "Protection") {
       pctMin = 55; pctMax = 75;
-      reason = "Turn protection bet — 55–75% pot vs medium holdings.";
+      reason = "Turn protection — vs medium holdings.";
     } else {
       pctMin = 40; pctMax = 60;
-      reason = "Turn pot control — 40–60% pot.";
+      reason = "Turn pot control.";
     }
   } else { // River
     if (intent === "Value" && baseScore >= 110) {
-      pctMin = 80; pctMax = 120;
-      reason = "River strong value — 80–120% pot for max value.";
+      pctMin = headsUp ? 80 : 90; pctMax = 120;
+      reason = "River strong value — fully polarized for max value.";
     } else if (intent === "Value") {
       pctMin = 30; pctMax = 60;
-      reason = "Thin river value — 30–60% pot to get called by worse.";
+      reason = "Thin river value — get called by worse.";
     } else if (intent === "Bluff" || intent === "Semi-Bluff") {
       pctMin = 80; pctMax = 120;
-      reason = "River bluff — 80–120% pot for max fold equity.";
+      reason = "River bluff — polarized for max fold equity.";
     } else {
       pctMin = 0; pctMax = 0;
       reason = "River pot control — check / give up.";
@@ -375,13 +395,20 @@ export function recommendSizing(s: SizingInput): SizingOutput {
       pctMin = Math.max(15, pctMin - 5); pctMax = Math.max(25, pctMax - 5);
       adjustments.push("OOP → more conservative");
     }
-    if (opponents >= 3 && intent === "Value") {
-      pctMin = Math.min(120, pctMin + 10); pctMax = Math.min(120, pctMax + 10);
-      adjustments.push("multi-way → larger value");
+    // Active-players modifier — each extra opponent shifts the dial
+    if (opponents >= 2 && intent === "Value") {
+      const bump = Math.min(20, (opponents - 1) * 8);
+      pctMin = Math.min(120, pctMin + bump); pctMax = Math.min(120, pctMax + bump);
+      adjustments.push(`${opponents} opps → larger value (+${bump}%)`);
     }
-    if (opponents >= 3 && intent === "Bluff") {
-      pctMax = Math.max(pctMin, pctMax - 15);
-      adjustments.push("multi-way → bluff less");
+    if (opponents >= 2 && intent === "Bluff") {
+      const cut = Math.min(30, (opponents - 1) * 12);
+      pctMax = Math.max(pctMin, pctMax - cut);
+      adjustments.push(`${opponents} opps → bluff less / smaller (−${cut}%)`);
+    }
+    if (opponents >= 2 && intent === "Semi-Bluff") {
+      pctMax = Math.max(pctMin, pctMax - 5);
+      adjustments.push("multiway → tighter semi-bluff");
     }
   }
 
@@ -419,9 +446,10 @@ export function recommendSizing(s: SizingInput): SizingOutput {
 
   const adjText = adjustments.length ? ` Adjustments: ${adjustments.join(", ")}.` : "";
   const verb = heroAction === "Raise" ? "Raise to" : "Bet";
+  const tableCtx = headsUp ? "HU" : `${opponents + 1}-way`;
   const explanation = street === "Preflop"
-    ? `${verb} ${amountBB}x BB (${position}). ${reason}${adjText}`
-    : `${verb} ${amountBB} BB (~${pctTarget}% pot). Intent: ${intent}. ${reason}${adjText}`;
+    ? `${verb} ${amountBB}x BB (${position}, ${tableCtx}). ${reason}${adjText}`
+    : `${verb} ${amountBB} BB (~${pctTarget}% pot, ${tableCtx}). Intent: ${intent}. ${reason}${adjText}`;
 
   return {
     intent, heroAction, facingBet, inPosition,
