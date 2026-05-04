@@ -46,6 +46,8 @@ const Index = () => {
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [geminiText, setGeminiText] = useState<string | null>(null);
+  const [geminiLoading, setGeminiLoading] = useState(false);
 
   const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
   const position = userLabel ? labelToPosition(userLabel) : "BTN";
