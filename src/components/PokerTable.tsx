@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Crown, User } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export type TableSize = 6 | 9;
 export type SimplePosition = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
