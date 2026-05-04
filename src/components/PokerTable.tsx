@@ -36,6 +36,7 @@ interface Props {
 }
 
 export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onModeChange, onSizeChange }: Props) => {
+  const { t } = useI18n();
   // seat positions on an ellipse
   const seats = Array.from({ length: size }, (_, i) => {
     // Start at top (-90deg) and go clockwise
