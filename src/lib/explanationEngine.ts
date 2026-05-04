@@ -149,6 +149,24 @@ const POOLS: Record<Lang, Pools> = {
       "Letting it go now avoids a -EV continuation.",
       "A fold here is the mathematically correct choice.",
     ],
+    // Range insight
+    rStrong: ["villain's range looks condensed and strong", "opponent represents a tight, value-heavy range", "range reads as nutted and narrow"],
+    rWide: ["villain's range is wide and uncapped", "opponent's range stays broad with many marginal combos", "range remains loose with plenty of air"],
+    rPolar: ["the line polarizes villain to nuts or bluffs", "opponent is polarized between value and pure bluffs", "range splits into nuts-or-air"],
+    rMerged: ["villain's range looks merged around medium value", "opponent shows a merged value range", "range is condensed around one-pair strength"],
+    // Strategic intent
+    iValue: ["targeting thin value from worse made hands", "extracting value while ahead of villain's continuing range", "betting for value against weaker calls"],
+    iBluff: ["leveraging fold equity against capped ranges", "applying pressure as a pure bluff with backup outs", "representing a stronger range to fold out equity"],
+    iSemibluff: ["semi-bluffing with equity to back it up", "applying pressure with a draw as backup", "combining fold equity and raw outs"],
+    iProtect: ["protecting equity against draws and overcards", "denying free cards to villain's drawing combos", "charging draws while ahead"],
+    iControl: ["controlling pot size with showdown value", "keeping the pot manageable with a bluff-catcher", "playing pot control to reach showdown cheaply"],
+    iGiveup: ["cutting losses on a clearly losing branch", "releasing to avoid a -EV spot"],
+    // Forward plan
+    fNextValue: ["plan to barrel turn on cards that improve your range", "continue value-betting on bricks; slow down on scare cards", "size up on turn cards that favor your range"],
+    fNextBluff: ["pick scare cards to barrel and give up on villain-favored runouts", "fire again on cards that hit your perceived range, check on bricks", "double-barrel cards that improve fold equity"],
+    fNextDraw: ["if you hit, get value; if you brick, evaluate fold equity vs sizing", "on a hit, build the pot; on a brick, prefer check or small probe", "let turn equity guide aggression — bet hits, control bricks"],
+    fNextControl: ["check most turns and reassess on the river", "play check-call on most turns, fold to large pressure", "keep the pot small and target showdown"],
+    fNextFold: ["look for stronger spots elsewhere", "wait for a better board or a clearer range advantage"],
     // Glue
     becauseOpener: ["because", "since", "as"],
     additionally: ["Additionally,", "On top of that,", "Beyond the math,"],
