@@ -265,6 +265,7 @@ export interface SizingInput {
   call: number;            // amount currently to call (0 = no bet faced)
   opponents: number;       // active opponents at table
   action: "Raise" | "Call" | "Check" | "Fold"; // engine decision
+  rangeMods?: { strengthDelta: number; sizingPctDelta: number; aggressionDelta: number; reason: string };
 }
 
 export interface SizingOutput {
