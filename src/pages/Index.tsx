@@ -18,6 +18,7 @@ import {
 import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
 import { evaluateHandVsRange } from "@/lib/handVsRange";
 import { buildExplanation } from "@/lib/explanationEngine";
+import { buildConditionalLines } from "@/lib/conditionalLines";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
@@ -347,15 +348,17 @@ const Index = () => {
       const rangeLine = rr && rr.opponents.length
         ? t("local.oppRange", { s: rr.aggregateStrength, type: rr.dominantRangeType, bf: Math.round(rr.aggregateBluffFreq * 100) })
         : t("local.noOpp");
-      const conditional: string[] = [];
-      if (sizing?.facingBet) {
-        conditional.push(t("local.ifRaised"));
-        conditional.push(t("local.ifCalled"));
-      } else {
-        conditional.push(t("local.ifCheckedThrough"));
-        conditional.push(t("local.ifRaised2"));
+      const flushDrawOnBoard = /([shdc]).*\1.*\1/.test(board.join(""));
+      const boardVals = board.map(c => "23456789TJQKA".indexOf(c[0]) + 2).sort((a, b) => a - b);
+      let straightDrawOnBoard = false;
+      for (let i = 0; i + 1 < boardVals.length; i++) {
+        if (boardVals[i + 1] - boardVals[i] <= 2) { straightDrawOnBoard = true; break; }
       }
-      conditional.push(t("local.ifTexture"));
+      const conditional = buildConditionalLines({
+        engine, street: currentStreet, position, opponents,
+        userToCall, pot: dynamicPot, lang,
+        flushDrawOnBoard, straightDrawOnBoard,
+      });
 
       const analysis: AIAnalysis = {
         decision_explanation: {
