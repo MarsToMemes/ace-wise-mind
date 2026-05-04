@@ -155,6 +155,7 @@ const Index = () => {
         body: {
           hole, board, flop, turn, river,
           currentStreet,
+          lang,
           position, opponents, stack, pot, call,
           table: {
             number_of_players: tableSize,
