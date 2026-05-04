@@ -93,6 +93,8 @@ const Index = () => {
       texture,
       position,
       pot,
+      call,
+      opponents,
       action: decision.action,
     });
     return {

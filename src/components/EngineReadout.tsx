@@ -72,21 +72,29 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
         </div>
       </Card>
 
-      {result.sizing && result.sizing.pctMax > 0 && (
+      {result.sizing && (
         <Card className="glass-panel p-5">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
               <Coins className="w-3.5 h-3.5" /> {t("engine.sizing")}
             </div>
-            <Badge variant="outline" className="text-xs">{result.sizing.intent}</Badge>
+            <div className="flex gap-1.5">
+              <Badge variant="outline" className="text-xs">{result.sizing.heroAction}</Badge>
+              <Badge variant="outline" className="text-xs">{result.sizing.intent}</Badge>
+              <Badge variant="outline" className="text-xs">{result.sizing.inPosition ? "IP" : "OOP"}</Badge>
+            </div>
           </div>
-          <div className="flex items-baseline gap-3 mb-1">
-            <p className="text-2xl display gold-text">{result.sizing.amountBB} BB</p>
-            <p className="text-sm text-muted-foreground">
-              {result.sizing.pctMin}–{result.sizing.pctMax}% {t("engine.ofPot")}
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground italic">{result.sizing.reason}</p>
+          {result.sizing.pctMax > 0 ? (
+            <div className="flex items-baseline gap-3 mb-1">
+              <p className="text-2xl display gold-text">{result.sizing.amountBB} BB</p>
+              <p className="text-sm text-muted-foreground">
+                {result.sizing.pctMin}–{result.sizing.pctMax}% {t("engine.ofPot")}
+              </p>
+            </div>
+          ) : (
+            <p className="text-2xl display gold-text mb-1">{result.sizing.heroAction}</p>
+          )}
+          <p className="text-xs text-muted-foreground italic">{result.sizing.explanation}</p>
         </Card>
       )}
 
