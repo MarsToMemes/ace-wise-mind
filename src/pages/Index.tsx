@@ -14,6 +14,7 @@ import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
 } from "@/lib/pokerEngine";
+import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
@@ -115,26 +116,52 @@ const Index = () => {
     const po = potOdds(userToCall, dynamicPot);
     const equityPct = estimateEquity(draws.outs, board.length);
     const adjScore = adjustedScore({ baseScore: ev.score, outs: draws.outs, texture, position });
+
+    // Range inference from action history
+    const liveOpponentSeats: number[] = [];
+    if (dealerIdx >= 0) {
+      for (let i = 0; i < tableSize; i++) {
+        if (i === userIdx) continue;
+        if (!folded[i]) liveOpponentSeats.push(i);
+      }
+    }
+    const positionsMap: Record<number, string> = {};
+    if (dealerIdx >= 0) {
+      for (let i = 0; i < tableSize; i++) positionsMap[i] = seatLabel(i, dealerIdx, tableSize);
+    }
+    const rangeReadout = inferRanges({
+      actions: actionHistory,
+      liveOpponentSeats,
+      positions: positionsMap,
+      basePotBB: pot,
+    });
+    const rangeMods = rangeModifiers(rangeReadout);
+
+    // Apply range strength delta to effective adjScore for decision making
+    const effAdjScore = Math.max(0, adjScore + rangeMods.strengthDelta);
+    const effEquityPct = Math.max(0, Math.min(100, equityPct + rangeMods.aggressionDelta * 5));
+
     const decision = decide({
       baseScore: ev.score,
-      adjScore,
+      adjScore: effAdjScore,
       outs: draws.outs,
-      equityPct,
+      equityPct: effEquityPct,
       potOddsPct: po ? po.reqEquity : null,
       boardLen: board.length,
     });
     const sizing = recommendSizing({
       street: currentStreet,
       baseScore: ev.score,
-      adjScore,
+      adjScore: effAdjScore,
       outs: draws.outs,
-      equityPct,
+      equityPct: effEquityPct,
       texture,
       position,
       pot: dynamicPot,
       call: userToCall,
       opponents,
       action: decision.action,
+      rangeMods,
     });
     return {
       category: ev.category, score: ev.score,
@@ -144,10 +171,11 @@ const Index = () => {
       texture, heroRA: ra.hero, villainRA: ra.villain,
       potOdds: po?.odds ?? null, reqEquity: po?.reqEquity ?? null,
       suggestedAction: decision.action,
-      decisionReason: decision.reason,
+      decisionReason: decision.reason + ` ${rangeMods.reason}`,
       sizing,
-    };
-  }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents]);
+      rangeReadout,
+    } as EngineResult;
+  }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
 
   const removeCard = (card: string) => {
     if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
@@ -294,6 +322,20 @@ const Index = () => {
           suggestedAction: engine.suggestedAction,
           decisionReason: engine.decisionReason,
           sizing: engine.sizing,
+          range_inference: engine.rangeReadout ? {
+            aggregate_strength: engine.rangeReadout.aggregateStrength,
+            aggregate_bluff_frequency: engine.rangeReadout.aggregateBluffFreq,
+            dominant_range_type: engine.rangeReadout.dominantRangeType,
+            opponents: engine.rangeReadout.opponents.map(o => ({
+              seat: o.seatIdx,
+              position: o.position,
+              estimated_strength: o.estimatedStrength,
+              range_type: o.rangeType,
+              bluff_frequency: o.bluffFrequency,
+              notes: o.notes,
+            })),
+            notes: engine.rangeReadout.notes,
+          } : null,
         },
       });
       if (error) throw error;

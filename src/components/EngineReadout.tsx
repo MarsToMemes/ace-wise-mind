@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import type { SizingOutput } from "@/lib/pokerEngine";
+import type { RangeReadout } from "@/lib/rangeInference";
 
 export interface EngineResult {
   category: string;
@@ -20,6 +21,7 @@ export interface EngineResult {
   suggestedAction: "Raise" | "Call" | "Check" | "Fold";
   decisionReason: string;
   sizing: SizingOutput;
+  rangeReadout?: RangeReadout;
 }
 
 const actionStyles: Record<string, string> = {
@@ -95,6 +97,29 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
             <p className="text-2xl display gold-text mb-1">{result.sizing.heroAction}</p>
           )}
           <p className="text-xs text-muted-foreground italic">{result.sizing.explanation}</p>
+        </Card>
+      )}
+
+      {result.rangeReadout && result.rangeReadout.opponents.length > 0 && (
+        <Card className="glass-panel p-5">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <TrendingUp className="w-3.5 h-3.5" /> Opponent Range Read
+            </div>
+            <div className="flex gap-1.5 flex-wrap justify-end">
+              <Badge variant="outline" className="text-xs">{result.rangeReadout.dominantRangeType}</Badge>
+              <Badge variant="outline" className="text-xs">~{result.rangeReadout.aggregateStrength}/100</Badge>
+              <Badge variant="outline" className="text-xs">Bluff {(result.rangeReadout.aggregateBluffFreq * 100).toFixed(0)}%</Badge>
+            </div>
+          </div>
+          <ul className="text-xs text-muted-foreground space-y-1 mt-2">
+            {result.rangeReadout.opponents.map(o => (
+              <li key={o.seatIdx}>
+                <span className="text-foreground font-medium">{o.position || `Seat ${o.seatIdx + 1}`}</span>
+                : {o.estimatedStrength}/100 · {o.rangeType} · bluff {(o.bluffFrequency * 100).toFixed(0)}%
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 

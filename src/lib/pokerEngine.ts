@@ -265,6 +265,7 @@ export interface SizingInput {
   call: number;            // amount currently to call (0 = no bet faced)
   opponents: number;       // active opponents at table
   action: "Raise" | "Call" | "Check" | "Fold"; // engine decision
+  rangeMods?: { strengthDelta: number; sizingPctDelta: number; aggressionDelta: number; reason: string };
 }
 
 export interface SizingOutput {
@@ -409,6 +410,16 @@ export function recommendSizing(s: SizingInput): SizingOutput {
     if (opponents >= 2 && intent === "Semi-Bluff") {
       pctMax = Math.max(pctMin, pctMax - 5);
       adjustments.push("multiway → tighter semi-bluff");
+    }
+  }
+
+  // Range-inference modifiers (opponent reads)
+  if (s.rangeMods && street !== "Preflop" && pctMax > 0) {
+    const d = s.rangeMods.sizingPctDelta;
+    if (d !== 0) {
+      pctMin = Math.max(0, Math.min(120, pctMin + d));
+      pctMax = Math.max(pctMin, Math.min(120, pctMax + d));
+      adjustments.push(`opp range → ${d > 0 ? "+" : ""}${d}% (${s.rangeMods.reason})`);
     }
   }
 
