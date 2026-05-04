@@ -131,8 +131,8 @@ const Index = () => {
       equityPct,
       texture,
       position,
-      pot,
-      call,
+      pot: dynamicPot,
+      call: userToCall,
       opponents,
       action: decision.action,
     });
@@ -147,7 +147,7 @@ const Index = () => {
       decisionReason: decision.reason,
       sizing,
     };
-  }, [hole, board, position, pot, call, currentStreet]);
+  }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents]);
 
   const removeCard = (card: string) => {
     if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
