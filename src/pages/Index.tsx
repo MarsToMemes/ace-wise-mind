@@ -356,9 +356,47 @@ const Index = () => {
     }
   };
 
-  
+  const explainWithGemini = async () => {
+    if (!engine) { toast.error(t("toast.pickHole")); return; }
+    setGeminiLoading(true); setGeminiText(null);
+    try {
+      const ctx: string[] = [];
+      if (engine.equityPct && engine.reqEquity) {
+        ctx.push(engine.equityPct >= engine.reqEquity ? "equity exceeds pot odds" : "equity below pot odds");
+      }
+      if (engine.drawType && engine.drawType !== "None") ctx.push(engine.drawType);
+      if (engine.texture) ctx.push(`${engine.texture} board`);
+      if (opponents >= 2) ctx.push("multiway pot");
+      if (engine.sizing?.facingBet) ctx.push("facing a bet");
+      const lastAggressive = [...actionHistory].reverse().find(a => a.type === "Bet" || a.type === "Raise");
+      if (lastAggressive) ctx.push(`opponent ${lastAggressive.type.toLowerCase()} ${lastAggressive.amount}bb`);
 
-  return (
+      const { data, error } = await supabase.functions.invoke("gemini-explain", {
+        body: {
+          hand: hole.join(" "),
+          board: board.join(" "),
+          street: currentStreet,
+          position,
+          action_taken: actionHistory.length ? actionHistory[actionHistory.length - 1].type : "",
+          recommended_action: engine.suggestedAction,
+          bet_size: userToCall,
+          pot_size: dynamicPot,
+          active_players: opponents + 1,
+          explanation_context: ctx,
+          lang,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setGeminiText(data?.explanation || "");
+    } catch (e: any) {
+      toast.error(e?.message || "Gemini error");
+    } finally {
+      setGeminiLoading(false);
+    }
+  };
+
+
     <div className="min-h-screen">
       <header className="border-b border-border/40 backdrop-blur-md bg-background/40 sticky top-0 z-20">
         <div className="container py-4 flex items-center justify-between">
