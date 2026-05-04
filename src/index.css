@@ -2,104 +2,139 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Dark luxury casino */
+    --background: 240 20% 5%;
+    --foreground: 45 30% 92%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 240 18% 8%;
+    --card-foreground: 45 30% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 240 18% 8%;
+    --popover-foreground: 45 30% 92%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 45 65% 53%;          /* gold #d4af37 */
+    --primary-foreground: 240 25% 8%;
+    --primary-glow: 45 80% 65%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 150 40% 18%;       /* deep felt */
+    --secondary-foreground: 45 30% 92%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 240 12% 14%;
+    --muted-foreground: 45 10% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 150 60% 30%;          /* felt green */
+    --accent-foreground: 45 30% 95%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --success: 142 70% 45%;
+    --warning: 38 90% 55%;
 
-    --radius: 0.5rem;
+    --border: 45 25% 20%;
+    --input: 240 12% 14%;
+    --ring: 45 65% 53%;
 
-    --sidebar-background: 0 0% 98%;
+    --radius: 0.75rem;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --gradient-felt: radial-gradient(ellipse at top, hsl(150 60% 22%) 0%, hsl(150 70% 12%) 50%, hsl(240 30% 5%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(45 75% 60%) 0%, hsl(40 65% 45%) 100%);
+    --gradient-glass: linear-gradient(135deg, hsla(45,30%,90%,0.04) 0%, hsla(45,30%,90%,0.01) 100%);
 
-    --sidebar-primary: 240 5.9% 10%;
+    --shadow-gold: 0 8px 30px -8px hsl(45 70% 45% / 0.4);
+    --shadow-elevated: 0 20px 60px -20px hsl(0 0% 0% / 0.8);
+    --shadow-glow: 0 0 40px hsl(45 80% 60% / 0.3);
 
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 240 20% 5%;
+    --sidebar-foreground: 45 30% 92%;
+    --sidebar-primary: 45 65% 53%;
+    --sidebar-primary-foreground: 240 25% 8%;
+    --sidebar-accent: 240 12% 14%;
+    --sidebar-accent-foreground: 45 30% 92%;
+    --sidebar-border: 45 25% 20%;
+    --sidebar-ring: 45 65% 53%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 240 20% 5%;
+    --foreground: 45 30% 92%;
+    --card: 240 18% 8%;
+    --card-foreground: 45 30% 92%;
+    --popover: 240 18% 8%;
+    --popover-foreground: 45 30% 92%;
+    --primary: 45 65% 53%;
+    --primary-foreground: 240 25% 8%;
+    --secondary: 150 40% 18%;
+    --secondary-foreground: 45 30% 92%;
+    --muted: 240 12% 14%;
+    --muted-foreground: 45 10% 65%;
+    --accent: 150 60% 30%;
+    --accent-foreground: 45 30% 95%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 45 25% 20%;
+    --input: 240 12% 14%;
+    --ring: 45 65% 53%;
   }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+    background-image: var(--gradient-felt);
+    background-attachment: fixed;
+    min-height: 100vh;
   }
+  h1, h2, h3, .display {
+    font-family: 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-2xl border;
+    background: linear-gradient(135deg, hsla(240,18%,10%,0.85) 0%, hsla(240,18%,6%,0.85) 100%);
+    backdrop-filter: blur(16px);
+    border-color: hsl(var(--border));
+    box-shadow: var(--shadow-elevated);
+  }
+  .gold-text {
+    background: var(--gradient-gold);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .gold-border { border-color: hsl(var(--primary) / 0.4); }
+  .card-face {
+    @apply relative rounded-md flex flex-col items-center justify-center font-bold select-none cursor-pointer transition-all;
+    background: linear-gradient(180deg, #fafaf5 0%, #e8e6dc 100%);
+    color: #1a1a1a;
+    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.4), inset 0 1px 0 hsl(0 0% 100% / 0.6);
+  }
+  .card-face.red { color: hsl(0 75% 45%); }
+  .card-face.selected { box-shadow: var(--shadow-gold), 0 0 0 2px hsl(var(--primary)); transform: translateY(-2px); }
+  .card-face.disabled { opacity: 0.25; cursor: not-allowed; }
+  .card-face:hover:not(.disabled) { transform: translateY(-3px) scale(1.03); box-shadow: var(--shadow-gold); }
+
+  .shimmer {
+    background: linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--muted) / 0.5) 50%, hsl(var(--muted)) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s infinite linear;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @keyframes flip-in {
+    from { transform: rotateY(90deg); opacity: 0; }
+    to { transform: rotateY(0); opacity: 1; }
+  }
+  .flip-in { animation: flip-in 0.35s ease-out; }
 }
