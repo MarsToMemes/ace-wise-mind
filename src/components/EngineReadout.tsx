@@ -54,7 +54,7 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">{t("engine.recommendation")}</p>
-            <h3 className="text-3xl display gold-text">{result.suggestedAction}</h3>
+            <h3 className="text-3xl display gold-text">{t(`act.${result.suggestedAction}`)}</h3>
           </div>
           <Badge variant="outline" className={`${actionStyles[result.suggestedAction]} px-4 py-2 text-base`}>
             {t("engine.engine")}
