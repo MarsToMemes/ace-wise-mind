@@ -150,8 +150,8 @@ export const PokerTable = ({
                 {isDealer && <Crown className="w-3 h-3 absolute -top-1.5 -right-1.5 text-primary fill-primary" />}
                 {isUser && <User className="w-3 h-3 absolute -top-1.5 -left-1.5" />}
                 <span className="leading-tight">{label || `S${i + 1}`}</span>
-                {isUser && !isFolded && <span className="text-[8px] opacity-80 leading-none">YOU</span>}
-                {isFolded && <span className="text-[8px] leading-none">FOLD</span>}
+                {isUser && !isFolded && <span className="text-[8px] opacity-80 leading-none">{t("table.you2")}</span>}
+                {isFolded && <span className="text-[8px] leading-none">{t("table.foldedBadge")}</span>}
               </button>
 
               {/* Chips in front of player */}
