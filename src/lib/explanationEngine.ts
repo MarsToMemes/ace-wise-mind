@@ -140,10 +140,15 @@ export function buildExplanation(inp: ExplanationInputs): Explanation {
   const P = PHRASES[lang];
   const insights: string[] = [];
 
-  // 1) Hand strength
+  // 1) Hand strength — prefer contextual classification over absolute score
   const adj = engine.adjScore;
+  const cat = engine.handClass?.hand_category;
   let strengthInsight: string;
-  if (adj >= 70) strengthInsight = P.strongHand;
+  if (cat === "Strong") strengthInsight = P.strongHand;
+  else if (cat === "Medium") strengthInsight = P.mediumHand;
+  else if (cat === "Draw") strengthInsight = P.comboDraw;
+  else if (cat === "Weak") strengthInsight = P.weakHand;
+  else if (adj >= 70) strengthInsight = P.strongHand;
   else if (adj >= 45) strengthInsight = P.mediumHand;
   else strengthInsight = P.weakHand;
   insights.push(strengthInsight);

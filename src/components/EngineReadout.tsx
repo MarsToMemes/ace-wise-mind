@@ -3,7 +3,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
-import type { SizingOutput } from "@/lib/pokerEngine";
+import type { SizingOutput, HandClassification } from "@/lib/pokerEngine";
 import type { RangeReadout } from "@/lib/rangeInference";
 
 export interface EngineResult {
@@ -22,6 +22,7 @@ export interface EngineResult {
   decisionReason: string;
   sizing: SizingOutput;
   rangeReadout?: RangeReadout;
+  handClass?: HandClassification;
 }
 
 const actionStyles: Record<string, string> = {
@@ -61,6 +62,14 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground mb-3 italic">{result.decisionReason}</p>
+        {result.handClass && (
+          <div className="flex items-center gap-2 mb-3">
+            <Badge variant="outline" className="text-xs">{result.handClass.hand_category}</Badge>
+            <span className="text-xs text-muted-foreground">
+              {Math.round(result.handClass.confidence_level * 100)}% — {result.handClass.reason}
+            </span>
+          </div>
+        )}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{t("engine.handStrength")}</span>

@@ -207,6 +207,127 @@ export function adjustedScore(opts: {
   return Math.max(0, s);
 }
 
+// ============================================================
+// RELATIVE HAND STRENGTH CLASSIFIER (contextual, not absolute)
+// ============================================================
+// Classifies a hand as Strong / Medium / Weak / Draw RELATIVE to:
+//   board texture, number of players, position, street, and (when available)
+//   action history pressure. Does NOT use absolute thresholds like
+//   "score < 50 = weak". Top pair on a wet 4-way pot ≠ top pair HU on a dry board.
+
+export type HandCategory4 = "Strong" | "Medium" | "Weak" | "Draw";
+
+export interface HandClassificationInput {
+  baseScore: number;                        // raw made-hand score (0..180)
+  category: HandCategory;                   // made-hand label
+  outs: number;                             // draw outs
+  drawType: string;                         // "Flush Draw", etc.
+  equityPct: number;                        // 0..100
+  texture: "Dry" | "Semi-wet" | "Wet";
+  opponents: number;                        // active opponents (excl. hero)
+  position: string;
+  street: Street;
+  facingAggression?: boolean;               // bet/raise in front of hero
+  betSizePct?: number;                      // call as % of pot
+}
+
+export interface HandClassification {
+  hand_category: HandCategory4;
+  confidence_level: number;                 // 0..1
+  reason: string;                           // short contextual explanation
+}
+
+export function classifyHandStrength(h: HandClassificationInput): HandClassification {
+  const { baseScore, category, outs, equityPct, texture, opponents, position, street, facingAggression, betSizePct } = h;
+  const ip = ["BTN", "CO", "HJ"].includes(position);
+  const multiway = opponents >= 2;
+  const heavyMultiway = opponents >= 3;
+  const wet = texture === "Wet";
+  const dry = texture === "Dry";
+  const reasons: string[] = [];
+
+  // ---------- 1) DRAW (no/weak made hand but real equity) ----------
+  // A draw classification supersedes "weak made hand" when there is real equity.
+  const isDrawHand = outs >= 6 && baseScore < 70;
+  if (isDrawHand) {
+    let conf = 0.5;
+    if (outs >= 12) conf = 0.85;
+    else if (outs >= 8) conf = 0.7;
+    else conf = 0.55;
+    if (street === "River") conf *= 0.3;          // draws are dead on river
+    if (multiway) conf = Math.min(1, conf + 0.05); // draws play better multiway (implied)
+    reasons.push(`${outs} outs (${equityPct.toFixed(0)}% equity)`);
+    if (wet) reasons.push("dynamic board");
+    return { hand_category: "Draw", confidence_level: +conf.toFixed(2), reason: reasons.join(", ") };
+  }
+
+  // ---------- 2) MADE HANDS — relative to context ----------
+  // Start from the made-hand "absolute" tier, then apply context shifts.
+  // Tiers: monster (FH+) / strong (straight/flush/set) / topPair-ish / weak made / air.
+  let tier: "monster" | "strong" | "decent" | "marginal" | "air";
+  if (baseScore >= 130) tier = "monster";
+  else if (baseScore >= 90) tier = "strong";       // straight, flush, set/trips
+  else if (baseScore >= 50) tier = "decent";       // two pair, overpair, top pair
+  else if (baseScore >= 30) tier = "marginal";     // pair, weak pair
+  else tier = "air";
+
+  // Contextual downgrades / upgrades
+  let cat: HandCategory4 = "Weak";
+  let conf = 0.5;
+
+  if (tier === "monster") {
+    cat = "Strong";
+    conf = 0.95;
+    reasons.push(category.toLowerCase());
+  } else if (tier === "strong") {
+    cat = "Strong";
+    conf = wet && heavyMultiway ? 0.7 : 0.88;
+    reasons.push(category.toLowerCase());
+    if (wet && heavyMultiway) reasons.push("wet board, many players → some risk");
+  } else if (tier === "decent") {
+    // Top pair / overpair / two pair — most context-sensitive tier.
+    cat = "Medium";
+    conf = 0.65;
+    reasons.push(category.toLowerCase());
+    // Multiway downgrade: top pair → medium (or even weak) in big multiway pots.
+    if (heavyMultiway) {
+      if (baseScore < 60) { cat = "Weak"; conf = 0.55; reasons.push("downgraded: heavy multiway"); }
+      else { cat = "Medium"; conf = 0.55; reasons.push("downgraded vs multiway field"); }
+    } else if (multiway && wet) {
+      cat = "Medium"; conf = 0.55;
+      reasons.push("multiway + wet → showdown value only");
+    } else if (!multiway && dry) {
+      cat = "Strong"; conf = 0.78;
+      reasons.push("HU on dry board → top of range");
+    }
+    // Facing big aggression on later streets pushes top-pair-ish toward bluff-catch only
+    if (facingAggression && (betSizePct ?? 0) >= 80 && (street === "Turn" || street === "River")) {
+      cat = cat === "Strong" ? "Medium" : "Weak";
+      conf = Math.max(0.45, conf - 0.15);
+      reasons.push("large bet pressure → bluff-catcher only");
+    }
+  } else if (tier === "marginal") {
+    cat = "Weak";
+    conf = 0.6;
+    reasons.push("weak pair");
+    if (!multiway && dry && ip && !facingAggression) {
+      cat = "Medium"; conf = 0.5;
+      reasons.push("HU dry IP → some showdown value");
+    }
+    if (multiway) reasons.push("dominated multiway");
+  } else {
+    cat = "Weak";
+    conf = 0.7;
+    reasons.push("no made hand, no draw");
+  }
+
+  // Equity sanity tie-breaker for ambiguous spots
+  if (cat === "Medium" && equityPct >= 65) { cat = "Strong"; conf = Math.max(conf, 0.7); }
+  if (cat === "Weak" && equityPct >= 55 && !facingAggression) { cat = "Medium"; conf = 0.5; }
+
+  return { hand_category: cat, confidence_level: +conf.toFixed(2), reason: reasons.join(", ") };
+}
+
 // Deterministic decision rule engine — equity vs pot odds + hand strength.
 export interface DecisionInput {
   baseScore: number;
@@ -221,6 +342,7 @@ export interface DecisionInput {
   texture?: "Dry" | "Semi-wet" | "Wet";
   opponents?: number;
   position?: string;
+  handClass?: HandClassification;     // contextual classification (preferred driver)
 }
 export interface DecisionOutput {
   action: "Raise" | "Call" | "Check" | "Fold";
@@ -228,9 +350,14 @@ export interface DecisionOutput {
 }
 
 export function decide(d: DecisionInput): DecisionOutput {
-  const { adjScore, baseScore, equityPct, potOddsPct, outs, facingRaise, betSizePct, street, opponents, position } = d;
+  const { equityPct, potOddsPct, outs, facingRaise, betSizePct, opponents, position, handClass } = d;
+  const cat = handClass?.hand_category;
+  const isStrong = cat === "Strong";
+  const isMedium = cat === "Medium";
+  const isWeak = cat === "Weak";
+  const isDraw = cat === "Draw";
 
-  // ---- FACING A RAISE (after hero bet) — flop/turn/river pressure logic ----
+  // ---- FACING A RAISE (after hero bet) — pressure logic, classification-driven ----
   if (facingRaise && potOddsPct !== null) {
     const sizePct = betSizePct ?? 66;
     const isSmall = sizePct < 50;
@@ -238,56 +365,54 @@ export function decide(d: DecisionInput): DecisionOutput {
     const multiway = (opponents ?? 1) >= 2;
     const oop = position && ["SB", "BB", "UTG", "MP"].includes(position);
 
-    // Strong hand → call or re-raise
-    if (baseScore >= 110 || adjScore >= 95) {
-      if (!multiway && !isLarge && adjScore >= 100) {
-        return { action: "Raise", reason: `Facing a raise with a strong hand — 3-bet for value (size ${sizePct.toFixed(0)}% pot).` };
+    if (isStrong) {
+      if (!multiway && !isLarge) {
+        return { action: "Raise", reason: `Strong hand facing a raise — 3-bet for value (size ${sizePct.toFixed(0)}% pot).` };
       }
-      return { action: "Call", reason: `Facing a raise with a strong hand — call to keep range balanced and trap${multiway ? " (multiway)" : ""}.` };
+      return { action: "Call", reason: `Strong hand facing a raise — call to keep range balanced and trap${multiway ? " (multiway)" : ""}.` };
     }
-    // Draw → call if pot odds correct, sometimes semi-bluff raise
-    if (outs >= 8) {
+    if (isDraw) {
       if (equityPct >= potOddsPct) {
         if (!multiway && outs >= 12 && isSmall) {
-          return { action: "Raise", reason: `Facing a raise with a combo draw — semi-bluff raise has equity (${equityPct.toFixed(0)}%) + fold equity vs small sizing.` };
+          return { action: "Raise", reason: `Combo draw vs raise — semi-bluff: equity ${equityPct.toFixed(0)}% + fold equity vs small sizing.` };
         }
-        return { action: "Call", reason: `Facing a raise with a strong draw — equity ${equityPct.toFixed(0)}% ≥ price ${potOddsPct.toFixed(0)}%, call to realize.` };
+        return { action: "Call", reason: `Draw vs raise — equity ${equityPct.toFixed(0)}% ≥ price ${potOddsPct.toFixed(0)}%, call to realize.` };
       }
-      return { action: "Fold", reason: `Facing a raise with a draw — equity ${equityPct.toFixed(0)}% < ${potOddsPct.toFixed(0)}%, no price.` };
+      return { action: "Fold", reason: `Draw vs raise — equity ${equityPct.toFixed(0)}% < ${potOddsPct.toFixed(0)}%, no price.` };
     }
-    // Medium hand → mostly fold; call only vs small sizing in position
-    if (adjScore >= 50) {
+    if (isMedium) {
       if (isSmall && !multiway && !oop && equityPct + 5 >= potOddsPct) {
-        return { action: "Call", reason: `Medium hand vs small raise (${sizePct.toFixed(0)}% pot) in position — call once and reassess.` };
+        return { action: "Call", reason: `Medium hand vs small raise (${sizePct.toFixed(0)}% pot) IP — call once and reassess.` };
       }
       return { action: "Fold", reason: `Medium hand facing a raise${isLarge ? " (large sizing)" : ""} — fold, dominated too often.` };
     }
-    // Weak → fold
     return { action: "Fold", reason: `Weak hand facing a raise — clear fold.` };
   }
 
-  // Strong made hand → value raise
-  if (baseScore >= 110) return { action: "Raise", reason: "Strong made hand — raise for value." };
-  if (adjScore >= 90) return { action: "Raise", reason: "Premium strength after adjustments — bet/raise for value." };
-
+  // ---- NO BET FACED ----
   if (potOddsPct === null) {
-    // No call amount → checking decision
-    if (adjScore >= 60) return { action: "Raise", reason: "Decent strength with initiative — bet for value/protection." };
-    if (outs >= 8) return { action: "Raise", reason: "Strong draw — semi-bluff has fold equity + equity." };
-    if (adjScore >= 30) return { action: "Check", reason: "Marginal hand — control the pot." };
-    return { action: "Check", reason: "Weak holding — check and reassess." };
+    if (isStrong) return { action: "Raise", reason: `Strong hand (${handClass?.reason}) — bet/raise for value.` };
+    if (isDraw)   return { action: "Raise", reason: `Strong draw (${outs} outs) — semi-bluff has fold equity + equity.` };
+    if (isMedium) return { action: "Check", reason: `Medium hand (${handClass?.reason}) — pot control.` };
+    return { action: "Check", reason: `Weak hand — check and reassess.` };
   }
 
-  // Facing a bet
-  if (equityPct > potOddsPct + 5) {
-    if (adjScore >= 90) return { action: "Raise", reason: `Equity ${equityPct.toFixed(0)}% beats required ${potOddsPct.toFixed(0)}% with strong hand — raise.` };
-    return { action: "Call", reason: `Equity ${equityPct.toFixed(0)}% > pot odds ${potOddsPct.toFixed(0)}% — call profitably.` };
+  // ---- FACING A BET ----
+  if (isStrong) {
+    if (equityPct > potOddsPct + 5) return { action: "Raise", reason: `Strong hand with equity edge (${equityPct.toFixed(0)}% vs ${potOddsPct.toFixed(0)}%) — raise for value.` };
+    return { action: "Call", reason: `Strong hand — call (or trap) at acceptable price.` };
   }
-  if (equityPct >= potOddsPct) {
-    return { action: "Call", reason: `Equity (${equityPct.toFixed(0)}%) marginally meets pot odds (${potOddsPct.toFixed(0)}%) — call.` };
+  if (isDraw) {
+    if (equityPct >= potOddsPct) return { action: "Call", reason: `Draw — equity ${equityPct.toFixed(0)}% ≥ pot odds ${potOddsPct.toFixed(0)}%.` };
+    return { action: "Fold", reason: `Draw without price — equity ${equityPct.toFixed(0)}% < ${potOddsPct.toFixed(0)}%.` };
   }
-  if (adjScore >= 70) return { action: "Call", reason: "Made hand with showdown value — call despite thin odds." };
-  return { action: "Fold", reason: `Equity ${equityPct.toFixed(0)}% < required ${potOddsPct.toFixed(0)}% — fold.` };
+  if (isMedium) {
+    if (equityPct >= potOddsPct) return { action: "Call", reason: `Medium hand — bluff-catch at correct price (${equityPct.toFixed(0)}% vs ${potOddsPct.toFixed(0)}%).` };
+    return { action: "Fold", reason: `Medium hand — price too high (${potOddsPct.toFixed(0)}% needed, ${equityPct.toFixed(0)}% equity).` };
+  }
+  // Weak / no classification fallback
+  if (equityPct >= potOddsPct + 3) return { action: "Call", reason: `Marginal call — equity edge.` };
+  return { action: "Fold", reason: `Weak hand, equity ${equityPct.toFixed(0)}% < ${potOddsPct.toFixed(0)}% — fold.` };
 }
 
 // Street-based sizing strategy

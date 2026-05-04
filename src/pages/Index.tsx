@@ -13,6 +13,7 @@ import { PlayerAction, ActionType } from "@/components/ActionMenu";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
+  classifyHandStrength,
 } from "@/lib/pokerEngine";
 import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
 import { buildExplanation } from "@/lib/explanationEngine";
@@ -151,6 +152,20 @@ const Index = () => {
     const facingRaise = heroBetThisStreet && userToCall > 0;
     const betSizePct = dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : 0;
 
+    const handClass = classifyHandStrength({
+      baseScore: ev.score,
+      category: ev.category,
+      outs: draws.outs,
+      drawType: draws.drawType,
+      equityPct: effEquityPct,
+      texture,
+      opponents,
+      position,
+      street: currentStreet,
+      facingAggression: userToCall > 0 || facingRaise,
+      betSizePct,
+    });
+
     const decision = decide({
       baseScore: ev.score,
       adjScore: effAdjScore,
@@ -164,6 +179,7 @@ const Index = () => {
       texture,
       opponents,
       position,
+      handClass,
     });
     const sizing = recommendSizing({
       street: currentStreet,
@@ -190,6 +206,7 @@ const Index = () => {
       decisionReason: decision.reason + ` ${rangeMods.reason}`,
       sizing,
       rangeReadout,
+      handClass,
     } as EngineResult;
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
 
