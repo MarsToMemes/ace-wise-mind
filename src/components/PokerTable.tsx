@@ -179,7 +179,7 @@ export const PokerTable = ({
                     last.type === "Call" && "bg-primary/15 text-primary border-primary/40",
                     (last.type === "Bet" || last.type === "Raise") && "bg-warning/20 text-[hsl(var(--warning))] border-[hsl(var(--warning))]/40",
                   )}>
-                    {last.type}{last.amountBB > 0 ? ` ${last.amountBB}` : ""}
+                    {t(`act.${last.type}`)}{last.amountBB > 0 ? ` ${last.amountBB}` : ""}
                   </span>
                 </div>
               )}
