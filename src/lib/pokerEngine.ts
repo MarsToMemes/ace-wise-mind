@@ -413,6 +413,16 @@ export function recommendSizing(s: SizingInput): SizingOutput {
     }
   }
 
+  // Range-inference modifiers (opponent reads)
+  if (s.rangeMods && street !== "Preflop" && pctMax > 0) {
+    const d = s.rangeMods.sizingPctDelta;
+    if (d !== 0) {
+      pctMin = Math.max(0, Math.min(120, pctMin + d));
+      pctMax = Math.max(pctMin, Math.min(120, pctMax + d));
+      adjustments.push(`opp range → ${d > 0 ? "+" : ""}${d}% (${s.rangeMods.reason})`);
+    }
+  }
+
   // Fold/Call: no betting size — return call amount instead
   if (action === "Fold") {
     return {
