@@ -96,29 +96,29 @@ const Index = () => {
     if (selected.includes(card)) return removeCard(card);
 
     if (pickMode === "hole") {
-      if (hole.length >= 2) { toast.error("Hole cards already chosen"); return; }
+      if (hole.length >= 2) { toast.error(t("toast.holeFull")); return; }
       const next = [...hole, card];
       setHole(next);
       if (next.length === 2) setPickMode("flop");
       return;
     }
     if (pickMode === "flop") {
-      if (flop.length >= 3) { toast.error("Flop is full"); return; }
+      if (flop.length >= 3) { toast.error(t("toast.flopFull")); return; }
       const next = [...flop, card];
       setFlop(next);
       if (next.length === 3) setPickMode("turn");
       return;
     }
     if (pickMode === "turn") {
-      if (flop.length < 3) { toast.error("Complete the flop first"); return; }
-      if (turn) { toast.error("Turn already set"); return; }
+      if (flop.length < 3) { toast.error(t("toast.completeFlop")); return; }
+      if (turn) { toast.error(t("toast.turnSet")); return; }
       setTurn(card);
       setPickMode("river");
       return;
     }
     if (pickMode === "river") {
-      if (!turn) { toast.error("Set the turn first"); return; }
-      if (river) { toast.error("River already set"); return; }
+      if (!turn) { toast.error(t("toast.setTurn")); return; }
+      if (river) { toast.error(t("toast.riverSet")); return; }
       setRiver(card);
     }
   };
@@ -137,7 +137,7 @@ const Index = () => {
       if (userIdx === i) setUserIdx(-1);
       setSeatMode("user");
     } else {
-      if (i === dealerIdx) { toast.error("That seat is the dealer"); return; }
+      if (i === dealerIdx) { toast.error(t("toast.dealerSeat")); return; }
       setUserIdx(i);
     }
   };
@@ -148,7 +148,7 @@ const Index = () => {
   };
 
   const runAI = async () => {
-    if (!engine) { toast.error("Pick your hole cards first"); return; }
+    if (!engine) { toast.error(t("toast.pickHole")); return; }
     setAiLoading(true); setAiError(null); setAiResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("poker-coach", {
