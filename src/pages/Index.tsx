@@ -206,6 +206,7 @@ const Index = () => {
       decisionReason: decision.reason + ` ${rangeMods.reason}`,
       sizing,
       rangeReadout,
+      handClass,
     } as EngineResult;
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
 
