@@ -142,9 +142,17 @@ const Index = () => {
     });
     const rangeMods = rangeModifiers(rangeReadout);
 
+    // ===== Hand vs Range — Monte Carlo equity vs opponent distributions =====
+    const hvr = board.length >= 3 && hole.length === 2 && rangeReadout.opponents.length > 0
+      ? evaluateHandVsRange({ hole, board, opponentRanges: rangeReadout.opponents })
+      : null;
+
     // Apply range strength delta to effective adjScore for decision making
     const effAdjScore = Math.max(0, adjScore + rangeMods.strengthDelta);
-    const effEquityPct = Math.max(0, Math.min(100, equityPct + rangeMods.aggressionDelta * 5));
+    // Prefer the range-relative equity when available — it's contextual, not absolute.
+    const effEquityPct = hvr
+      ? hvr.equity_percentage
+      : Math.max(0, Math.min(100, equityPct + rangeMods.aggressionDelta * 5));
 
     // Detect "facing a raise": hero has already bet/raised this street AND there is now a higher bet to call
     const heroBetThisStreet = userIdx >= 0 && streetActions.some(
@@ -153,7 +161,7 @@ const Index = () => {
     const facingRaise = heroBetThisStreet && userToCall > 0;
     const betSizePct = dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : 0;
 
-    const handClass = classifyHandStrength({
+    let handClass = classifyHandStrength({
       baseScore: ev.score,
       category: ev.category,
       outs: draws.outs,
@@ -166,6 +174,25 @@ const Index = () => {
       facingAggression: userToCall > 0 || facingRaise,
       betSizePct,
     });
+
+    // OVERRIDE absolute classification with range-relative verdict when available.
+    // This eliminates false "weak hand" bias when hero crushes opponents' actual ranges.
+    if (hvr) {
+      const map: Record<string, "Strong" | "Medium" | "Weak"> = {
+        "Strong vs Range": "Strong",
+        "Medium vs Range": "Medium",
+        "Weak vs Range": "Weak",
+      };
+      const rangeCat = map[hvr.hand_vs_range_strength];
+      // Draws keep their Draw label (equity is realized later).
+      if (handClass.hand_category !== "Draw") {
+        handClass = {
+          hand_category: rangeCat,
+          confidence_level: hvr.confidence_level,
+          reason: `vs opp range: ${hvr.detail}`,
+        };
+      }
+    }
 
     const decision = decide({
       baseScore: ev.score,
