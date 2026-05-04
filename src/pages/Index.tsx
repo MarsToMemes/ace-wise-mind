@@ -187,6 +187,9 @@ const Index = () => {
           currentStreet,
           lang,
           position, opponents, stack, pot, call,
+          userPosition: userLabel || position,
+          inPosition: ["BTN", "CO", "HJ"].includes(position),
+          relativePosition: ["BTN", "CO", "HJ"].includes(position) ? "IP" : "OOP",
           table: {
             number_of_players: tableSize,
             dealer_position_index: dealerIdx,
