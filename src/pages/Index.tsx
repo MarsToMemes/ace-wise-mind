@@ -14,6 +14,7 @@ import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
 } from "@/lib/pokerEngine";
+import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
