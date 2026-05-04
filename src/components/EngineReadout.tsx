@@ -56,6 +56,7 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
             {t("engine.engine")}
           </Badge>
         </div>
+        <p className="text-xs text-muted-foreground mb-3 italic">{result.decisionReason}</p>
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{t("engine.handStrength")}</span>
@@ -63,7 +64,7 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
           </div>
           <Progress value={strengthPct} className="h-2" />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{t("engine.score")} {result.score}</span>
+            <span>{t("engine.score")} {result.score} → {result.adjScore}</span>
             <span>/ 180</span>
           </div>
         </div>
