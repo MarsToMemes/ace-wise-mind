@@ -8,7 +8,8 @@ import { CardPicker } from "@/components/CardPicker";
 import { StreetSlots } from "@/components/StreetSlots";
 import { EngineReadout, EngineResult } from "@/components/EngineReadout";
 import { AIPanel, AIAnalysis } from "@/components/AIPanel";
-import { PokerTable, TableSize, labelToPosition, seatLabel } from "@/components/PokerTable";
+import { PokerTable, TableSize, SeatMode, labelToPosition, seatLabel } from "@/components/PokerTable";
+import { PlayerAction, ActionType } from "@/components/ActionMenu";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
