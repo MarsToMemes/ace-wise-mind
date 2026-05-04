@@ -23,7 +23,10 @@ Turn: ${ctx.turn ?? "(none)"}
 River: ${ctx.river ?? "(none)"}
 
 Table:
-- Players: ${t.number_of_players ?? ctx.opponents + 1}
+- Players (seated): ${t.number_of_players ?? ctx.opponents + 1}
+- Active players still in hand: ${t.active_players ?? "n/a"} (${t.multiway ? "MULTIWAY" : "heads-up / single-opponent"})
+- Active opponents: ${t.active_opponents ?? ctx.opponents}
+- Folded seat indices: ${(t.folded_seats || []).join(", ") || "none"}
 - Dealer (BTN) seat index: ${t.dealer_position_index ?? "n/a"}
 - Your seat index: ${t.user_position_index ?? "n/a"}
 - Your position: ${t.user_position ?? ctx.position}
