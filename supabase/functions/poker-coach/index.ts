@@ -42,7 +42,15 @@ Deterministic engine readout (TRUSTED — DO NOT RECALCULATE):
 - Pot odds: ${ctx.potOdds ?? "n/a"}
 - Required equity: ${ctx.reqEquity ?? "n/a"}
 - Range advantage hero/villain: ${ctx.heroRA}/${ctx.villainRA}
-- Engine decision: ${ctx.suggestedAction} — ${ctx.decisionReason ?? ""}`;
+- Engine decision: ${ctx.suggestedAction} — ${ctx.decisionReason ?? ""}
+${ctx.training ? `
+Training context (interpret, do not recompute):
+- User chose: ${ctx.training.userChoice} ${ctx.training.timeout ? "(TIMEOUT auto-fold)" : ""}
+- Engine optimal: ${ctx.training.correctAction}
+- EV user: ${ctx.training.evUser} BB · EV optimal: ${ctx.training.evOptimal} BB · Diff: ${ctx.training.evDiff} BB
+- User range guess: ${ctx.training.rangeGuess ?? "none"} vs engine-implied: ${ctx.training.impliedRange} (correct: ${ctx.training.rangeCorrect})
+- Leak tags: ${(ctx.training.leakTags || []).join(", ") || "none"}
+Briefly comment on: (1) whether range read was right, (2) the EV mistake if any, (3) whether the decision was strategically sound.` : ""}`;
 
     const streetGuidance: Record<string, string> = {
       Preflop: "Plan preflop action, then describe flop and turn strategy.",
