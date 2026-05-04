@@ -7,14 +7,17 @@ import { useI18n } from "@/lib/i18n";
 export interface EngineResult {
   category: string;
   score: number;
+  adjScore: number;
   drawType: string;
   outs: number;
+  equityPct: number;
   texture: "Dry" | "Semi-wet" | "Wet";
   heroRA: string;
   villainRA: string;
   potOdds: number | null;
   reqEquity: number | null;
   suggestedAction: "Raise" | "Call" | "Check" | "Fold";
+  decisionReason: string;
 }
 
 const actionStyles: Record<string, string> = {
