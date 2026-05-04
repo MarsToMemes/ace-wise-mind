@@ -1,8 +1,9 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
+import type { SizingOutput } from "@/lib/pokerEngine";
 
 export interface EngineResult {
   category: string;
@@ -18,6 +19,7 @@ export interface EngineResult {
   reqEquity: number | null;
   suggestedAction: "Raise" | "Call" | "Check" | "Fold";
   decisionReason: string;
+  sizing: SizingOutput;
 }
 
 const actionStyles: Record<string, string> = {
