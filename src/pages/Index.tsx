@@ -322,6 +322,20 @@ const Index = () => {
           suggestedAction: engine.suggestedAction,
           decisionReason: engine.decisionReason,
           sizing: engine.sizing,
+          range_inference: engine.rangeReadout ? {
+            aggregate_strength: engine.rangeReadout.aggregateStrength,
+            aggregate_bluff_frequency: engine.rangeReadout.aggregateBluffFreq,
+            dominant_range_type: engine.rangeReadout.dominantRangeType,
+            opponents: engine.rangeReadout.opponents.map(o => ({
+              seat: o.seatIdx,
+              position: o.position,
+              estimated_strength: o.estimatedStrength,
+              range_type: o.rangeType,
+              bluff_frequency: o.bluffFrequency,
+              notes: o.notes,
+            })),
+            notes: engine.rangeReadout.notes,
+          } : null,
         },
       });
       if (error) throw error;
