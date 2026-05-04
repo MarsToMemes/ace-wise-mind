@@ -1,10 +1,33 @@
 import {
   fullDeck, evaluateBest, detectDraws, classifyTexture,
-  estimateEquity, adjustedScore, decide, potOdds, rangeAdvantage,
+  estimateEquity, adjustedScore, decide, potOdds,
 } from "./pokerEngine";
 
 export type Street = "Preflop" | "Flop" | "Turn" | "River";
 export type Position = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
+
+export type RangeGuess =
+  | "Very tight"
+  | "Tight"
+  | "Balanced"
+  | "Loose aggressive"
+  | "Bluff-heavy";
+
+export const RANGE_GUESSES: RangeGuess[] = [
+  "Very tight", "Tight", "Balanced", "Loose aggressive", "Bluff-heavy",
+];
+
+export type LeakTag =
+  | "Range error"
+  | "EV error"
+  | "Overfolding"
+  | "Overcalling"
+  | "Bluff frequency error"
+  | "Position misplay";
+
+export const LEAK_TAGS: LeakTag[] = [
+  "Range error", "EV error", "Overfolding", "Overcalling", "Bluff frequency error", "Position misplay",
+];
 
 export interface Scenario {
   hole: string[];
@@ -15,7 +38,6 @@ export interface Scenario {
   stack: number;
   pot: number;
   call: number;
-  // engine derived
   equityPct: number;
   reqEquity: number | null;
   category: string;
@@ -25,6 +47,8 @@ export interface Scenario {
   correctAction: "Fold" | "Call" | "Raise" | "Check";
   reason: string;
   adjScore: number;
+  // Engine-implied opponent range based on action faced + texture
+  impliedOpponentRange: RangeGuess;
 }
 
 const POSITIONS: Position[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
@@ -39,6 +63,17 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+function impliedRange(call: number, pot: number, texture: string, position: Position): RangeGuess {
+  // Heuristic: bigger bets = tighter, wet boards & passive lines = balanced
+  if (call === 0) return "Balanced";
+  const ratio = call / Math.max(1, pot);
+  if (ratio > 0.9) return "Very tight";
+  if (ratio > 0.6) return texture === "Wet" ? "Tight" : "Tight";
+  if (ratio > 0.35) return "Balanced";
+  if (["BTN", "CO"].includes(position)) return "Loose aggressive";
+  return "Bluff-heavy";
+}
+
 export function generateScenario(): Scenario {
   const deck = shuffle(fullDeck());
   const street = STREETS[Math.floor(Math.random() * STREETS.length)];
@@ -48,7 +83,6 @@ export function generateScenario(): Scenario {
   const position = POSITIONS[Math.floor(Math.random() * POSITIONS.length)];
   const opponents = 1 + Math.floor(Math.random() * 5);
   const pot = [4, 8, 12, 20, 30, 50][Math.floor(Math.random() * 6)];
-  // 70% chance facing a bet
   const facingBet = Math.random() < 0.7;
   const call = facingBet ? Math.max(1, Math.round(pot * (0.25 + Math.random() * 0.75))) : 0;
   const stack = 100;
@@ -76,54 +110,94 @@ export function generateScenario(): Scenario {
     correctAction: decision.action,
     reason: decision.reason,
     adjScore,
+    impliedOpponentRange: impliedRange(call, pot, texture, position),
   };
 }
 
 export type UserAction = "Fold" | "Call" | "Raise" | "Check";
 
-export interface Evaluation {
-  correct: boolean;
-  evDiff: number; // big blinds, positive = your choice was good
-  feedback: string;
+export interface ActionEV {
+  Fold: number;
+  Call: number;
+  Raise: number;
+  Check: number;
 }
 
-// Approximate EV difference between user's choice and engine's recommendation.
-export function evaluateDecision(s: Scenario, choice: UserAction): Evaluation {
-  const correct = choice === s.correctAction;
+export function computeActionEVs(s: Scenario): ActionEV {
   const eq = s.equityPct / 100;
-  const req = (s.reqEquity ?? 0) / 100;
-
-  // EV approximations (in BB units of pot)
   const evCall = s.call > 0 ? eq * (s.pot + s.call) - (1 - eq) * s.call : 0;
-  const evFold = 0;
-  // Raise EV: assume raise size = pot, fold equity ~ 25%
   const raiseSize = Math.max(s.call, s.pot);
   const fe = 0.25;
   const evRaise = fe * s.pot + (1 - fe) * (eq * (s.pot + 2 * raiseSize) - (1 - eq) * raiseSize);
-  const evCheck = eq * s.pot;
-
-  const evMap: Record<UserAction, number> = {
-    Fold: evFold, Call: evCall, Raise: evRaise, Check: evCheck,
+  const evCheck = s.call > 0 ? -Infinity : eq * s.pot; // can't check facing a bet
+  return {
+    Fold: 0,
+    Call: s.call > 0 ? evCall : 0,
+    Raise: evRaise,
+    Check: evCheck,
   };
-  const userEv = evMap[choice];
-  const bestEv = evMap[s.correctAction as UserAction] ?? 0;
-  const evDiff = +(userEv - bestEv).toFixed(2);
+}
 
-  let feedback = "";
-  if (correct) {
+export interface Evaluation {
+  correct: boolean;
+  evDiff: number;
+  evUser: number;
+  evOptimal: number;
+  feedback: string;
+  rangeCorrect: boolean | null;
+  leakTags: LeakTag[];
+  timeout?: boolean;
+}
+
+export function evaluateDecision(
+  s: Scenario,
+  choice: UserAction,
+  rangeGuess: RangeGuess | null,
+  timeout = false,
+): Evaluation {
+  const evs = computeActionEVs(s);
+  const userEvRaw = evs[choice];
+  const optimalEvRaw = evs[s.correctAction as UserAction] ?? 0;
+  const userEv = isFinite(userEvRaw) ? userEvRaw : -s.pot; // illegal action penalty
+  const optimalEv = isFinite(optimalEvRaw) ? optimalEvRaw : 0;
+  const evDiff = +(userEv - optimalEv).toFixed(2);
+  const correct = !timeout && choice === s.correctAction;
+
+  const eq = s.equityPct / 100;
+  const req = (s.reqEquity ?? 0) / 100;
+
+  const rangeCorrect = rangeGuess === null ? null : rangeGuess === s.impliedOpponentRange;
+
+  const tags: LeakTag[] = [];
+  if (!correct) {
+    if (Math.abs(evDiff) > 0.3) tags.push("EV error");
+    if (choice === "Fold" && eq > req + 0.05) tags.push("Overfolding");
+    if (choice === "Call" && s.correctAction === "Fold") tags.push("Overcalling");
+    if (choice === "Raise" && (s.correctAction === "Fold" || s.correctAction === "Check")) tags.push("Bluff frequency error");
+    if (["UTG", "MP"].includes(s.position) && choice === "Raise" && s.adjScore < 60) tags.push("Position misplay");
+    if (["SB", "BB"].includes(s.position) && choice === "Raise" && s.correctAction !== "Raise") tags.push("Position misplay");
+  }
+  if (rangeCorrect === false) tags.push("Range error");
+
+  let feedback: string;
+  if (timeout) {
+    feedback = `Time expired — auto-fold marked. Optimal play: ${s.correctAction}. ${s.reason}`;
+  } else if (correct) {
     feedback = `Correct! ${s.reason}`;
   } else {
     feedback = `Better play: ${s.correctAction}. ${s.reason}`;
-    if (choice === "Fold" && eq > req + 0.05) {
-      feedback += ` Folding gave up positive equity (${(eq * 100).toFixed(0)}% vs ${(req * 100).toFixed(0)}% required).`;
-    } else if (choice === "Call" && s.correctAction === "Fold") {
-      feedback += ` Calling here is -EV given pot odds.`;
-    } else if (choice === "Raise" && (s.correctAction === "Fold" || s.correctAction === "Check")) {
-      feedback += ` Aggression isn't justified by current strength/equity.`;
-    }
   }
 
-  return { correct, evDiff, feedback };
+  return {
+    correct,
+    evDiff,
+    evUser: +userEv.toFixed(2),
+    evOptimal: +optimalEv.toFixed(2),
+    feedback,
+    rangeCorrect,
+    leakTags: tags,
+    timeout,
+  };
 }
 
 export interface Stats {
@@ -131,24 +205,38 @@ export interface Stats {
   correct: number;
   evSum: number;
   byAction: Record<UserAction, { picked: number; correct: number }>;
+  leaks: Record<LeakTag, number>;
+  rangeAttempts: number;
+  rangeCorrect: number;
 }
 
-const STATS_KEY = "training-stats-v1";
+const STATS_KEY = "training-stats-v2";
+
+const emptyLeaks = (): Record<LeakTag, number> =>
+  LEAK_TAGS.reduce((acc, t) => ({ ...acc, [t]: 0 }), {} as Record<LeakTag, number>);
+
+const empty = (): Stats => ({
+  total: 0, correct: 0, evSum: 0,
+  byAction: {
+    Fold: { picked: 0, correct: 0 },
+    Call: { picked: 0, correct: 0 },
+    Raise: { picked: 0, correct: 0 },
+    Check: { picked: 0, correct: 0 },
+  },
+  leaks: emptyLeaks(),
+  rangeAttempts: 0,
+  rangeCorrect: 0,
+});
 
 export function loadStats(): Stats {
   try {
     const raw = localStorage.getItem(STATS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...empty(), ...parsed, leaks: { ...emptyLeaks(), ...(parsed.leaks || {}) } };
+    }
   } catch {}
-  return {
-    total: 0, correct: 0, evSum: 0,
-    byAction: {
-      Fold: { picked: 0, correct: 0 },
-      Call: { picked: 0, correct: 0 },
-      Raise: { picked: 0, correct: 0 },
-      Check: { picked: 0, correct: 0 },
-    },
-  };
+  return empty();
 }
 
 export function saveStats(s: Stats) {
@@ -156,16 +244,22 @@ export function saveStats(s: Stats) {
 }
 
 export function resetStats(): Stats {
-  const s = loadStats();
-  const fresh: Stats = {
-    total: 0, correct: 0, evSum: 0,
-    byAction: {
-      Fold: { picked: 0, correct: 0 },
-      Call: { picked: 0, correct: 0 },
-      Raise: { picked: 0, correct: 0 },
-      Check: { picked: 0, correct: 0 },
-    },
-  };
+  const fresh = empty();
   saveStats(fresh);
-  return fresh ?? s;
+  return fresh;
+}
+
+// Generates a "what a strong player would do" replay sequence
+export function buildOptimalLine(s: Scenario): string[] {
+  const lines: string[] = [];
+  lines.push(`Read board texture: ${s.texture}.`);
+  lines.push(`Assess hand: ${s.category}${s.outs > 0 ? ` with ${s.drawType} (${s.outs} outs)` : ""}.`);
+  if (s.reqEquity !== null) {
+    lines.push(`Compare equity ${s.equityPct.toFixed(0)}% vs required ${s.reqEquity.toFixed(0)}%.`);
+  } else {
+    lines.push(`No bet faced — evaluate initiative from ${s.position}.`);
+  }
+  lines.push(`Assign opponent range: ${s.impliedOpponentRange}.`);
+  lines.push(`Execute: ${s.correctAction}. ${s.reason}`);
+  return lines;
 }
