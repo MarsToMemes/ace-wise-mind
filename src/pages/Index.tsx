@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sparkles, RotateCcw, Spade } from "lucide-react";
 import { CardPicker } from "@/components/CardPicker";
 import { StreetSlots } from "@/components/StreetSlots";
 import { EngineReadout, EngineResult } from "@/components/EngineReadout";
 import { AIPanel, AIAnalysis } from "@/components/AIPanel";
+import { PokerTable, TableSize, labelToPosition, seatLabel } from "@/components/PokerTable";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, suggestAction,
@@ -16,7 +16,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type Position = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
 
@@ -26,14 +25,22 @@ const Index = () => {
   const [turn, setTurn] = useState<string | null>(null);
   const [river, setRiver] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>("hole");
-  const [opponents, setOpponents] = useState(2);
-  const [position, setPosition] = useState<Position>("BTN");
+  const [tableSize, setTableSize] = useState<TableSize>(6);
+  const [dealerIdx, setDealerIdx] = useState<number>(-1);
+  const [userIdx, setUserIdx] = useState<number>(-1);
+  const [seatMode, setSeatMode] = useState<"dealer" | "user">("dealer");
   const [stack, setStack] = useState(100);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
+  const position = userLabel ? labelToPosition(userLabel) : "BTN";
+  const opponents = tableSize - 1;
+  const sbIdx = dealerIdx >= 0 ? (dealerIdx + 1) % tableSize : -1;
+  const bbIdx = dealerIdx >= 0 ? (dealerIdx + 2) % tableSize : -1;
 
   const board = useMemo(() => {
     const b = [...flop];
@@ -116,8 +123,25 @@ const Index = () => {
   const reset = () => {
     setHole([]); setFlop([]); setTurn(null); setRiver(null);
     setAiResult(null); setAiError(null);
-    setPickMode("hole"); setOpponents(2); setPosition("BTN");
+    setPickMode("hole");
+    setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setStack(100); setPot(10); setCall(0);
+  };
+
+  const handleSeatClick = (i: number) => {
+    if (seatMode === "dealer") {
+      setDealerIdx(i);
+      if (userIdx === i) setUserIdx(-1);
+      setSeatMode("user");
+    } else {
+      if (i === dealerIdx) { toast.error("That seat is the dealer"); return; }
+      setUserIdx(i);
+    }
+  };
+
+  const handleSizeChange = (s: TableSize) => {
+    setTableSize(s);
+    setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
   };
 
   const runAI = async () => {
@@ -129,6 +153,14 @@ const Index = () => {
           hole, board, flop, turn, river,
           currentStreet,
           position, opponents, stack, pot, call,
+          table: {
+            number_of_players: tableSize,
+            dealer_position_index: dealerIdx,
+            user_position_index: userIdx,
+            user_position: userLabel || position,
+            sb_index: sbIdx,
+            bb_index: bbIdx,
+          },
           handCategory: engine.category,
           handScore: engine.score,
           drawType: engine.drawType,
@@ -153,7 +185,7 @@ const Index = () => {
     }
   };
 
-  const positions: Position[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
+  
 
   return (
     <div className="min-h-screen">
@@ -194,21 +226,21 @@ const Index = () => {
           </Card>
 
           <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">Context</h2>
+            <h2 className="display text-xl mb-4">Table & Position</h2>
+            <PokerTable
+              size={tableSize}
+              dealerIdx={dealerIdx}
+              userIdx={userIdx}
+              mode={seatMode}
+              onSeatClick={handleSeatClick}
+              onModeChange={setSeatMode}
+              onSizeChange={handleSizeChange}
+            />
+          </Card>
+
+          <Card className="glass-panel p-6">
+            <h2 className="display text-xl mb-4">Stakes</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Position</Label>
-                <Select value={position} onValueChange={v => setPosition(v as Position)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {positions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Opponents</Label>
-                <Input type="number" min={1} max={9} value={opponents} onChange={e => setOpponents(+e.target.value)} />
-              </div>
               <div className="space-y-1.5">
                 <Label>Stack (BB)</Label>
                 <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />

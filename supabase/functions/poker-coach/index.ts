@@ -13,6 +13,7 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const street = ctx.currentStreet || "Preflop";
+    const t = ctx.table || {};
     const userMessage = `Analyze this poker spot.
 
 Current street: ${street}
@@ -21,11 +22,17 @@ Flop: ${ctx.flop?.length ? ctx.flop.join(" ") : "(none)"}
 Turn: ${ctx.turn ?? "(none)"}
 River: ${ctx.river ?? "(none)"}
 
-Position: ${ctx.position}
-Opponents: ${ctx.opponents}
-Stack: ${ctx.stack}bb
-Pot: ${ctx.pot}bb
-Call amount: ${ctx.call ?? 0}bb
+Table:
+- Players: ${t.number_of_players ?? ctx.opponents + 1}
+- Dealer (BTN) seat index: ${t.dealer_position_index ?? "n/a"}
+- Your seat index: ${t.user_position_index ?? "n/a"}
+- Your position: ${t.user_position ?? ctx.position}
+- SB seat index: ${t.sb_index ?? "n/a"}, BB seat index: ${t.bb_index ?? "n/a"}
+
+Stakes:
+- Stack: ${ctx.stack}bb
+- Pot: ${ctx.pot}bb
+- Call amount: ${ctx.call ?? 0}bb
 
 Engine readout:
 - Hand: ${ctx.handCategory} (score ${ctx.handScore})
@@ -43,7 +50,7 @@ Engine readout:
       River: "This is the river — provide the FINAL decision only. For turn_plan and river_plan, briefly recap reasoning rather than projecting future streets.",
     };
 
-    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Justify decisions using range, board, EV, position. Never vague. Tailor your output to the current street: ${streetGuidance[street]}`;
+    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively. Justify decisions using range, board, EV, position. Never vague. Tailor your output to the current street: ${streetGuidance[street]}`;
 
     const tool = {
       type: "function",
