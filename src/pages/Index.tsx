@@ -13,6 +13,7 @@ import { PlayerAction, ActionType } from "@/components/ActionMenu";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
+  classifyHandStrength,
 } from "@/lib/pokerEngine";
 import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
 import { buildExplanation } from "@/lib/explanationEngine";
