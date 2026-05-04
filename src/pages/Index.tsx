@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sparkles, RotateCcw, Spade } from "lucide-react";
 import { CardPicker } from "@/components/CardPicker";
 import { StreetSlots } from "@/components/StreetSlots";
 import { EngineReadout, EngineResult } from "@/components/EngineReadout";
 import { AIPanel, AIAnalysis } from "@/components/AIPanel";
+import { PokerTable, TableSize, labelToPosition, seatLabel } from "@/components/PokerTable";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
   potOdds, suggestAction,
@@ -16,7 +16,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-type Position = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
 
@@ -26,14 +25,22 @@ const Index = () => {
   const [turn, setTurn] = useState<string | null>(null);
   const [river, setRiver] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>("hole");
-  const [opponents, setOpponents] = useState(2);
-  const [position, setPosition] = useState<Position>("BTN");
+  const [tableSize, setTableSize] = useState<TableSize>(6);
+  const [dealerIdx, setDealerIdx] = useState<number>(-1);
+  const [userIdx, setUserIdx] = useState<number>(-1);
+  const [seatMode, setSeatMode] = useState<"dealer" | "user">("dealer");
   const [stack, setStack] = useState(100);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
+  const position = userLabel ? labelToPosition(userLabel) : "BTN";
+  const opponents = tableSize - 1;
+  const sbIdx = dealerIdx >= 0 ? (dealerIdx + 1) % tableSize : -1;
+  const bbIdx = dealerIdx >= 0 ? (dealerIdx + 2) % tableSize : -1;
 
   const board = useMemo(() => {
     const b = [...flop];
