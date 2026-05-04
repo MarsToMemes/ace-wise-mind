@@ -2,13 +2,24 @@ import { cn } from "@/lib/utils";
 import { Crown, User } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
-export type TableSize = 6 | 9;
+export type TableSize = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export type SimplePosition = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 
-const LABELS_6: string[] = ["BTN", "SB", "BB", "UTG", "MP", "CO"];
-const LABELS_9: string[] = ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO"];
+// Position labels by table size, ordered clockwise starting from BTN
+const LABELS_BY_SIZE: Record<TableSize, string[]> = {
+  2: ["BTN", "BB"], // heads-up: BTN posts SB
+  3: ["BTN", "SB", "BB"],
+  4: ["BTN", "SB", "BB", "CO"],
+  5: ["BTN", "SB", "BB", "UTG", "CO"],
+  6: ["BTN", "SB", "BB", "UTG", "MP", "CO"],
+  7: ["BTN", "SB", "BB", "UTG", "MP", "HJ", "CO"],
+  8: ["BTN", "SB", "BB", "UTG", "UTG+1", "MP", "HJ", "CO"],
+  9: ["BTN", "SB", "BB", "UTG", "UTG+1", "UTG+2", "LJ", "HJ", "CO"],
+};
 
-export const getLabels = (size: TableSize) => (size === 6 ? LABELS_6 : LABELS_9);
+export const getLabels = (size: TableSize) => LABELS_BY_SIZE[size];
+
+export const TABLE_SIZES: TableSize[] = [2, 3, 4, 5, 6, 7, 8, 9];
 
 export const labelToPosition = (label: string): SimplePosition => {
   if (label === "BTN" || label === "SB" || label === "BB" || label === "CO") return label;
@@ -49,15 +60,18 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onMode
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-md bg-muted p-1 text-xs">
-          <button
-            onClick={() => onSizeChange(6)}
-            className={cn("px-3 py-1 rounded transition", size === 6 ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-          >6-max</button>
-          <button
-            onClick={() => onSizeChange(9)}
-            className={cn("px-3 py-1 rounded transition", size === 9 ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-          >9-max</button>
+        <div className="flex items-center gap-2 rounded-md bg-muted p-1 text-xs">
+          <label htmlFor="table-size" className="px-2 text-muted-foreground">Seats</label>
+          <select
+            id="table-size"
+            value={size}
+            onChange={(e) => onSizeChange(Number(e.target.value) as TableSize)}
+            className="bg-card text-foreground rounded px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {TABLE_SIZES.map((n) => (
+              <option key={n} value={n}>{n}-max</option>
+            ))}
+          </select>
         </div>
         <div className="flex gap-1 rounded-md bg-muted p-1 text-xs">
           <button

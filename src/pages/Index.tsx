@@ -45,8 +45,9 @@ const Index = () => {
   const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
   const position = userLabel ? labelToPosition(userLabel) : "BTN";
   const opponents = tableSize - 1;
-  const sbIdx = dealerIdx >= 0 ? (dealerIdx + 1) % tableSize : -1;
-  const bbIdx = dealerIdx >= 0 ? (dealerIdx + 2) % tableSize : -1;
+  // Heads-up (2 players): BTN posts SB, the other seat is BB
+  const sbIdx = dealerIdx >= 0 ? (tableSize === 2 ? dealerIdx : (dealerIdx + 1) % tableSize) : -1;
+  const bbIdx = dealerIdx >= 0 ? (tableSize === 2 ? (dealerIdx + 1) % 2 : (dealerIdx + 2) % tableSize) : -1;
 
   const board = useMemo(() => {
     const b = [...flop];
