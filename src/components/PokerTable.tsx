@@ -83,6 +83,11 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, folded, onSeatClick
             onClick={() => onModeChange("user")}
             className={cn("px-3 py-1 rounded transition flex items-center gap-1", mode === "user" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
           ><User className="w-3 h-3" /> You</button>
+          <button
+            onClick={() => onModeChange("fold")}
+            className={cn("px-3 py-1 rounded transition flex items-center gap-1", mode === "fold" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}
+            title="Toggle player folded/active"
+          >Fold</button>
         </div>
       </div>
 
