@@ -121,7 +121,7 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onMode
                     : "bg-card/90 text-foreground border-border hover:border-primary/60",
               )}
               style={{ left: `${x}%`, top: `${y}%` }}
-              aria-label={`Seat ${i + 1} ${label}`}
+              aria-label={`Seat ${i + 1} ${label}${isDealer ? " dealer" : ""}${isUser ? " you" : ""}`}
             >
               {isDealer && <Crown className="w-3 h-3 absolute -top-1.5 -right-1.5 text-primary fill-primary" />}
               {isUser && <User className="w-3 h-3 absolute -top-1.5 -left-1.5" />}
