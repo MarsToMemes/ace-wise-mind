@@ -142,6 +142,13 @@ const Index = () => {
     const effAdjScore = Math.max(0, adjScore + rangeMods.strengthDelta);
     const effEquityPct = Math.max(0, Math.min(100, equityPct + rangeMods.aggressionDelta * 5));
 
+    // Detect "facing a raise": hero has already bet/raised this street AND there is now a higher bet to call
+    const heroBetThisStreet = userIdx >= 0 && streetActions.some(
+      a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
+    );
+    const facingRaise = heroBetThisStreet && userToCall > 0;
+    const betSizePct = dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : 0;
+
     const decision = decide({
       baseScore: ev.score,
       adjScore: effAdjScore,
@@ -149,6 +156,12 @@ const Index = () => {
       equityPct: effEquityPct,
       potOddsPct: po ? po.reqEquity : null,
       boardLen: board.length,
+      facingRaise,
+      betSizePct,
+      street: currentStreet,
+      texture,
+      opponents,
+      position,
     });
     const sizing = recommendSizing({
       street: currentStreet,
