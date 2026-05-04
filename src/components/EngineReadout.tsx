@@ -104,19 +104,19 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
         <Card className="glass-panel p-5">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
-              <TrendingUp className="w-3.5 h-3.5" /> Opponent Range Read
+              <TrendingUp className="w-3.5 h-3.5" /> {t("engine.opponentRange")}
             </div>
             <div className="flex gap-1.5 flex-wrap justify-end">
               <Badge variant="outline" className="text-xs">{result.rangeReadout.dominantRangeType}</Badge>
               <Badge variant="outline" className="text-xs">~{result.rangeReadout.aggregateStrength}/100</Badge>
-              <Badge variant="outline" className="text-xs">Bluff {(result.rangeReadout.aggregateBluffFreq * 100).toFixed(0)}%</Badge>
+              <Badge variant="outline" className="text-xs">{t("engine.bluff")} {(result.rangeReadout.aggregateBluffFreq * 100).toFixed(0)}%</Badge>
             </div>
           </div>
           <ul className="text-xs text-muted-foreground space-y-1 mt-2">
             {result.rangeReadout.opponents.map(o => (
               <li key={o.seatIdx}>
-                <span className="text-foreground font-medium">{o.position || `Seat ${o.seatIdx + 1}`}</span>
-                : {o.estimatedStrength}/100 · {o.rangeType} · bluff {(o.bluffFrequency * 100).toFixed(0)}%
+                <span className="text-foreground font-medium">{o.position || `${t("engine.seat")} ${o.seatIdx + 1}`}</span>
+                : {o.estimatedStrength}/100 · {o.rangeType} · {t("engine.bluff").toLowerCase()} {(o.bluffFrequency * 100).toFixed(0)}%
               </li>
             ))}
           </ul>
