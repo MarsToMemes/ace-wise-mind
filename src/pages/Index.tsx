@@ -164,10 +164,20 @@ const Index = () => {
     setAiResult(null); setAiError(null);
     setPickMode("hole");
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
+    setFolded(Array(tableSize).fill(false));
     setStack(100); setPot(10); setCall(0);
   };
 
   const handleSeatClick = (i: number) => {
+    if (seatMode === "fold") {
+      // Toggle this seat's active/folded state — instant, no reset required
+      setFolded(prev => {
+        const next = [...prev];
+        next[i] = !next[i];
+        return next;
+      });
+      return;
+    }
     if (seatMode === "dealer") {
       // Dealer and "You" may overlap — both roles can coexist on the same seat
       setDealerIdx(i);
@@ -181,6 +191,7 @@ const Index = () => {
   const handleSizeChange = (s: TableSize) => {
     setTableSize(s);
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
+    setFolded(Array(s).fill(false));
   };
 
   const runAI = async () => {
