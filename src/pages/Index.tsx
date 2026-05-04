@@ -179,14 +179,17 @@ const Index = () => {
           },
           handCategory: engine.category,
           handScore: engine.score,
+          adjScore: engine.adjScore,
           drawType: engine.drawType,
           outs: engine.outs,
+          equityPct: engine.equityPct,
           texture: engine.texture,
           potOdds: engine.potOdds ? (engine.potOdds * 100).toFixed(1) + "%" : null,
           reqEquity: engine.reqEquity ? engine.reqEquity.toFixed(1) + "%" : null,
           heroRA: engine.heroRA,
           villainRA: engine.villainRA,
           suggestedAction: engine.suggestedAction,
+          decisionReason: engine.decisionReason,
         },
       });
       if (error) throw error;
