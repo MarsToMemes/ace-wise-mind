@@ -15,6 +15,7 @@ import {
   potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
 } from "@/lib/pokerEngine";
 import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
+import { buildExplanation } from "@/lib/explanationEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
@@ -275,11 +276,11 @@ const Index = () => {
       const sizing = engine.sizing;
       const rr = engine.rangeReadout;
       const ip = ["BTN", "CO", "HJ"].includes(position);
-      const reasoning =
-        `${engine.category} (adj ${engine.adjScore}). ` +
-        (engine.equityPct != null ? t("local.equity", { n: Math.round(engine.equityPct) }) + " " : "") +
-        (engine.potOdds ? t("local.potOdds", { odds: (engine.potOdds * 100).toFixed(1), need: engine.reqEquity?.toFixed(1) ?? "0" }) + " " : "") +
-        (engine.decisionReason || "");
+      const explanation = buildExplanation({
+        engine, street: currentStreet, position, opponents,
+        userToCall, pot: dynamicPot, lang,
+      });
+      const reasoning = explanation.fullText;
       const sizingLine = sizing
         ? `${t(`act.${sizing.heroAction}`) || sizing.heroAction} ${sizing.amountBB} BB (${sizing.pctMin}–${sizing.pctMax}% ${t("engine.ofPot")}) — ${sizing.intent}. ${sizing.explanation}`
         : t("local.noBet");
