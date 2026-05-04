@@ -63,13 +63,13 @@ export const TrainingMode = () => {
     setAiLoading(true);
     try {
       // Local deterministic coach feedback — no external AI.
-      const verdict = ev.correct ? "Correct decision" : `Suboptimal — optimal was ${s.correctAction}`;
-      const evLine = `EV diff ${ev.evDiff} BB (you ${ev.evUser} vs optimal ${ev.evOptimal}).`;
+      const verdict = ev.correct ? t("tm.correct") : t("tm.suboptimal", { a: s.correctAction });
+      const evLine = t("tm.evLine", { d: ev.evDiff, u: ev.evUser, o: ev.evOptimal });
       const rangeLine = range
-        ? (ev.rangeCorrect ? "Range read aligned with engine." : `Range read off — engine implied ${s.impliedOpponentRange}.`)
-        : "No range guess provided.";
-      const leakLine = ev.leakTags.length ? `Leaks: ${ev.leakTags.join(", ")}.` : "No major leaks.";
-      setAiCoach(`${verdict}. ${evLine} ${rangeLine} ${leakLine} Reason: ${s.reason}`);
+        ? (ev.rangeCorrect ? t("tm.rangeOk") : t("tm.rangeOff", { r: s.impliedOpponentRange }))
+        : t("tm.noRange");
+      const leakLine = ev.leakTags.length ? t("tm.leaks", { l: ev.leakTags.join(", ") }) : t("tm.noLeaks");
+      setAiCoach(`${verdict}. ${evLine} ${rangeLine} ${leakLine} ${t("tm.reason")}: ${s.reason}`);
     } catch {}
     setAiLoading(false);
   }, [stats, lang]);

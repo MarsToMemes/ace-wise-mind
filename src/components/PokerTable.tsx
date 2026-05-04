@@ -81,7 +81,7 @@ export const PokerTable = ({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 rounded-md bg-muted p-1 text-xs">
-          <label htmlFor="table-size" className="px-2 text-muted-foreground">Seats</label>
+          <label htmlFor="table-size" className="px-2 text-muted-foreground">{t("table.seats")}</label>
           <select
             id="table-size"
             value={size}
@@ -92,10 +92,10 @@ export const PokerTable = ({
           </select>
         </div>
         <div className="flex gap-1 rounded-md bg-muted p-1 text-xs flex-wrap">
-          <button onClick={() => onModeChange("dealer")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "dealer" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><Crown className="w-3 h-3" /> Dealer</button>
-          <button onClick={() => onModeChange("user")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "user" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><User className="w-3 h-3" /> You</button>
-          <button onClick={() => onModeChange("fold")} className={cn("px-2.5 py-1 rounded transition", mode === "fold" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}>Fold</button>
-          <button onClick={() => onModeChange("action")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "action" ? "bg-primary text-primary-foreground" : "text-muted-foreground")} title="Record player actions"><Coins className="w-3 h-3" /> Action</button>
+          <button onClick={() => onModeChange("dealer")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "dealer" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><Crown className="w-3 h-3" /> {t("table.dealer")}</button>
+          <button onClick={() => onModeChange("user")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "user" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}><User className="w-3 h-3" /> {t("table.you")}</button>
+          <button onClick={() => onModeChange("fold")} className={cn("px-2.5 py-1 rounded transition", mode === "fold" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}>{t("table.fold")}</button>
+          <button onClick={() => onModeChange("action")} className={cn("px-2.5 py-1 rounded transition flex items-center gap-1", mode === "action" ? "bg-primary text-primary-foreground" : "text-muted-foreground")} title={t("table.clickAction")}><Coins className="w-3 h-3" /> {t("table.action")}</button>
         </div>
       </div>
 
@@ -110,7 +110,7 @@ export const PokerTable = ({
           <div className="text-center">
             <p className="display gold-text text-lg leading-none">Ace Analyst</p>
             <p className="text-[10px] uppercase tracking-widest text-[hsl(45_30%_70%/0.6)] mt-1">
-              {dealerIdx < 0 ? "Click a seat: Dealer" : userIdx < 0 ? "Click your seat" : mode === "action" ? "Click seat to record action" : "Ready"}
+              {dealerIdx < 0 ? t("table.clickDealer") : userIdx < 0 ? t("table.clickUser") : mode === "action" ? t("table.clickAction") : t("table.ready")}
             </p>
           </div>
         </div>
@@ -150,8 +150,8 @@ export const PokerTable = ({
                 {isDealer && <Crown className="w-3 h-3 absolute -top-1.5 -right-1.5 text-primary fill-primary" />}
                 {isUser && <User className="w-3 h-3 absolute -top-1.5 -left-1.5" />}
                 <span className="leading-tight">{label || `S${i + 1}`}</span>
-                {isUser && !isFolded && <span className="text-[8px] opacity-80 leading-none">YOU</span>}
-                {isFolded && <span className="text-[8px] leading-none">FOLD</span>}
+                {isUser && !isFolded && <span className="text-[8px] opacity-80 leading-none">{t("table.you2")}</span>}
+                {isFolded && <span className="text-[8px] leading-none">{t("table.foldedBadge")}</span>}
               </button>
 
               {/* Chips in front of player */}
@@ -179,7 +179,7 @@ export const PokerTable = ({
                     last.type === "Call" && "bg-primary/15 text-primary border-primary/40",
                     (last.type === "Bet" || last.type === "Raise") && "bg-warning/20 text-[hsl(var(--warning))] border-[hsl(var(--warning))]/40",
                   )}>
-                    {last.type}{last.amountBB > 0 ? ` ${last.amountBB}` : ""}
+                    {t(`act.${last.type}`)}{last.amountBB > 0 ? ` ${last.amountBB}` : ""}
                   </span>
                 </div>
               )}

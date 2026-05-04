@@ -3,6 +3,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/lib/i18n";
 
 export type ActionType = "Fold" | "Check" | "Call" | "Bet" | "Raise";
 export interface PlayerAction {
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRaise, onAction }: Props) => {
+  const { t } = useI18n();
   const [amt, setAmt] = useState<number>(defaultRaise);
 
   const submit = (type: ActionType) => {
@@ -51,29 +53,29 @@ export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRais
       <PopoverContent className="w-64 z-50" side="bottom" align="center">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            Player action {currentBet > 0 ? `· facing ${currentBet} BB` : ""}
+            {t("action.title")} {currentBet > 0 ? `· ${t("action.facing", { n: currentBet })}` : ""}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <Button size="sm" variant="destructive" onClick={() => submit("Fold")}>Fold</Button>
+            <Button size="sm" variant="destructive" onClick={() => submit("Fold")}>{t("action.fold")}</Button>
             <Button
               size="sm"
               variant="secondary"
               onClick={() => submit("Check")}
               disabled={currentBet > 0}
-            >Check</Button>
+            >{t("action.check")}</Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => submit("Call")}
               disabled={currentBet <= 0}
-            >Call {currentBet > 0 ? `${currentBet}` : ""}</Button>
+            >{t("action.call")} {currentBet > 0 ? `${currentBet}` : ""}</Button>
             <Button
               size="sm"
               onClick={() => submit(currentBet > 0 ? "Raise" : "Bet")}
-            >{currentBet > 0 ? "Raise" : "Bet"}</Button>
+            >{currentBet > 0 ? t("action.raise") : t("action.bet")}</Button>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Bet / Raise size (BB)</Label>
+            <Label className="text-xs">{t("action.size")}</Label>
             <Input
               type="number"
               min={currentBet || 1}
