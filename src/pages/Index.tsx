@@ -177,7 +177,7 @@ const Index = () => {
     }
   };
 
-  const positions: Position[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
+  
 
   return (
     <div className="min-h-screen">
@@ -218,21 +218,21 @@ const Index = () => {
           </Card>
 
           <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">Context</h2>
+            <h2 className="display text-xl mb-4">Table & Position</h2>
+            <PokerTable
+              size={tableSize}
+              dealerIdx={dealerIdx}
+              userIdx={userIdx}
+              mode={seatMode}
+              onSeatClick={handleSeatClick}
+              onModeChange={setSeatMode}
+              onSizeChange={handleSizeChange}
+            />
+          </Card>
+
+          <Card className="glass-panel p-6">
+            <h2 className="display text-xl mb-4">Stakes</h2>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Position</Label>
-                <Select value={position} onValueChange={v => setPosition(v as Position)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {positions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Opponents</Label>
-                <Input type="number" min={1} max={9} value={opponents} onChange={e => setOpponents(+e.target.value)} />
-              </div>
               <div className="space-y-1.5">
                 <Label>Stack (BB)</Label>
                 <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
