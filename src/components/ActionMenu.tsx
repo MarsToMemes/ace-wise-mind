@@ -23,6 +23,7 @@ interface Props {
 }
 
 export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRaise, onAction }: Props) => {
+  const { t } = useI18n();
   const [amt, setAmt] = useState<number>(defaultRaise);
 
   const submit = (type: ActionType) => {
