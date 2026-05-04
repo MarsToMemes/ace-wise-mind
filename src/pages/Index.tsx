@@ -15,11 +15,14 @@ import {
 } from "@/lib/pokerEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useI18n } from "@/lib/i18n";
+import { LanguageSelector } from "@/components/LanguageSelector";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
 
 const Index = () => {
+  const { t, lang } = useI18n();
   const [hole, setHole] = useState<string[]>([]);
   const [flop, setFlop] = useState<string[]>([]);
   const [turn, setTurn] = useState<string | null>(null);
@@ -93,29 +96,29 @@ const Index = () => {
     if (selected.includes(card)) return removeCard(card);
 
     if (pickMode === "hole") {
-      if (hole.length >= 2) { toast.error("Hole cards already chosen"); return; }
+      if (hole.length >= 2) { toast.error(t("toast.holeFull")); return; }
       const next = [...hole, card];
       setHole(next);
       if (next.length === 2) setPickMode("flop");
       return;
     }
     if (pickMode === "flop") {
-      if (flop.length >= 3) { toast.error("Flop is full"); return; }
+      if (flop.length >= 3) { toast.error(t("toast.flopFull")); return; }
       const next = [...flop, card];
       setFlop(next);
       if (next.length === 3) setPickMode("turn");
       return;
     }
     if (pickMode === "turn") {
-      if (flop.length < 3) { toast.error("Complete the flop first"); return; }
-      if (turn) { toast.error("Turn already set"); return; }
+      if (flop.length < 3) { toast.error(t("toast.completeFlop")); return; }
+      if (turn) { toast.error(t("toast.turnSet")); return; }
       setTurn(card);
       setPickMode("river");
       return;
     }
     if (pickMode === "river") {
-      if (!turn) { toast.error("Set the turn first"); return; }
-      if (river) { toast.error("River already set"); return; }
+      if (!turn) { toast.error(t("toast.setTurn")); return; }
+      if (river) { toast.error(t("toast.riverSet")); return; }
       setRiver(card);
     }
   };
@@ -134,7 +137,7 @@ const Index = () => {
       if (userIdx === i) setUserIdx(-1);
       setSeatMode("user");
     } else {
-      if (i === dealerIdx) { toast.error("That seat is the dealer"); return; }
+      if (i === dealerIdx) { toast.error(t("toast.dealerSeat")); return; }
       setUserIdx(i);
     }
   };
@@ -145,13 +148,14 @@ const Index = () => {
   };
 
   const runAI = async () => {
-    if (!engine) { toast.error("Pick your hole cards first"); return; }
+    if (!engine) { toast.error(t("toast.pickHole")); return; }
     setAiLoading(true); setAiError(null); setAiResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("poker-coach", {
         body: {
           hole, board, flop, turn, river,
           currentStreet,
+          lang,
           position, opponents, stack, pot, call,
           table: {
             number_of_players: tableSize,
@@ -196,13 +200,16 @@ const Index = () => {
               <Spade className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="display text-2xl gold-text leading-none">Ace Analyst</h1>
-              <p className="text-xs text-muted-foreground">AI poker hand analyzer</p>
+              <h1 className="display text-2xl gold-text leading-none">{t("app.title")}</h1>
+              <p className="text-xs text-muted-foreground">{t("app.subtitle")}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={reset} className="gold-border">
-            <RotateCcw className="w-4 h-4 mr-2" /> Reset
-          </Button>
+          <div className="flex items-center gap-2">
+            <LanguageSelector />
+            <Button variant="outline" size="sm" onClick={reset} className="gold-border">
+              <RotateCcw className="w-4 h-4 mr-2" /> {t("btn.reset")}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -220,13 +227,13 @@ const Index = () => {
               currentStreet={currentStreet}
             />
             <div className="pt-5 mt-5 border-t border-border/40">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Deck</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{t("section.deck")}</p>
               <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
             </div>
           </Card>
 
           <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">Table & Position</h2>
+            <h2 className="display text-xl mb-4">{t("section.tableAndPosition")}</h2>
             <PokerTable
               size={tableSize}
               dealerIdx={dealerIdx}
@@ -239,18 +246,18 @@ const Index = () => {
           </Card>
 
           <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">Stakes</h2>
+            <h2 className="display text-xl mb-4">{t("section.stakes")}</h2>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Stack (BB)</Label>
+                <Label>{t("field.stack")}</Label>
                 <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
               </div>
               <div className="space-y-1.5">
-                <Label>Pot (BB)</Label>
+                <Label>{t("field.pot")}</Label>
                 <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} />
               </div>
               <div className="space-y-1.5 col-span-2">
-                <Label>Call amount (BB) — optional</Label>
+                <Label>{t("field.call")}</Label>
                 <Input type="number" min={0} value={call} onChange={e => setCall(+e.target.value)} />
               </div>
             </div>
@@ -267,7 +274,7 @@ const Index = () => {
             style={{ background: "var(--gradient-gold)", color: "hsl(var(--primary-foreground))" }}
           >
             <Sparkles className="w-5 h-5 mr-2" />
-            {aiLoading ? "Analyzing…" : `Run Pro Coach (${currentStreet})`}
+            {aiLoading ? t("btn.analyzing") : `${t("btn.runAi")} (${currentStreet})`}
           </Button>
 
           <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
@@ -275,7 +282,7 @@ const Index = () => {
       </main>
 
       <footer className="container py-8 text-center text-xs text-muted-foreground">
-        Deterministic engine + AI strategic explanation. For educational use.
+        {t("footer.note")}
       </footer>
     </div>
   );

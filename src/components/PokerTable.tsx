@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Crown, User } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export type TableSize = 6 | 9;
 export type SimplePosition = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onModeChange, onSizeChange }: Props) => {
+  const { t } = useI18n();
   // seat positions on an ellipse
   const seats = Array.from({ length: size }, (_, i) => {
     // Start at top (-90deg) and go clockwise

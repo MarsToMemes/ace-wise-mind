@@ -1,6 +1,7 @@
 import { PlayingCard } from "./PlayingCard";
 import { cn } from "@/lib/utils";
 import { Lock } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 
@@ -62,6 +63,7 @@ const Section = ({
 export const StreetSlots = ({
   hole, flop, turn, river, pickMode, setPickMode, onRemove, currentStreet,
 }: SlotsProps) => {
+  const { t } = useI18n();
   const flopComplete = flop.length === 3;
   const turnLocked = !flopComplete;
   const riverLocked = !turn;
@@ -69,12 +71,12 @@ export const StreetSlots = ({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Selection</p>
-        <span className="text-xs font-semibold gold-text">Street: {currentStreet}</span>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">{t("slots.selection")}</p>
+        <span className="text-xs font-semibold gold-text">{t("slots.street")}: {currentStreet}</span>
       </div>
 
       <Section
-        title="Your Hand"
+        title={t("slots.yourHand")}
         badge={`${hole.length}/2`}
         active={pickMode === "hole"}
         locked={false}
@@ -85,7 +87,7 @@ export const StreetSlots = ({
       </Section>
 
       <Section
-        title="Flop"
+        title={t("slots.flop")}
         badge={`${flop.length}/3`}
         active={pickMode === "flop"}
         locked={false}
@@ -97,8 +99,8 @@ export const StreetSlots = ({
       </Section>
 
       <Section
-        title="Turn"
-        badge={turnLocked ? "Locked" : turn ? "1/1" : "0/1"}
+        title={t("slots.turn")}
+        badge={turnLocked ? t("slots.locked") : turn ? "1/1" : "0/1"}
         active={pickMode === "turn"}
         locked={turnLocked}
         onActivate={() => !turnLocked && setPickMode("turn")}
@@ -107,8 +109,8 @@ export const StreetSlots = ({
       </Section>
 
       <Section
-        title="River"
-        badge={riverLocked ? "Locked" : river ? "1/1" : "0/1"}
+        title={t("slots.river")}
+        badge={riverLocked ? t("slots.locked") : river ? "1/1" : "0/1"}
         active={pickMode === "river"}
         locked={riverLocked}
         onActivate={() => !riverLocked && setPickMode("river")}

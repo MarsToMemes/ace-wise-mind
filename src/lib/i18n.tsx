@@ -1,0 +1,171 @@
+import { createContext, useContext, useState, ReactNode } from "react";
+
+export type Lang = "en" | "fr";
+
+type Dict = Record<string, string>;
+
+const translations: Record<Lang, Dict> = {
+  en: {
+    "app.title": "Ace Analyst",
+    "app.subtitle": "AI poker hand analyzer",
+    "btn.reset": "Reset",
+    "btn.runAi": "Run Pro Coach",
+    "btn.analyzing": "Analyzing…",
+    "section.tableAndPosition": "Table & Position",
+    "section.stakes": "Stakes",
+    "section.deck": "Deck",
+    "field.stack": "Stack (BB)",
+    "field.pot": "Pot (BB)",
+    "field.call": "Call amount (BB) — optional",
+    "slots.yourHand": "Your Hand",
+    "slots.flop": "Flop",
+    "slots.turn": "Turn",
+    "slots.river": "River",
+    "slots.locked": "Locked",
+    "slots.selection": "Selection",
+    "slots.street": "Street",
+    "table.6max": "6-max",
+    "table.9max": "9-max",
+    "table.dealer": "Dealer",
+    "table.you": "You",
+    "table.clickDealer": "Click a seat: Dealer",
+    "table.clickUser": "Click your seat",
+    "table.ready": "Ready",
+    "table.dealerSet": "✓ Dealer set",
+    "table.setDealer": "Set dealer (BTN)",
+    "table.yourPosition": "Your position",
+    "engine.recommendation": "Recommendation",
+    "engine.engine": "Engine",
+    "engine.handStrength": "Hand Strength",
+    "engine.score": "Score",
+    "engine.draw": "Draw",
+    "engine.outs": "outs",
+    "engine.texture": "Texture",
+    "engine.heroRange": "Hero Range",
+    "engine.villainRange": "Villain Range",
+    "engine.potOdds": "Pot Odds",
+    "engine.needEquity": "Need {n}% equity",
+    "engine.empty": "Select your hole cards to begin analysis.",
+    "ai.coach": "AI Pro Coach",
+    "ai.thinking": "Pro Coach is thinking…",
+    "ai.confidence": "{n}% confidence",
+    "ai.streetStrategy": "Street Strategy",
+    "ai.thisStreet": "This street",
+    "ai.turnPlan": "Turn plan",
+    "ai.riverPlan": "River plan",
+    "ai.ifThen": "If / Then Lines",
+    "ai.rangeThinking": "Range Thinking",
+    "ai.youRepresent": "You represent",
+    "ai.opponentRepresents": "Opponent represents",
+    "ai.keyConcepts": "Key Concepts",
+    "ai.avoid": "Avoid",
+    "ai.error": "AI Analysis Error",
+    "footer.note": "Deterministic engine + AI strategic explanation. For educational use.",
+    "toast.holeFull": "Hole cards already chosen",
+    "toast.flopFull": "Flop is full",
+    "toast.completeFlop": "Complete the flop first",
+    "toast.turnSet": "Turn already set",
+    "toast.setTurn": "Set the turn first",
+    "toast.riverSet": "River already set",
+    "toast.pickHole": "Pick your hole cards first",
+    "toast.dealerSeat": "That seat is the dealer",
+    "lang.label": "Language",
+  },
+  fr: {
+    "app.title": "Ace Analyst",
+    "app.subtitle": "Analyseur de mains IA",
+    "btn.reset": "Réinitialiser",
+    "btn.runAi": "Lancer le Coach Pro",
+    "btn.analyzing": "Analyse…",
+    "section.tableAndPosition": "Table & Position",
+    "section.stakes": "Mises",
+    "section.deck": "Paquet",
+    "field.stack": "Tapis (BB)",
+    "field.pot": "Pot (BB)",
+    "field.call": "Montant à suivre (BB) — optionnel",
+    "slots.yourHand": "Votre main",
+    "slots.flop": "Flop",
+    "slots.turn": "Turn",
+    "slots.river": "River",
+    "slots.locked": "Verrouillé",
+    "slots.selection": "Sélection",
+    "slots.street": "Tour",
+    "table.6max": "6 joueurs",
+    "table.9max": "9 joueurs",
+    "table.dealer": "Donneur",
+    "table.you": "Vous",
+    "table.clickDealer": "Cliquez sur un siège : Donneur",
+    "table.clickUser": "Cliquez sur votre siège",
+    "table.ready": "Prêt",
+    "table.dealerSet": "✓ Donneur défini",
+    "table.setDealer": "Définir le donneur (BTN)",
+    "table.yourPosition": "Votre position",
+    "engine.recommendation": "Recommandation",
+    "engine.engine": "Moteur",
+    "engine.handStrength": "Force de la main",
+    "engine.score": "Score",
+    "engine.draw": "Tirage",
+    "engine.outs": "outs",
+    "engine.texture": "Texture",
+    "engine.heroRange": "Range du Héros",
+    "engine.villainRange": "Range du Vilain",
+    "engine.potOdds": "Cote du pot",
+    "engine.needEquity": "Équité requise {n}%",
+    "engine.empty": "Sélectionnez vos cartes privées pour commencer.",
+    "ai.coach": "Coach Pro IA",
+    "ai.thinking": "Le Coach Pro réfléchit…",
+    "ai.confidence": "Confiance {n}%",
+    "ai.streetStrategy": "Stratégie par tour",
+    "ai.thisStreet": "Ce tour",
+    "ai.turnPlan": "Plan turn",
+    "ai.riverPlan": "Plan river",
+    "ai.ifThen": "Lignes conditionnelles",
+    "ai.rangeThinking": "Lecture des ranges",
+    "ai.youRepresent": "Vous représentez",
+    "ai.opponentRepresents": "Adversaire représente",
+    "ai.keyConcepts": "Concepts clés",
+    "ai.avoid": "À éviter",
+    "ai.error": "Erreur d'analyse IA",
+    "footer.note": "Moteur déterministe + analyse stratégique IA. À usage éducatif.",
+    "toast.holeFull": "Cartes privées déjà choisies",
+    "toast.flopFull": "Le flop est complet",
+    "toast.completeFlop": "Complétez d'abord le flop",
+    "toast.turnSet": "Turn déjà défini",
+    "toast.setTurn": "Définissez d'abord le turn",
+    "toast.riverSet": "River déjà défini",
+    "toast.pickHole": "Choisissez d'abord vos cartes privées",
+    "toast.dealerSeat": "Ce siège est celui du donneur",
+    "lang.label": "Langue",
+  },
+};
+
+interface I18nCtx {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}
+
+const Ctx = createContext<I18nCtx | null>(null);
+
+export const I18nProvider = ({ children }: { children: ReactNode }) => {
+  const [lang, setLangState] = useState<Lang>(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("lang") : null;
+    return (saved === "fr" || saved === "en") ? saved : "en";
+  });
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try { localStorage.setItem("lang", l); } catch {}
+  };
+  const t = (key: string, vars?: Record<string, string | number>) => {
+    let s = translations[lang][key] ?? translations.en[key] ?? key;
+    if (vars) Object.entries(vars).forEach(([k, v]) => { s = s.replace(`{${k}}`, String(v)); });
+    return s;
+  };
+  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
+};
+
+export const useI18n = () => {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error("useI18n must be inside I18nProvider");
+  return ctx;
+};

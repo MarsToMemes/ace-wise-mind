@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Brain, Target, Route, Users, Lightbulb, AlertTriangle } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export interface AIAnalysis {
   decision_explanation: { action: string; reasoning: string; confidence: number };
@@ -16,10 +17,11 @@ export const AIPanel = ({ analysis, loading, error }: {
   loading: boolean;
   error: string | null;
 }) => {
+  const { t } = useI18n();
   if (error) {
     return (
       <Card className="glass-panel p-6 border-destructive/40">
-        <p className="text-destructive font-semibold mb-1">AI Analysis Error</p>
+        <p className="text-destructive font-semibold mb-1">{t("ai.error")}</p>
         <p className="text-sm text-muted-foreground">{error}</p>
       </Card>
     );
@@ -30,7 +32,7 @@ export const AIPanel = ({ analysis, loading, error }: {
       <Card className="glass-panel p-6 space-y-3">
         <div className="flex items-center gap-2 text-primary">
           <Brain className="w-5 h-5 animate-pulse" />
-          <span className="display text-lg">Pro Coach is thinking…</span>
+          <span className="display text-lg">{t("ai.thinking")}</span>
         </div>
         {[...Array(4)].map((_, i) => (
           <div key={i} className="shimmer h-4 rounded w-full" style={{ width: `${85 - i * 10}%` }} />
@@ -49,10 +51,10 @@ export const AIPanel = ({ analysis, loading, error }: {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Brain className="w-5 h-5 text-primary" />
-            <span className="text-xs uppercase tracking-widest text-muted-foreground">AI Pro Coach</span>
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">{t("ai.coach")}</span>
           </div>
           <Badge variant="outline" className="gold-border text-primary">
-            {Math.round(d.confidence * 100)}% confidence
+            {t("ai.confidence", { n: Math.round(d.confidence * 100) })}
           </Badge>
         </div>
         <h3 className="display text-2xl gold-text mb-2">{d.action}</h3>
@@ -62,19 +64,19 @@ export const AIPanel = ({ analysis, loading, error }: {
       <Card className="glass-panel p-6">
         <div className="flex items-center gap-2 mb-3">
           <Route className="w-4 h-4 text-primary" />
-          <h4 className="display text-lg">Street Strategy</h4>
+          <h4 className="display text-lg">{t("ai.streetStrategy")}</h4>
         </div>
         <div className="space-y-3 text-sm">
-          <Section label="This street" text={s.current_street_plan} />
-          <Section label="Turn plan" text={s.turn_plan} />
-          <Section label="River plan" text={s.river_plan} />
+          <Section label={t("ai.thisStreet")} text={s.current_street_plan} />
+          <Section label={t("ai.turnPlan")} text={s.turn_plan} />
+          <Section label={t("ai.riverPlan")} text={s.river_plan} />
         </div>
       </Card>
 
       <Card className="glass-panel p-6">
         <div className="flex items-center gap-2 mb-3">
           <Target className="w-4 h-4 text-primary" />
-          <h4 className="display text-lg">If / Then Lines</h4>
+          <h4 className="display text-lg">{t("ai.ifThen")}</h4>
         </div>
         <ul className="space-y-2">
           {analysis.conditional_lines.map((l, i) => (
@@ -89,17 +91,17 @@ export const AIPanel = ({ analysis, loading, error }: {
       <Card className="glass-panel p-6">
         <div className="flex items-center gap-2 mb-3">
           <Users className="w-4 h-4 text-primary" />
-          <h4 className="display text-lg">Range Thinking</h4>
+          <h4 className="display text-lg">{t("ai.rangeThinking")}</h4>
         </div>
-        <Section label="You represent" text={r.what_you_represent} />
-        <div className="mt-3"><Section label="Opponent represents" text={r.what_opponent_represents} /></div>
+        <Section label={t("ai.youRepresent")} text={r.what_you_represent} />
+        <div className="mt-3"><Section label={t("ai.opponentRepresents")} text={r.what_opponent_represents} /></div>
       </Card>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="glass-panel p-6">
           <div className="flex items-center gap-2 mb-3">
             <Lightbulb className="w-4 h-4 text-primary" />
-            <h4 className="display text-lg">Key Concepts</h4>
+            <h4 className="display text-lg">{t("ai.keyConcepts")}</h4>
           </div>
           <div className="flex flex-wrap gap-2">
             {analysis.key_concepts.map((k, i) => (
@@ -111,7 +113,7 @@ export const AIPanel = ({ analysis, loading, error }: {
         <Card className="glass-panel p-6">
           <div className="flex items-center gap-2 mb-3">
             <AlertTriangle className="w-4 h-4 text-destructive" />
-            <h4 className="display text-lg">Avoid</h4>
+            <h4 className="display text-lg">{t("ai.avoid")}</h4>
           </div>
           <ul className="space-y-1.5 text-sm">
             {analysis.mistakes_to_avoid.map((m, i) => (
