@@ -11,7 +11,7 @@ import { AIPanel, AIAnalysis } from "@/components/AIPanel";
 import { PokerTable, TableSize, labelToPosition, seatLabel } from "@/components/PokerTable";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
-  potOdds, suggestAction,
+  potOdds, estimateEquity, adjustedScore, decide,
 } from "@/lib/pokerEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -70,13 +70,25 @@ const Index = () => {
     const texture = classifyTexture(board);
     const ra = rangeAdvantage(position, board);
     const po = potOdds(call, pot);
-    const action = suggestAction({ score: ev.score, outs: draws.outs, potOdds: po?.odds ?? null });
+    const equityPct = estimateEquity(draws.outs, board.length);
+    const adjScore = adjustedScore({ baseScore: ev.score, outs: draws.outs, texture, position });
+    const decision = decide({
+      baseScore: ev.score,
+      adjScore,
+      outs: draws.outs,
+      equityPct,
+      potOddsPct: po ? po.reqEquity : null,
+      boardLen: board.length,
+    });
     return {
       category: ev.category, score: ev.score,
+      adjScore,
       drawType: draws.drawType, outs: draws.outs,
+      equityPct,
       texture, heroRA: ra.hero, villainRA: ra.villain,
       potOdds: po?.odds ?? null, reqEquity: po?.reqEquity ?? null,
-      suggestedAction: action,
+      suggestedAction: decision.action,
+      decisionReason: decision.reason,
     };
   }, [hole, board, position, pot, call]);
 
