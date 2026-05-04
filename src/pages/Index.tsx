@@ -123,8 +123,25 @@ const Index = () => {
   const reset = () => {
     setHole([]); setFlop([]); setTurn(null); setRiver(null);
     setAiResult(null); setAiError(null);
-    setPickMode("hole"); setOpponents(2); setPosition("BTN");
+    setPickMode("hole");
+    setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setStack(100); setPot(10); setCall(0);
+  };
+
+  const handleSeatClick = (i: number) => {
+    if (seatMode === "dealer") {
+      setDealerIdx(i);
+      if (userIdx === i) setUserIdx(-1);
+      setSeatMode("user");
+    } else {
+      if (i === dealerIdx) { toast.error("That seat is the dealer"); return; }
+      setUserIdx(i);
+    }
+  };
+
+  const handleSizeChange = (s: TableSize) => {
+    setTableSize(s);
+    setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
   };
 
   const runAI = async () => {
