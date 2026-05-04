@@ -17,12 +17,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TrainingMode } from "@/components/TrainingMode";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
 
 const Index = () => {
   const { t, lang } = useI18n();
+  const [appMode, setAppMode] = useState<"analyzer" | "training">("analyzer");
   const [hole, setHole] = useState<string[]>([]);
   const [flop, setFlop] = useState<string[]>([]);
   const [turn, setTurn] = useState<string | null>(null);
