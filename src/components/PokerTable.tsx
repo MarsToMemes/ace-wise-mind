@@ -60,15 +60,18 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onMode
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex gap-1 rounded-md bg-muted p-1 text-xs">
-          <button
-            onClick={() => onSizeChange(6)}
-            className={cn("px-3 py-1 rounded transition", size === 6 ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-          >6-max</button>
-          <button
-            onClick={() => onSizeChange(9)}
-            className={cn("px-3 py-1 rounded transition", size === 9 ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-          >9-max</button>
+        <div className="flex items-center gap-2 rounded-md bg-muted p-1 text-xs">
+          <label htmlFor="table-size" className="px-2 text-muted-foreground">Seats</label>
+          <select
+            id="table-size"
+            value={size}
+            onChange={(e) => onSizeChange(Number(e.target.value) as TableSize)}
+            className="bg-card text-foreground rounded px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {TABLE_SIZES.map((n) => (
+              <option key={n} value={n}>{n}-max</option>
+            ))}
+          </select>
         </div>
         <div className="flex gap-1 rounded-md bg-muted p-1 text-xs">
           <button
