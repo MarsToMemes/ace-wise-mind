@@ -227,7 +227,7 @@ const Index = () => {
       category: ev.category, score: ev.score,
       adjScore,
       drawType: draws.drawType, outs: draws.outs,
-      equityPct,
+      equityPct: hvr ? hvr.equity_percentage : equityPct,
       texture, heroRA: ra.hero, villainRA: ra.villain,
       potOdds: po?.odds ?? null, reqEquity: po?.reqEquity ?? null,
       suggestedAction: decision.action,
