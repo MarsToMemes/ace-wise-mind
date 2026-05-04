@@ -94,7 +94,7 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
               </p>
             </div>
           ) : (
-            <p className="text-2xl display gold-text mb-1">{result.sizing.heroAction}</p>
+            <p className="text-2xl display gold-text mb-1">{t(`act.${result.sizing.heroAction}`) || result.sizing.heroAction}</p>
           )}
           <p className="text-xs text-muted-foreground italic">{result.sizing.explanation}</p>
         </Card>
