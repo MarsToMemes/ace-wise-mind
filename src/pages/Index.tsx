@@ -161,6 +161,42 @@ const Index = () => {
     }
   };
 
+  // === Action tracking (per current street) ===
+  const streetActions = useMemo(
+    () => actionHistory.filter(a => a.street === currentStreet),
+    [actionHistory, currentStreet],
+  );
+
+  const streetContribs = useMemo(() => {
+    const arr = Array(tableSize).fill(0);
+    for (const a of streetActions) {
+      if (a.amountBB > 0) arr[a.seatIdx] = Math.max(arr[a.seatIdx], a.amountBB);
+    }
+    return arr;
+  }, [streetActions, tableSize]);
+
+  const lastActions = useMemo(() => {
+    const arr: (PlayerAction | null)[] = Array(tableSize).fill(null);
+    for (const a of streetActions) arr[a.seatIdx] = a;
+    return arr;
+  }, [streetActions, tableSize]);
+
+  const currentBet = useMemo(
+    () => streetContribs.reduce((m, v) => Math.max(m, v), 0),
+    [streetContribs],
+  );
+
+  const totalCommitted = useMemo(
+    () => actionHistory.reduce((s, a) => s + (a.amountBB || 0), 0),
+    [actionHistory],
+  );
+
+  const dynamicPot = pot + totalCommitted;
+  const userToCall = userIdx >= 0
+    ? Math.max(0, currentBet - (streetContribs[userIdx] || 0))
+    : call;
+  const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(dynamicPot * 0.66));
+
   const reset = () => {
     setHole([]); setFlop([]); setTurn(null); setRiver(null);
     setAiResult(null); setAiError(null);
@@ -168,11 +204,11 @@ const Index = () => {
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setFolded(Array(tableSize).fill(false));
     setStack(100); setPot(10); setCall(0);
+    setActionHistory([]);
   };
 
   const handleSeatClick = (i: number) => {
     if (seatMode === "fold") {
-      // Toggle this seat's active/folded state — instant, no reset required
       setFolded(prev => {
         const next = [...prev];
         next[i] = !next[i];
@@ -180,13 +216,23 @@ const Index = () => {
       });
       return;
     }
+    if (seatMode === "action") return; // handled by ActionMenu inside table
     if (seatMode === "dealer") {
-      // Dealer and "You" may overlap — both roles can coexist on the same seat
       setDealerIdx(i);
       setSeatMode("user");
     } else {
-      // "You" can sit on the dealer seat (user is the BTN)
       setUserIdx(i);
+    }
+  };
+
+  const handlePlayerAction = (seatIdx: number, type: ActionType, amountBB: number) => {
+    setActionHistory(prev => [...prev, { seatIdx, street: currentStreet, type, amountBB }]);
+    if (type === "Fold") {
+      setFolded(prev => {
+        const next = [...prev];
+        next[seatIdx] = true;
+        return next;
+      });
     }
   };
 
@@ -194,6 +240,7 @@ const Index = () => {
     setTableSize(s);
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setFolded(Array(s).fill(false));
+    setActionHistory([]);
   };
 
   const runAI = async () => {
