@@ -34,7 +34,8 @@ const Index = () => {
   const [tableSize, setTableSize] = useState<TableSize>(6);
   const [dealerIdx, setDealerIdx] = useState<number>(-1);
   const [userIdx, setUserIdx] = useState<number>(-1);
-  const [seatMode, setSeatMode] = useState<"dealer" | "user">("dealer");
+  const [seatMode, setSeatMode] = useState<"dealer" | "user" | "fold">("dealer");
+  const [folded, setFolded] = useState<boolean[]>(() => Array(6).fill(false));
   const [stack, setStack] = useState(100);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
@@ -44,7 +45,12 @@ const Index = () => {
 
   const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
   const position = userLabel ? labelToPosition(userLabel) : "BTN";
-  const opponents = tableSize - 1;
+  // Active opponents = seats not folded, excluding the user
+  const activeSeats = folded.reduce((n, f) => n + (f ? 0 : 1), 0);
+  const opponents = Math.max(
+    0,
+    activeSeats - (userIdx >= 0 && !folded[userIdx] ? 1 : 0),
+  );
   // Heads-up (2 players): BTN posts SB, the other seat is BB
   const sbIdx = dealerIdx >= 0 ? (tableSize === 2 ? dealerIdx : (dealerIdx + 1) % tableSize) : -1;
   const bbIdx = dealerIdx >= 0 ? (tableSize === 2 ? (dealerIdx + 1) % 2 : (dealerIdx + 2) % tableSize) : -1;
