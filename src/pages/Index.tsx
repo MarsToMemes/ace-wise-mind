@@ -499,6 +499,19 @@ const Index = () => {
                 </Button>
 
                 <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
+
+                {aiResult && (
+                  <Card className="glass-panel p-6 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="display text-lg gold-text">{lang === "fr" ? "Explication IA (Gemini)" : "AI Explanation (Gemini)"}</h4>
+                      <Button size="sm" variant="outline" onClick={explainWithGemini} disabled={geminiLoading}>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {geminiLoading ? (lang === "fr" ? "Analyse..." : "Thinking...") : (lang === "fr" ? "Expliquer la décision" : "Explain decision")}
+                      </Button>
+                    </div>
+                    {geminiText && <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{geminiText}</p>}
+                  </Card>
+                )}
               </div>
             </main>
           </TabsContent>
