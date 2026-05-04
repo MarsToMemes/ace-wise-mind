@@ -369,7 +369,7 @@ const Index = () => {
       if (opponents >= 2) ctx.push("multiway pot");
       if (engine.sizing?.facingBet) ctx.push("facing a bet");
       const lastAggressive = [...actionHistory].reverse().find(a => a.type === "Bet" || a.type === "Raise");
-      if (lastAggressive) ctx.push(`opponent ${lastAggressive.type.toLowerCase()} ${lastAggressive.amount}bb`);
+      if (lastAggressive) ctx.push(`opponent ${lastAggressive.type.toLowerCase()} ${lastAggressive.amountBB}bb`);
 
       const { data, error } = await supabase.functions.invoke("gemini-explain", {
         body: {
