@@ -74,6 +74,37 @@ const Index = () => {
     return "Preflop";
   }, [board.length]);
 
+  // === Action tracking (per current street) ===
+  const streetActions = useMemo(
+    () => actionHistory.filter(a => a.street === currentStreet),
+    [actionHistory, currentStreet],
+  );
+  const streetContribs = useMemo(() => {
+    const arr = Array(tableSize).fill(0);
+    for (const a of streetActions) {
+      if (a.amountBB > 0) arr[a.seatIdx] = Math.max(arr[a.seatIdx], a.amountBB);
+    }
+    return arr;
+  }, [streetActions, tableSize]);
+  const lastActions = useMemo(() => {
+    const arr: (PlayerAction | null)[] = Array(tableSize).fill(null);
+    for (const a of streetActions) arr[a.seatIdx] = a;
+    return arr;
+  }, [streetActions, tableSize]);
+  const currentBet = useMemo(
+    () => streetContribs.reduce((m, v) => Math.max(m, v), 0),
+    [streetContribs],
+  );
+  const totalCommitted = useMemo(
+    () => actionHistory.reduce((s, a) => s + (a.amountBB || 0), 0),
+    [actionHistory],
+  );
+  const dynamicPot = pot + totalCommitted;
+  const userToCall = userIdx >= 0
+    ? Math.max(0, currentBet - (streetContribs[userIdx] || 0))
+    : call;
+  const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(dynamicPot * 0.66));
+
   const engine = useMemo<EngineResult | null>(() => {
     if (hole.length < 2) return null;
     const all = [...hole, ...board];
