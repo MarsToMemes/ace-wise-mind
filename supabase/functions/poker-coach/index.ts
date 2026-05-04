@@ -1,0 +1,109 @@
+// Poker AI coach - returns structured analysis JSON
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const ctx = await req.json();
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const userMessage = `Analyze this poker spot:
+- Hole cards: ${ctx.hole.join(" ")}
+- Board: ${ctx.board.length ? ctx.board.join(" ") : "(preflop)"}
+- Position: ${ctx.position}
+- Opponents: ${ctx.opponents}
+- Stack: ${ctx.stack}bb
+- Pot: ${ctx.pot}bb
+- Call amount: ${ctx.call ?? 0}bb
+- Detected hand: ${ctx.handCategory} (score ${ctx.handScore})
+- Draw: ${ctx.drawType} (~${ctx.outs} outs)
+- Board texture: ${ctx.texture}
+- Pot odds: ${ctx.potOdds ?? "n/a"}
+- Required equity: ${ctx.reqEquity ?? "n/a"}
+- Range advantage hero/villain: ${ctx.heroRA}/${ctx.villainRA}
+- Engine suggestion: ${ctx.suggestedAction}`;
+
+    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Justify decisions using range, board, EV, position. Never vague.`;
+
+    const tool = {
+      type: "function",
+      function: {
+        name: "poker_analysis",
+        description: "Return structured poker analysis",
+        parameters: {
+          type: "object",
+          properties: {
+            decision_explanation: {
+              type: "object",
+              properties: {
+                action: { type: "string", enum: ["Raise", "Call", "Check", "Fold"] },
+                reasoning: { type: "string" },
+                confidence: { type: "number" },
+              },
+              required: ["action", "reasoning", "confidence"],
+            },
+            street_strategy: {
+              type: "object",
+              properties: {
+                current_street_plan: { type: "string" },
+                turn_plan: { type: "string" },
+                river_plan: { type: "string" },
+              },
+              required: ["current_street_plan", "turn_plan", "river_plan"],
+            },
+            conditional_lines: { type: "array", items: { type: "string" } },
+            range_thinking: {
+              type: "object",
+              properties: {
+                what_you_represent: { type: "string" },
+                what_opponent_represents: { type: "string" },
+              },
+              required: ["what_you_represent", "what_opponent_represents"],
+            },
+            key_concepts: { type: "array", items: { type: "string" } },
+            mistakes_to_avoid: { type: "array", items: { type: "string" } },
+          },
+          required: ["decision_explanation", "street_strategy", "conditional_lines", "range_thinking", "key_concepts", "mistakes_to_avoid"],
+        },
+      },
+    };
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        tools: [tool],
+        tool_choice: { type: "function", function: { name: "poker_analysis" } },
+      }),
+    });
+
+    if (!resp.ok) {
+      if (resp.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (resp.status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted. Add funds in Settings → Workspace → Usage." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      const t = await resp.text();
+      console.error("AI error", resp.status, t);
+      return new Response(JSON.stringify({ error: "AI gateway error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const data = await resp.json();
+    const args = data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments;
+    const parsed = args ? JSON.parse(args) : null;
+    return new Response(JSON.stringify({ analysis: parsed }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  } catch (e) {
+    console.error("err", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+});
