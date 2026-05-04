@@ -34,14 +34,15 @@ Stakes:
 - Pot: ${ctx.pot}bb
 - Call amount: ${ctx.call ?? 0}bb
 
-Engine readout:
-- Hand: ${ctx.handCategory} (score ${ctx.handScore})
+Deterministic engine readout (TRUSTED — DO NOT RECALCULATE):
+- Hand: ${ctx.handCategory} (raw score ${ctx.handScore}, adjusted ${ctx.adjScore})
 - Draw: ${ctx.drawType} (~${ctx.outs} outs)
+- Estimated equity: ${ctx.equityPct?.toFixed?.(0) ?? ctx.equityPct ?? 0}% (Rule of 4/2)
 - Board texture: ${ctx.texture}
 - Pot odds: ${ctx.potOdds ?? "n/a"}
 - Required equity: ${ctx.reqEquity ?? "n/a"}
 - Range advantage hero/villain: ${ctx.heroRA}/${ctx.villainRA}
-- Engine suggestion: ${ctx.suggestedAction}`;
+- Engine decision: ${ctx.suggestedAction} — ${ctx.decisionReason ?? ""}`;
 
     const streetGuidance: Record<string, string> = {
       Preflop: "Plan preflop action, then describe flop and turn strategy.",
@@ -52,7 +53,19 @@ Engine readout:
 
     const langMap: Record<string, string> = { en: "English", fr: "French (français)" };
     const langName = langMap[ctx.lang] || "English";
-    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively. Justify decisions using range, board, EV, position. Never vague. Tailor your output to the current street: ${streetGuidance[street]}\n\nIMPORTANT: Write ALL output text (reasoning, plans, conditional lines, range thinking, key concepts, mistakes) in ${langName}. Keep poker terminology like "BTN", "SB", "BB", "UTG", "CO", "MP", "OESD", and the action enum values ("Raise", "Call", "Check", "Fold") unchanged.`;
+    const systemPrompt = `You are a high-level professional poker coach interpreting the output of a deterministic poker math engine.
+
+CRITICAL RULES:
+1. The engine is the SOURCE OF TRUTH. Outs, equity %, pot odds, hand strength, and the recommended action are already computed deterministically.
+2. NEVER recalculate, override, contradict, or guess these numbers. Quote them as given.
+3. Your "decision_explanation.action" MUST match the engine's recommendation exactly.
+4. Your job is to INTERPRET: explain WHY using range logic, board texture, position, EV (equity vs pot odds), and forward planning.
+5. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively.
+6. Be precise, structured, actionable. Never vague.
+
+Tailor output to the current street: ${streetGuidance[street]}
+
+Write ALL output text in ${langName}. Keep poker terminology ("BTN", "SB", "BB", "UTG", "CO", "MP", "OESD") and action enum values ("Raise", "Call", "Check", "Fold") unchanged.`;
 
     const tool = {
       type: "function",
