@@ -435,7 +435,7 @@ export function buildExplanation(inp: ExplanationInputs): Explanation {
   // ----- Compose: 3–4 sentences covering all required components -----
   const opener = pick(P.becauseOpener, s2);
   const opening =
-    `${actionLabel(action2, lang)} ${lang === "fr" ? "est recommandé" : "is recommended"} ` +
+    `${actionLabel(action, lang)} ${lang === "fr" ? "est recommandé" : "is recommended"} ` +
     `${opener} ${mathPhrase}, ${handPhrase}.`;
 
   // Sentence 2: range insight + 1 contextual factor (sizing > texture > multiway > position)
