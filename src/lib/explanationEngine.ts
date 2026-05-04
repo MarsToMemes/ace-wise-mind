@@ -383,36 +383,78 @@ export function buildExplanation(inp: ExplanationInputs): Explanation {
                        pick(P.smallBet, s4);
   }
 
-  // ----- Module: decision -----
-  const action = engine.suggestedAction;
+  // ----- Module: opponent range insight -----
+  const rr = engine.rangeReadout;
+  const rType = rr?.dominantRangeType;
+  const rangePool =
+    rType === "polarized" ? P.rPolar :
+    rType === "merged"    ? P.rMerged :
+    rType === "capped"    ? P.rWide :
+    rType === "linear"    ? P.rStrong :
+    (rr && rr.aggregateStrength >= 65 ? P.rStrong :
+     rr && rr.aggregateStrength <= 40 ? P.rWide : P.rMerged);
+  const rangePhrase = pick(rangePool, s3);
+
+  // ----- Module: strategic intent -----
+  const intent = engine.sizing?.intent;
+  let intentPool = P.iControl;
+  if (action === "Fold") intentPool = P.iGiveup;
+  else if (action === "Raise") {
+    intentPool =
+      intent === "value" ? P.iValue :
+      intent === "bluff" ? P.iBluff :
+      intent === "semibluff" ? P.iSemibluff :
+      intent === "protection" ? P.iProtect :
+      (cat === "Strong" ? P.iValue : cat === "Draw" ? P.iSemibluff : P.iBluff);
+  } else if (action === "Call") {
+    intentPool = cat === "Draw" ? P.iSemibluff : P.iControl;
+  } else {
+    intentPool = P.iControl;
+  }
+  const intentPhrase = pick(intentPool, s4);
+
+  // ----- Module: forward plan (next street) -----
+  let planPool = P.fNextControl;
+  if (street === "River") planPool = action === "Fold" ? P.fNextFold : P.fNextControl;
+  else if (action === "Fold") planPool = P.fNextFold;
+  else if (cat === "Draw") planPool = P.fNextDraw;
+  else if (action === "Raise" && (cat === "Strong" || intent === "value")) planPool = P.fNextValue;
+  else if (action === "Raise") planPool = P.fNextBluff;
+  else planPool = P.fNextControl;
+  const planPhrase = pick(planPool, seed);
+
+  // ----- Module: decision conclusion -----
+  const action2 = action; // alias
   const concPool =
-    action === "Raise" ? P.cRaise :
-    action === "Call"  ? P.cCall  :
-    action === "Fold"  ? P.cFold  :
-                          P.cCheck;
+    action2 === "Raise" ? P.cRaise :
+    action2 === "Call"  ? P.cCall  :
+    action2 === "Fold"  ? P.cFold  :
+                           P.cCheck;
   const conclusion = pick(concPool, seed);
 
-  // ----- Compose: 2–4 sentences -----
+  // ----- Compose: 3–4 sentences covering all required components -----
   const opener = pick(P.becauseOpener, s2);
   const opening =
-    `${actionLabel(action, lang)} ${lang === "fr" ? "est recommandé" : "is recommended"} ` +
+    `${actionLabel(action2, lang)} ${lang === "fr" ? "est recommandé" : "is recommended"} ` +
     `${opener} ${mathPhrase}, ${handPhrase}.`;
 
-  // Pick 2 most relevant context modules to avoid bloat
-  const contextCandidates = [texPhrase, playersPhrase, positionPhrase];
-  if (sizingPhrase) contextCandidates.unshift(sizingPhrase);
-  const contextPicked = contextCandidates.slice(0, 2);
-
+  // Sentence 2: range insight + 1 contextual factor (sizing > texture > multiway > position)
+  const ctxPick = sizingPhrase ?? texPhrase;
+  const playersOrPos = opponents >= 2 ? playersPhrase : positionPhrase;
   const additional = pick(P.additionally, s3);
-  const supporting = [
-    `${additional} ${contextPicked[0]}.`,
-    contextPicked[1] ? `${cap(contextPicked[1])}.` : "",
-  ].filter(Boolean);
+  const sentence2 = `${additional} ${rangePhrase}; ${ctxPick}, and ${playersOrPos}.`;
+  const sentence2Fr = `${additional} ${rangePhrase} ; ${ctxPick}, et ${playersOrPos}.`;
 
-  const insights = [handPhrase, mathPhrase, ...contextCandidates];
+  // Sentence 3: strategic intent + forward plan (compressed)
+  const linker = lang === "fr" ? "Plan : " : "Plan: ";
+  const sentence3 = `${cap(intentPhrase)} — ${linker}${planPhrase}.`;
+
+  const supporting = [lang === "fr" ? sentence2Fr : sentence2, sentence3];
+
+  const insights = [handPhrase, mathPhrase, rangePhrase, texPhrase, playersPhrase, positionPhrase, intentPhrase, planPhrase];
+  if (sizingPhrase) insights.push(sizingPhrase);
   const fullText = [opening, ...supporting, conclusion].join(" ");
 
-  // Surface useful flag for callers (kept on insights for now).
   if (mathFavorable === false) insights.push("math:negative");
   else if (mathFavorable === true) insights.push("math:positive");
 
