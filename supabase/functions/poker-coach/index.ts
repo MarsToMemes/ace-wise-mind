@@ -43,7 +43,9 @@ Deterministic engine readout (TRUSTED — DO NOT RECALCULATE):
 - Required equity: ${ctx.reqEquity ?? "n/a"}
 - Range advantage hero/villain: ${ctx.heroRA}/${ctx.villainRA}
 - Engine decision: ${ctx.suggestedAction} — ${ctx.decisionReason ?? ""}
-${ctx.sizing ? `- Recommended sizing: ${ctx.sizing.amountBB} BB (${ctx.sizing.pctMin}–${ctx.sizing.pctMax}% of pot) — intent: ${ctx.sizing.intent}. Reason: ${ctx.sizing.reason}` : ""}
+${ctx.sizing ? `- Hero action: ${ctx.sizing.heroAction} (${ctx.sizing.facingBet ? "facing a bet" : "first to act"}, ${ctx.sizing.inPosition ? "IP" : "OOP"})
+- Strategic intent: ${ctx.sizing.intent}
+- Recommended sizing: ${ctx.sizing.amountBB} BB (${ctx.sizing.pctMin}–${ctx.sizing.pctMax}% of pot) — ${ctx.sizing.explanation}` : ""}
 ${ctx.training ? `
 Training context (interpret, do not recompute):
 - User chose: ${ctx.training.userChoice} ${ctx.training.timeout ? "(TIMEOUT auto-fold)" : ""}
