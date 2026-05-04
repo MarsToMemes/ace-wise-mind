@@ -396,7 +396,7 @@ const Index = () => {
     }
   };
 
-
+  return (
     <div className="min-h-screen">
       <header className="border-b border-border/40 backdrop-blur-md bg-background/40 sticky top-0 z-20">
         <div className="container py-4 flex items-center justify-between">
