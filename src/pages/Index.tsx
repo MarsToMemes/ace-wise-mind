@@ -34,7 +34,8 @@ const Index = () => {
   const [tableSize, setTableSize] = useState<TableSize>(6);
   const [dealerIdx, setDealerIdx] = useState<number>(-1);
   const [userIdx, setUserIdx] = useState<number>(-1);
-  const [seatMode, setSeatMode] = useState<"dealer" | "user">("dealer");
+  const [seatMode, setSeatMode] = useState<"dealer" | "user" | "fold">("dealer");
+  const [folded, setFolded] = useState<boolean[]>(() => Array(6).fill(false));
   const [stack, setStack] = useState(100);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
@@ -44,7 +45,12 @@ const Index = () => {
 
   const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
   const position = userLabel ? labelToPosition(userLabel) : "BTN";
-  const opponents = tableSize - 1;
+  // Active opponents = seats not folded, excluding the user
+  const activeSeats = folded.reduce((n, f) => n + (f ? 0 : 1), 0);
+  const opponents = Math.max(
+    0,
+    activeSeats - (userIdx >= 0 && !folded[userIdx] ? 1 : 0),
+  );
   // Heads-up (2 players): BTN posts SB, the other seat is BB
   const sbIdx = dealerIdx >= 0 ? (tableSize === 2 ? dealerIdx : (dealerIdx + 1) % tableSize) : -1;
   const bbIdx = dealerIdx >= 0 ? (tableSize === 2 ? (dealerIdx + 1) % 2 : (dealerIdx + 2) % tableSize) : -1;
@@ -158,10 +164,20 @@ const Index = () => {
     setAiResult(null); setAiError(null);
     setPickMode("hole");
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
+    setFolded(Array(tableSize).fill(false));
     setStack(100); setPot(10); setCall(0);
   };
 
   const handleSeatClick = (i: number) => {
+    if (seatMode === "fold") {
+      // Toggle this seat's active/folded state — instant, no reset required
+      setFolded(prev => {
+        const next = [...prev];
+        next[i] = !next[i];
+        return next;
+      });
+      return;
+    }
     if (seatMode === "dealer") {
       // Dealer and "You" may overlap — both roles can coexist on the same seat
       setDealerIdx(i);
@@ -175,6 +191,7 @@ const Index = () => {
   const handleSizeChange = (s: TableSize) => {
     setTableSize(s);
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
+    setFolded(Array(s).fill(false));
   };
 
   const runAI = async () => {
@@ -197,6 +214,10 @@ const Index = () => {
             user_position: userLabel || position,
             sb_index: sbIdx,
             bb_index: bbIdx,
+            active_players: activeSeats,
+            active_opponents: opponents,
+            folded_seats: folded.map((f, i) => f ? i : -1).filter(i => i >= 0),
+            multiway: opponents >= 2,
           },
           handCategory: engine.category,
           handScore: engine.score,
@@ -286,6 +307,7 @@ const Index = () => {
                     dealerIdx={dealerIdx}
                     userIdx={userIdx}
                     mode={seatMode}
+                    folded={folded}
                     onSeatClick={handleSeatClick}
                     onModeChange={setSeatMode}
                     onSizeChange={handleSizeChange}

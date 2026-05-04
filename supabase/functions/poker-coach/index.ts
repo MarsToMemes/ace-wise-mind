@@ -23,7 +23,10 @@ Turn: ${ctx.turn ?? "(none)"}
 River: ${ctx.river ?? "(none)"}
 
 Table:
-- Players: ${t.number_of_players ?? ctx.opponents + 1}
+- Players (seated): ${t.number_of_players ?? ctx.opponents + 1}
+- Active players still in hand: ${t.active_players ?? "n/a"} (${t.multiway ? "MULTIWAY" : "heads-up / single-opponent"})
+- Active opponents: ${t.active_opponents ?? ctx.opponents}
+- Folded seat indices: ${(t.folded_seats || []).join(", ") || "none"}
 - Dealer (BTN) seat index: ${t.dealer_position_index ?? "n/a"}
 - Your seat index: ${t.user_position_index ?? "n/a"}
 - Your position: ${t.user_position ?? ctx.position}
@@ -73,7 +76,7 @@ CRITICAL RULES:
 4. Your job is to INTERPRET: explain WHY using range logic, board texture, position, EV (equity vs pot odds), and forward planning.
 5. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively.
 6. Be precise, structured, actionable. Never vague.
-7. When sizing is provided by the engine, quote it exactly (BB amount and % of pot range) and explain WHY this size fits the current street: what it achieves (pressure, value extraction, fold equity, protection, pot control), and how it interacts with board texture, range advantage, and opponent's likely response.
+7. When sizing is provided by the engine, quote it exactly (BB amount and % of pot range) and explain WHY this size fits the current street: what it achieves (pressure, value extraction, fold equity, protection, pot control), and how it interacts with board texture, range advantage, opponent's likely response, AND the number of active players still in the hand (heads-up vs multiway). Multiway pots tighten ranges, increase value sizing, and suppress bluffs — explain how this affects the current decision.
 
 Tailor output to the current street: ${streetGuidance[street]}
 

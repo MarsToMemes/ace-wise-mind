@@ -40,13 +40,14 @@ interface Props {
   size: TableSize;
   dealerIdx: number;
   userIdx: number;
-  mode: "dealer" | "user";
+  mode: "dealer" | "user" | "fold";
+  folded: boolean[]; // length === size; true = folded/out of hand
   onSeatClick: (i: number) => void;
-  onModeChange: (m: "dealer" | "user") => void;
+  onModeChange: (m: "dealer" | "user" | "fold") => void;
   onSizeChange: (s: TableSize) => void;
 }
 
-export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onModeChange, onSizeChange }: Props) => {
+export const PokerTable = ({ size, dealerIdx, userIdx, mode, folded, onSeatClick, onModeChange, onSizeChange }: Props) => {
   const { t } = useI18n();
   // seat positions on an ellipse
   const seats = Array.from({ length: size }, (_, i) => {
@@ -82,6 +83,11 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onMode
             onClick={() => onModeChange("user")}
             className={cn("px-3 py-1 rounded transition flex items-center gap-1", mode === "user" ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
           ><User className="w-3 h-3" /> You</button>
+          <button
+            onClick={() => onModeChange("fold")}
+            className={cn("px-3 py-1 rounded transition flex items-center gap-1", mode === "fold" ? "bg-destructive text-destructive-foreground" : "text-muted-foreground")}
+            title="Toggle player folded/active"
+          >Fold</button>
         </div>
       </div>
 
@@ -105,6 +111,7 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onMode
           const label = seatLabel(i, dealerIdx, size);
           const isDealer = i === dealerIdx;
           const isUser = i === userIdx;
+          const isFolded = folded[i];
           return (
             <button
               key={i}
@@ -114,19 +121,22 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onMode
                 "absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex flex-col items-center justify-center transition-all duration-200",
                 "w-12 h-12 sm:w-14 sm:h-14 text-[10px] font-semibold",
                 "border-2 hover:scale-110 active:scale-95 animate-scale-in",
-                isUser
-                  ? "bg-primary text-primary-foreground border-primary shadow-[0_0_24px_hsl(var(--primary)/0.7)]"
-                  : isDealer
-                    ? "bg-card text-primary border-primary shadow-[0_0_18px_hsl(var(--primary)/0.5)]"
-                    : "bg-card/90 text-foreground border-border hover:border-primary/60",
+                isFolded
+                  ? "bg-muted/40 text-muted-foreground border-dashed border-muted-foreground/40 opacity-50 grayscale"
+                  : isUser
+                    ? "bg-primary text-primary-foreground border-primary shadow-[0_0_24px_hsl(var(--primary)/0.7)]"
+                    : isDealer
+                      ? "bg-card text-primary border-primary shadow-[0_0_18px_hsl(var(--primary)/0.5)]"
+                      : "bg-card/90 text-foreground border-border hover:border-primary/60",
               )}
               style={{ left: `${x}%`, top: `${y}%` }}
-              aria-label={`Seat ${i + 1} ${label}${isDealer ? " dealer" : ""}${isUser ? " you" : ""}`}
+              aria-label={`Seat ${i + 1} ${label}${isDealer ? " dealer" : ""}${isUser ? " you" : ""}${isFolded ? " folded" : " active"}`}
             >
               {isDealer && <Crown className="w-3 h-3 absolute -top-1.5 -right-1.5 text-primary fill-primary" />}
               {isUser && <User className="w-3 h-3 absolute -top-1.5 -left-1.5" />}
               <span className="leading-tight">{label || `S${i + 1}`}</span>
-              {isUser && <span className="text-[8px] opacity-80 leading-none">YOU</span>}
+              {isUser && !isFolded && <span className="text-[8px] opacity-80 leading-none">YOU</span>}
+              {isFolded && <span className="text-[8px] leading-none">FOLD</span>}
             </button>
           );
         })}
@@ -134,9 +144,10 @@ export const PokerTable = ({ size, dealerIdx, userIdx, mode, onSeatClick, onMode
 
       <div className="flex justify-between items-center text-xs text-muted-foreground px-1">
         <span>{dealerIdx >= 0 ? "✓ Dealer set" : "Set dealer (BTN)"}</span>
+        <span>{`Active: ${folded.filter(f => !f).length}/${size}`}</span>
         {userIdx >= 0 && (
           <span className="text-primary font-semibold">
-            Your position: {seatLabel(userIdx, dealerIdx, size)}
+            {seatLabel(userIdx, dealerIdx, size)}
           </span>
         )}
       </div>
