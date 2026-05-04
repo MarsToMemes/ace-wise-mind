@@ -149,6 +149,24 @@ const POOLS: Record<Lang, Pools> = {
       "Letting it go now avoids a -EV continuation.",
       "A fold here is the mathematically correct choice.",
     ],
+    // Range insight
+    rStrong: ["villain's range looks condensed and strong", "opponent represents a tight, value-heavy range", "range reads as nutted and narrow"],
+    rWide: ["villain's range is wide and uncapped", "opponent's range stays broad with many marginal combos", "range remains loose with plenty of air"],
+    rPolar: ["the line polarizes villain to nuts or bluffs", "opponent is polarized between value and pure bluffs", "range splits into nuts-or-air"],
+    rMerged: ["villain's range looks merged around medium value", "opponent shows a merged value range", "range is condensed around one-pair strength"],
+    // Strategic intent
+    iValue: ["targeting thin value from worse made hands", "extracting value while ahead of villain's continuing range", "betting for value against weaker calls"],
+    iBluff: ["leveraging fold equity against capped ranges", "applying pressure as a pure bluff with backup outs", "representing a stronger range to fold out equity"],
+    iSemibluff: ["semi-bluffing with equity to back it up", "applying pressure with a draw as backup", "combining fold equity and raw outs"],
+    iProtect: ["protecting equity against draws and overcards", "denying free cards to villain's drawing combos", "charging draws while ahead"],
+    iControl: ["controlling pot size with showdown value", "keeping the pot manageable with a bluff-catcher", "playing pot control to reach showdown cheaply"],
+    iGiveup: ["cutting losses on a clearly losing branch", "releasing to avoid a -EV spot"],
+    // Forward plan
+    fNextValue: ["plan to barrel turn on cards that improve your range", "continue value-betting on bricks; slow down on scare cards", "size up on turn cards that favor your range"],
+    fNextBluff: ["pick scare cards to barrel and give up on villain-favored runouts", "fire again on cards that hit your perceived range, check on bricks", "double-barrel cards that improve fold equity"],
+    fNextDraw: ["if you hit, get value; if you brick, evaluate fold equity vs sizing", "on a hit, build the pot; on a brick, prefer check or small probe", "let turn equity guide aggression — bet hits, control bricks"],
+    fNextControl: ["check most turns and reassess on the river", "play check-call on most turns, fold to large pressure", "keep the pot small and target showdown"],
+    fNextFold: ["look for stronger spots elsewhere", "wait for a better board or a clearer range advantage"],
     // Glue
     becauseOpener: ["because", "since", "as"],
     additionally: ["Additionally,", "On top of that,", "Beyond the math,"],
@@ -264,6 +282,21 @@ const POOLS: Record<Lang, Pools> = {
       "Laisser tomber maintenant évite une continuation -EV.",
       "Le fold ici est mathématiquement correct.",
     ],
+    rStrong: ["la range adverse semble condensée et forte", "l'adversaire représente une range serrée et orientée value", "la range lue est nutée et étroite"],
+    rWide: ["la range adverse est large et non cappée", "la range de l'adversaire reste large avec de nombreux combos marginaux", "la range demeure lâche avec beaucoup d'air"],
+    rPolar: ["la ligne polarise l'adversaire entre nuts et bluffs", "l'adversaire est polarisé entre value et purs bluffs", "la range se divise en nuts-ou-air"],
+    rMerged: ["la range adverse semble mergée autour de value moyenne", "l'adversaire montre une range value mergée", "la range est condensée autour d'une paire"],
+    iValue: ["chercher de la thin value contre les pires mains faites", "extraire de la value étant devant la range de continuation", "miser pour la value contre les calls plus faibles"],
+    iBluff: ["exploiter la fold equity contre les ranges cappées", "appliquer la pression en pur bluff avec des outs de backup", "représenter une range plus forte pour faire coucher de l'équité"],
+    iSemibluff: ["semi-bluffer avec de l'équité en backup", "appliquer la pression avec un tirage en réserve", "combiner fold equity et outs bruts"],
+    iProtect: ["protéger l'équité contre tirages et overcards", "refuser les cartes gratuites aux tirages adverses", "faire payer les tirages étant devant"],
+    iControl: ["contrôler la taille du pot avec une valeur de showdown", "garder le pot maniable avec un bluff-catcher", "jouer le pot control pour atteindre le showdown peu cher"],
+    iGiveup: ["limiter les pertes sur une branche clairement perdante", "se coucher pour éviter un spot -EV"],
+    fNextValue: ["prévoir de barrel turn sur les cartes qui améliorent votre range", "continuer la value sur briques ; ralentir sur scare cards", "augmenter le sizing sur les turns qui favorisent votre range"],
+    fNextBluff: ["choisir les scare cards pour barrel, abandonner sur les runouts favorables au vilain", "tirer encore sur les cartes qui touchent votre range perçue, checker sur briques", "double-barrel les cartes qui boostent la fold equity"],
+    fNextDraw: ["si vous touchez, prenez la value ; si vous bricks, évaluez la fold equity vs sizing", "sur hit, construire le pot ; sur brique, préférer check ou petite mise", "laisser l'équité turn guider l'agression — miser hits, contrôler briques"],
+    fNextControl: ["checker la plupart des turns et réévaluer river", "jouer check-call sur la plupart des turns, coucher face à grosse pression", "garder le pot petit et viser le showdown"],
+    fNextFold: ["chercher de meilleurs spots ailleurs", "attendre un board ou un avantage de range plus clair"],
     becauseOpener: ["parce que", "puisque", "étant donné que"],
     additionally: ["De plus,", "En complément,", "Au-delà des maths,"],
   },
@@ -350,8 +383,48 @@ export function buildExplanation(inp: ExplanationInputs): Explanation {
                        pick(P.smallBet, s4);
   }
 
-  // ----- Module: decision -----
+  // ----- Module: opponent range insight -----
+  const rr = engine.rangeReadout;
+  const rType = rr?.dominantRangeType;
+  const rangePool =
+    rType === "polarized" ? P.rPolar :
+    rType === "merged"    ? P.rMerged :
+    rType === "capped"    ? P.rWide :
+    rType === "linear"    ? P.rStrong :
+    (rr && rr.aggregateStrength >= 65 ? P.rStrong :
+     rr && rr.aggregateStrength <= 40 ? P.rWide : P.rMerged);
+  const rangePhrase = pick(rangePool, s3);
+
+  // ----- Module: strategic intent -----
   const action = engine.suggestedAction;
+  const intent = engine.sizing?.intent;
+  let intentPool = P.iControl;
+  if (action === "Fold") intentPool = P.iGiveup;
+  else if (action === "Raise") {
+    intentPool =
+      intent === "Value" ? P.iValue :
+      intent === "Bluff" ? P.iBluff :
+      intent === "Semi-Bluff" ? P.iSemibluff :
+      intent === "Protection" ? P.iProtect :
+      (cat === "Strong" ? P.iValue : cat === "Draw" ? P.iSemibluff : P.iBluff);
+  } else if (action === "Call") {
+    intentPool = cat === "Draw" ? P.iSemibluff : P.iControl;
+  } else {
+    intentPool = P.iControl;
+  }
+  const intentPhrase = pick(intentPool, s4);
+
+  // ----- Module: forward plan (next street) -----
+  let planPool = P.fNextControl;
+  if (street === "River") planPool = action === "Fold" ? P.fNextFold : P.fNextControl;
+  else if (action === "Fold") planPool = P.fNextFold;
+  else if (cat === "Draw") planPool = P.fNextDraw;
+  else if (action === "Raise" && (cat === "Strong" || intent === "Value")) planPool = P.fNextValue;
+  else if (action === "Raise") planPool = P.fNextBluff;
+  else planPool = P.fNextControl;
+  const planPhrase = pick(planPool, seed);
+
+  // ----- Module: decision conclusion -----
   const concPool =
     action === "Raise" ? P.cRaise :
     action === "Call"  ? P.cCall  :
@@ -359,27 +432,29 @@ export function buildExplanation(inp: ExplanationInputs): Explanation {
                           P.cCheck;
   const conclusion = pick(concPool, seed);
 
-  // ----- Compose: 2–4 sentences -----
+  // ----- Compose: 3–4 sentences covering all required components -----
   const opener = pick(P.becauseOpener, s2);
   const opening =
     `${actionLabel(action, lang)} ${lang === "fr" ? "est recommandé" : "is recommended"} ` +
     `${opener} ${mathPhrase}, ${handPhrase}.`;
 
-  // Pick 2 most relevant context modules to avoid bloat
-  const contextCandidates = [texPhrase, playersPhrase, positionPhrase];
-  if (sizingPhrase) contextCandidates.unshift(sizingPhrase);
-  const contextPicked = contextCandidates.slice(0, 2);
-
+  // Sentence 2: range insight + 1 contextual factor (sizing > texture > multiway > position)
+  const ctxPick = sizingPhrase ?? texPhrase;
+  const playersOrPos = opponents >= 2 ? playersPhrase : positionPhrase;
   const additional = pick(P.additionally, s3);
-  const supporting = [
-    `${additional} ${contextPicked[0]}.`,
-    contextPicked[1] ? `${cap(contextPicked[1])}.` : "",
-  ].filter(Boolean);
+  const sentence2 = `${additional} ${rangePhrase}; ${ctxPick}, and ${playersOrPos}.`;
+  const sentence2Fr = `${additional} ${rangePhrase} ; ${ctxPick}, et ${playersOrPos}.`;
 
-  const insights = [handPhrase, mathPhrase, ...contextCandidates];
+  // Sentence 3: strategic intent + forward plan (compressed)
+  const linker = lang === "fr" ? "Plan : " : "Plan: ";
+  const sentence3 = `${cap(intentPhrase)} — ${linker}${planPhrase}.`;
+
+  const supporting = [lang === "fr" ? sentence2Fr : sentence2, sentence3];
+
+  const insights = [handPhrase, mathPhrase, rangePhrase, texPhrase, playersPhrase, positionPhrase, intentPhrase, planPhrase];
+  if (sizingPhrase) insights.push(sizingPhrase);
   const fullText = [opening, ...supporting, conclusion].join(" ");
 
-  // Surface useful flag for callers (kept on insights for now).
   if (mathFavorable === false) insights.push("math:negative");
   else if (mathFavorable === true) insights.push("math:positive");
 
