@@ -16,6 +16,7 @@ import {
   classifyHandStrength,
 } from "@/lib/pokerEngine";
 import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
+import { evaluateHandVsRange } from "@/lib/handVsRange";
 import { buildExplanation } from "@/lib/explanationEngine";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
