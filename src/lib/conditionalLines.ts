@@ -138,7 +138,7 @@ export function buildConditionalLines(inp: ConditionalInputs): ConditionalLine[]
 
   // ---------- OPPONENT BEHAVIOR CONDITIONS ----------
   // Always include 1-2 opponent-reaction lines (most useful for live planning).
-  if (action === "Raise" || action === "Bet" || (action === "Check" && !isFinalStreet)) {
+  if (action === "Raise" || (action === "Check" && !isFinalStreet)) {
     // If we bet/raise: cover their possible responses
     if (action !== "Check") {
       lines.push({
