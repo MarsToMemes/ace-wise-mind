@@ -342,6 +342,7 @@ export interface DecisionInput {
   texture?: "Dry" | "Semi-wet" | "Wet";
   opponents?: number;
   position?: string;
+  handClass?: HandClassification;     // contextual classification (preferred driver)
 }
 export interface DecisionOutput {
   action: "Raise" | "Call" | "Check" | "Fold";
