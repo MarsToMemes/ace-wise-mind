@@ -303,6 +303,7 @@ const Index = () => {
                     dealerIdx={dealerIdx}
                     userIdx={userIdx}
                     mode={seatMode}
+                    folded={folded}
                     onSeatClick={handleSeatClick}
                     onModeChange={setSeatMode}
                     onSizeChange={handleSizeChange}
