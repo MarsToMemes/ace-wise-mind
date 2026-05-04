@@ -81,7 +81,7 @@ const Index = () => {
     const draws = detectDraws(hole, board);
     const texture = classifyTexture(board);
     const ra = rangeAdvantage(position, board);
-    const po = potOdds(call, pot);
+    const po = potOdds(userToCall, dynamicPot);
     const equityPct = estimateEquity(draws.outs, board.length);
     const adjScore = adjustedScore({ baseScore: ev.score, outs: draws.outs, texture, position });
     const decision = decide({
