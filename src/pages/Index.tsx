@@ -270,79 +270,69 @@ const Index = () => {
     if (!engine) { toast.error(t("toast.pickHole")); return; }
     setAiLoading(true); setAiError(null); setAiResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("poker-coach", {
-        body: {
-          hole, board, flop, turn, river,
-          currentStreet,
-          lang,
-          position, opponents, stack,
-          pot: dynamicPot,
-          basePot: pot,
-          call: userToCall,
-          userPosition: userLabel || position,
-          inPosition: ["BTN", "CO", "HJ"].includes(position),
-          relativePosition: ["BTN", "CO", "HJ"].includes(position) ? "IP" : "OOP",
-          table: {
-            number_of_players: tableSize,
-            dealer_position_index: dealerIdx,
-            user_position_index: userIdx,
-            user_position: userLabel || position,
-            sb_index: sbIdx,
-            bb_index: bbIdx,
-            active_players: activeSeats,
-            active_opponents: opponents,
-            folded_seats: folded.map((f, i) => f ? i : -1).filter(i => i >= 0),
-            multiway: opponents >= 2,
-          },
-          action_history: actionHistory.map(a => ({
-            seat: a.seatIdx,
-            position: dealerIdx >= 0 ? seatLabel(a.seatIdx, dealerIdx, tableSize) : `S${a.seatIdx + 1}`,
-            street: a.street,
-            type: a.type,
-            amount_bb: a.amountBB,
-          })),
-          current_street_actions: streetActions.map(a => ({
-            seat: a.seatIdx,
-            type: a.type,
-            amount_bb: a.amountBB,
-          })),
-          current_bet_to_match_bb: currentBet,
-          total_committed_bb: totalCommitted,
-          handCategory: engine.category,
-          handScore: engine.score,
-          adjScore: engine.adjScore,
-          drawType: engine.drawType,
-          outs: engine.outs,
-          equityPct: engine.equityPct,
-          texture: engine.texture,
-          potOdds: engine.potOdds ? (engine.potOdds * 100).toFixed(1) + "%" : null,
-          reqEquity: engine.reqEquity ? engine.reqEquity.toFixed(1) + "%" : null,
-          heroRA: engine.heroRA,
-          villainRA: engine.villainRA,
-          suggestedAction: engine.suggestedAction,
-          decisionReason: engine.decisionReason,
-          sizing: engine.sizing,
-          range_inference: engine.rangeReadout ? {
-            aggregate_strength: engine.rangeReadout.aggregateStrength,
-            aggregate_bluff_frequency: engine.rangeReadout.aggregateBluffFreq,
-            dominant_range_type: engine.rangeReadout.dominantRangeType,
-            opponents: engine.rangeReadout.opponents.map(o => ({
-              seat: o.seatIdx,
-              position: o.position,
-              estimated_strength: o.estimatedStrength,
-              range_type: o.rangeType,
-              bluff_frequency: o.bluffFrequency,
-              notes: o.notes,
-            })),
-            notes: engine.rangeReadout.notes,
-          } : null,
+      // Local deterministic analysis — no external AI required.
+      const action = engine.suggestedAction || "Check";
+      const sizing = engine.sizing;
+      const rr = engine.rangeReadout;
+      const ip = ["BTN", "CO", "HJ"].includes(position);
+      const reasoning =
+        `${engine.category} (adj ${engine.adjScore}). ` +
+        (engine.equityPct != null ? `Equity ~${Math.round(engine.equityPct)}%. ` : "") +
+        (engine.potOdds ? `Pot odds ${(engine.potOdds * 100).toFixed(1)}% vs req ${engine.reqEquity?.toFixed(1)}%. ` : "") +
+        (engine.decisionReason || "");
+      const sizingLine = sizing
+        ? `${sizing.heroAction} ${sizing.amountBB} BB (${sizing.pctMin}–${sizing.pctMax}% pot) — ${sizing.intent}. ${sizing.explanation}`
+        : "No bet required this street.";
+      const rangeLine = rr && rr.opponents.length
+        ? `Opponents ~${rr.aggregateStrength}/100, dominant ${rr.dominantRangeType}, bluff ~${Math.round(rr.aggregateBluffFreq * 100)}%.`
+        : "No opponent action history yet.";
+      const conditional: string[] = [];
+      if (sizing?.facingBet) {
+        conditional.push(`If raised: re-evaluate vs polarized range — fold marginal hands.`);
+        conditional.push(`If called: plan next street based on board run-out and range advantage.`);
+      } else {
+        conditional.push(`If checked through: take a delayed line on the next street.`);
+        conditional.push(`If raised: tighten — opponent shows strength.`);
+      }
+      conditional.push(`If board changes texture (flush/straight card): re-assess equity & sizing.`);
+
+      const analysis: AIAnalysis = {
+        decision_explanation: {
+          action: (["Raise", "Call", "Check", "Fold"].includes(action) ? action : "Check") as string,
+          reasoning: `${reasoning} ${sizingLine}`.trim(),
+          confidence: Math.max(0.5, Math.min(0.95, (engine.adjScore || 50) / 100)),
         },
-      });
-      if (error) throw error;
-      if (data?.error) { setAiError(data.error); toast.error(data.error); return; }
-      setAiResult(data.analysis);
+        street_strategy: {
+          current_street_plan: `${currentStreet}: ${sizingLine}`,
+          turn_plan: currentStreet === "Preflop" || currentStreet === "Flop"
+            ? `Plan to ${engine.adjScore >= 65 ? "continue for value" : engine.outs >= 8 ? "barrel as semi-bluff with equity" : "control the pot"} on the turn.`
+            : "Recap: decision driven by equity vs pot odds and range advantage.",
+          river_plan: currentStreet === "River"
+            ? "Final street — execute the decision above."
+            : `River: ${engine.adjScore >= 70 ? "thin value bet" : engine.adjScore <= 35 ? "give up unless blockers support a bluff" : "check / bluff-catch based on sizing tells"}.`,
+        },
+        conditional_lines: conditional,
+        range_thinking: {
+          what_you_represent: `${ip ? "IP" : "OOP"} ${userLabel || position}: ${Number(engine.heroRA) >= 55 ? "range advantage — credible value & bluffs" : "capped range — lean to merged value"}.`,
+          what_opponent_represents: rangeLine,
+        },
+        key_concepts: [
+          `Equity vs pot odds`,
+          `Range vs nut advantage (${engine.heroRA}/${engine.villainRA})`,
+          `Board texture: ${engine.texture}`,
+          opponents >= 2 ? "Multiway: tighten, value-heavy" : "Heads-up: more flexible",
+        ],
+        mistakes_to_avoid: [
+          engine.adjScore <= 35 ? "Don't bluff into multiple players or strong ranges." : "Don't slow-play strong hands on wet boards.",
+          sizing?.facingBet && (engine.potOdds && engine.reqEquity && engine.equityPct < engine.reqEquity)
+            ? "Don't call without the equity to justify the price."
+            : "Don't size out of the opponent's calling range.",
+          "Don't ignore position — OOP requires tighter, more defensive lines.",
+        ],
+      };
+      setAiResult(analysis);
     } catch (e: any) {
-      const msg = e?.message || "Failed to get AI analysis";
+      const msg = e?.message || "Local analysis failed";
       setAiError(msg);
       toast.error(msg);
     } finally {
