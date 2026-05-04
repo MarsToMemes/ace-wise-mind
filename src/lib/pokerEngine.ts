@@ -207,6 +207,127 @@ export function adjustedScore(opts: {
   return Math.max(0, s);
 }
 
+// ============================================================
+// RELATIVE HAND STRENGTH CLASSIFIER (contextual, not absolute)
+// ============================================================
+// Classifies a hand as Strong / Medium / Weak / Draw RELATIVE to:
+//   board texture, number of players, position, street, and (when available)
+//   action history pressure. Does NOT use absolute thresholds like
+//   "score < 50 = weak". Top pair on a wet 4-way pot ≠ top pair HU on a dry board.
+
+export type HandCategory4 = "Strong" | "Medium" | "Weak" | "Draw";
+
+export interface HandClassificationInput {
+  baseScore: number;                        // raw made-hand score (0..180)
+  category: HandCategory;                   // made-hand label
+  outs: number;                             // draw outs
+  drawType: string;                         // "Flush Draw", etc.
+  equityPct: number;                        // 0..100
+  texture: "Dry" | "Semi-wet" | "Wet";
+  opponents: number;                        // active opponents (excl. hero)
+  position: string;
+  street: Street;
+  facingAggression?: boolean;               // bet/raise in front of hero
+  betSizePct?: number;                      // call as % of pot
+}
+
+export interface HandClassification {
+  hand_category: HandCategory4;
+  confidence_level: number;                 // 0..1
+  reason: string;                           // short contextual explanation
+}
+
+export function classifyHandStrength(h: HandClassificationInput): HandClassification {
+  const { baseScore, category, outs, equityPct, texture, opponents, position, street, facingAggression, betSizePct } = h;
+  const ip = ["BTN", "CO", "HJ"].includes(position);
+  const multiway = opponents >= 2;
+  const heavyMultiway = opponents >= 3;
+  const wet = texture === "Wet";
+  const dry = texture === "Dry";
+  const reasons: string[] = [];
+
+  // ---------- 1) DRAW (no/weak made hand but real equity) ----------
+  // A draw classification supersedes "weak made hand" when there is real equity.
+  const isDrawHand = outs >= 6 && baseScore < 70;
+  if (isDrawHand) {
+    let conf = 0.5;
+    if (outs >= 12) conf = 0.85;
+    else if (outs >= 8) conf = 0.7;
+    else conf = 0.55;
+    if (street === "River") conf *= 0.3;          // draws are dead on river
+    if (multiway) conf = Math.min(1, conf + 0.05); // draws play better multiway (implied)
+    reasons.push(`${outs} outs (${equityPct.toFixed(0)}% equity)`);
+    if (wet) reasons.push("dynamic board");
+    return { hand_category: "Draw", confidence_level: +conf.toFixed(2), reason: reasons.join(", ") };
+  }
+
+  // ---------- 2) MADE HANDS — relative to context ----------
+  // Start from the made-hand "absolute" tier, then apply context shifts.
+  // Tiers: monster (FH+) / strong (straight/flush/set) / topPair-ish / weak made / air.
+  let tier: "monster" | "strong" | "decent" | "marginal" | "air";
+  if (baseScore >= 130) tier = "monster";
+  else if (baseScore >= 90) tier = "strong";       // straight, flush, set/trips
+  else if (baseScore >= 50) tier = "decent";       // two pair, overpair, top pair
+  else if (baseScore >= 30) tier = "marginal";     // pair, weak pair
+  else tier = "air";
+
+  // Contextual downgrades / upgrades
+  let cat: HandCategory4 = "Weak";
+  let conf = 0.5;
+
+  if (tier === "monster") {
+    cat = "Strong";
+    conf = 0.95;
+    reasons.push(category.toLowerCase());
+  } else if (tier === "strong") {
+    cat = "Strong";
+    conf = wet && heavyMultiway ? 0.7 : 0.88;
+    reasons.push(category.toLowerCase());
+    if (wet && heavyMultiway) reasons.push("wet board, many players → some risk");
+  } else if (tier === "decent") {
+    // Top pair / overpair / two pair — most context-sensitive tier.
+    cat = "Medium";
+    conf = 0.65;
+    reasons.push(category.toLowerCase());
+    // Multiway downgrade: top pair → medium (or even weak) in big multiway pots.
+    if (heavyMultiway) {
+      if (baseScore < 60) { cat = "Weak"; conf = 0.55; reasons.push("downgraded: heavy multiway"); }
+      else { cat = "Medium"; conf = 0.55; reasons.push("downgraded vs multiway field"); }
+    } else if (multiway && wet) {
+      cat = "Medium"; conf = 0.55;
+      reasons.push("multiway + wet → showdown value only");
+    } else if (!multiway && dry) {
+      cat = "Strong"; conf = 0.78;
+      reasons.push("HU on dry board → top of range");
+    }
+    // Facing big aggression on later streets pushes top-pair-ish toward bluff-catch only
+    if (facingAggression && (betSizePct ?? 0) >= 80 && (street === "Turn" || street === "River")) {
+      cat = cat === "Strong" ? "Medium" : "Weak";
+      conf = Math.max(0.45, conf - 0.15);
+      reasons.push("large bet pressure → bluff-catcher only");
+    }
+  } else if (tier === "marginal") {
+    cat = "Weak";
+    conf = 0.6;
+    reasons.push("weak pair");
+    if (!multiway && dry && ip && !facingAggression) {
+      cat = "Medium"; conf = 0.5;
+      reasons.push("HU dry IP → some showdown value");
+    }
+    if (multiway) reasons.push("dominated multiway");
+  } else {
+    cat = "Weak";
+    conf = 0.7;
+    reasons.push("no made hand, no draw");
+  }
+
+  // Equity sanity tie-breaker for ambiguous spots
+  if (cat === "Medium" && equityPct >= 65) { cat = "Strong"; conf = Math.max(conf, 0.7); }
+  if (cat === "Weak" && equityPct >= 55 && !facingAggression) { cat = "Medium"; conf = 0.5; }
+
+  return { hand_category: cat, confidence_level: +conf.toFixed(2), reason: reasons.join(", ") };
+}
+
 // Deterministic decision rule engine — equity vs pot odds + hand strength.
 export interface DecisionInput {
   baseScore: number;
