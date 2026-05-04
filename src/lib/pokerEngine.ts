@@ -179,6 +179,76 @@ export function potOdds(call: number, pot: number) {
   return { odds, reqEquity: odds * 100 };
 }
 
+// Equity estimation — Rule of 4 (flop→river) and Rule of 2 (turn→river / per street).
+export function estimateEquity(outs: number, boardLen: number): number {
+  if (outs <= 0) return 0;
+  let pct = 0;
+  if (boardLen <= 3) pct = outs * 4;       // flop → river
+  else if (boardLen === 4) pct = outs * 2; // turn → river
+  else pct = 0;                             // river — no draws
+  return Math.max(0, Math.min(100, pct));
+}
+
+// Score modifiers based on draw, texture, position
+export function adjustedScore(opts: {
+  baseScore: number;
+  outs: number;
+  texture: "Dry" | "Semi-wet" | "Wet";
+  position: string;
+}): number {
+  let s = opts.baseScore;
+  if (opts.outs >= 12) s += 25;
+  else if (opts.outs >= 8) s += 15;
+  else if (opts.outs >= 4) s += 6;
+  if (opts.texture === "Wet" && opts.baseScore < 110) s -= 8;
+  if (opts.texture === "Dry" && opts.baseScore >= 50) s += 4;
+  if (["BTN", "CO"].includes(opts.position)) s += 5;
+  if (["SB", "BB"].includes(opts.position)) s -= 3;
+  return Math.max(0, s);
+}
+
+// Deterministic decision rule engine — equity vs pot odds + hand strength.
+export interface DecisionInput {
+  baseScore: number;
+  adjScore: number;
+  outs: number;
+  equityPct: number;       // 0..100
+  potOddsPct: number | null; // required equity %, null if no call amount
+  boardLen: number;
+}
+export interface DecisionOutput {
+  action: "Raise" | "Call" | "Check" | "Fold";
+  reason: string;
+}
+
+export function decide(d: DecisionInput): DecisionOutput {
+  const { adjScore, baseScore, equityPct, potOddsPct, outs } = d;
+
+  // Strong made hand → value raise
+  if (baseScore >= 110) return { action: "Raise", reason: "Strong made hand — raise for value." };
+  if (adjScore >= 90) return { action: "Raise", reason: "Premium strength after adjustments — bet/raise for value." };
+
+  if (potOddsPct === null) {
+    // No call amount → checking decision
+    if (adjScore >= 60) return { action: "Raise", reason: "Decent strength with initiative — bet for value/protection." };
+    if (outs >= 8) return { action: "Raise", reason: "Strong draw — semi-bluff has fold equity + equity." };
+    if (adjScore >= 30) return { action: "Check", reason: "Marginal hand — control the pot." };
+    return { action: "Check", reason: "Weak holding — check and reassess." };
+  }
+
+  // Facing a bet
+  if (equityPct > potOddsPct + 5) {
+    if (adjScore >= 90) return { action: "Raise", reason: `Equity ${equityPct.toFixed(0)}% beats required ${potOddsPct.toFixed(0)}% with strong hand — raise.` };
+    return { action: "Call", reason: `Equity ${equityPct.toFixed(0)}% > pot odds ${potOddsPct.toFixed(0)}% — call profitably.` };
+  }
+  if (equityPct >= potOddsPct) {
+    return { action: "Call", reason: `Equity (${equityPct.toFixed(0)}%) marginally meets pot odds (${potOddsPct.toFixed(0)}%) — call.` };
+  }
+  if (adjScore >= 70) return { action: "Call", reason: "Made hand with showdown value — call despite thin odds." };
+  return { action: "Fold", reason: `Equity ${equityPct.toFixed(0)}% < required ${potOddsPct.toFixed(0)}% — fold.` };
+}
+
+// Legacy simple helper kept for compatibility
 export function suggestAction(opts: {
   score: number; outs: number; potOdds: number | null;
 }): "Raise" | "Call" | "Check" | "Fold" {
