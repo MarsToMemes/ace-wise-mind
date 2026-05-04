@@ -62,31 +62,14 @@ export const TrainingMode = () => {
 
     setAiLoading(true);
     try {
-      const { data } = await supabase.functions.invoke("poker-coach", {
-        body: {
-          hole: s.hole, board: s.board,
-          flop: s.board.slice(0, 3), turn: s.board[3] ?? null, river: s.board[4] ?? null,
-          currentStreet: s.street, lang,
-          position: s.position, opponents: s.opponents,
-          stack: s.stack, pot: s.pot, call: s.call,
-          handCategory: s.category, handScore: 0, adjScore: s.adjScore,
-          drawType: s.drawType, outs: s.outs,
-          equityPct: s.equityPct, texture: s.texture,
-          potOdds: s.reqEquity ? s.reqEquity.toFixed(1) + "%" : null,
-          reqEquity: s.reqEquity ? s.reqEquity.toFixed(1) + "%" : null,
-          heroRA: "Neutral", villainRA: "Neutral",
-          suggestedAction: s.correctAction, decisionReason: s.reason,
-          training: {
-            userChoice: choice, correctAction: s.correctAction,
-            evDiff: ev.evDiff, evUser: ev.evUser, evOptimal: ev.evOptimal,
-            rangeGuess: range, impliedRange: s.impliedOpponentRange,
-            rangeCorrect: ev.rangeCorrect, leakTags: ev.leakTags, timeout,
-          },
-        },
-      });
-      if (data?.analysis?.decision_explanation?.reasoning) {
-        setAiCoach(data.analysis.decision_explanation.reasoning);
-      }
+      // Local deterministic coach feedback — no external AI.
+      const verdict = ev.correct ? "Correct decision" : `Suboptimal — optimal was ${s.correctAction}`;
+      const evLine = `EV diff ${ev.evDiff} BB (you ${ev.evUser} vs optimal ${ev.evOptimal}).`;
+      const rangeLine = range
+        ? (ev.rangeCorrect ? "Range read aligned with engine." : `Range read off — engine implied ${s.impliedOpponentRange}.`)
+        : "No range guess provided.";
+      const leakLine = ev.leakTags.length ? `Leaks: ${ev.leakTags.join(", ")}.` : "No major leaks.";
+      setAiCoach(`${verdict}. ${evLine} ${rangeLine} ${leakLine} Reason: ${s.reason}`);
     } catch {}
     setAiLoading(false);
   }, [stats, lang]);
