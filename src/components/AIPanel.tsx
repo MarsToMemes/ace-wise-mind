@@ -84,13 +84,26 @@ export const AIPanel = ({ analysis, loading, error }: {
           <Target className="w-4 h-4 text-primary" />
           <h4 className="display text-lg">{t("ai.ifThen")}</h4>
         </div>
-        <ul className="space-y-2">
-          {analysis.conditional_lines.map((l, i) => (
-            <li key={i} className="text-sm flex gap-2">
-              <span className="text-primary">→</span>
-              <span className="text-foreground/85">{l}</span>
-            </li>
-          ))}
+        <ul className="space-y-3">
+          {analysis.conditional_lines.map((l, i) => {
+            if (typeof l === "string") {
+              return (
+                <li key={i} className="text-sm flex gap-2">
+                  <span className="text-primary">→</span>
+                  <span className="text-foreground/85">{l}</span>
+                </li>
+              );
+            }
+            return (
+              <li key={i} className="text-sm border-l-2 border-primary/40 pl-3">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <Badge variant="outline" className="text-[10px] uppercase">{l.action}</Badge>
+                  <span className="text-foreground font-medium">{l.condition}</span>
+                </div>
+                <p className="text-foreground/80 text-xs leading-relaxed">{l.explanation}</p>
+              </li>
+            );
+          })}
         </ul>
       </Card>
 
