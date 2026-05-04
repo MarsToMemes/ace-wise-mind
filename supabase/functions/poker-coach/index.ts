@@ -50,7 +50,9 @@ Engine readout:
       River: "This is the river — provide the FINAL decision only. For turn_plan and river_plan, briefly recap reasoning rather than projecting future streets.",
     };
 
-    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively. Justify decisions using range, board, EV, position. Never vague. Tailor your output to the current street: ${streetGuidance[street]}`;
+    const langMap: Record<string, string> = { en: "English", fr: "French (français)" };
+    const langName = langMap[ctx.lang] || "English";
+    const systemPrompt = `You are a high-level professional poker coach. Be precise, structured, actionable. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively. Justify decisions using range, board, EV, position. Never vague. Tailor your output to the current street: ${streetGuidance[street]}\n\nIMPORTANT: Write ALL output text (reasoning, plans, conditional lines, range thinking, key concepts, mistakes) in ${langName}. Keep poker terminology like "BTN", "SB", "BB", "UTG", "CO", "MP", "OESD", and the action enum values ("Raise", "Call", "Check", "Fold") unchanged.`;
 
     const tool = {
       type: "function",
