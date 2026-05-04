@@ -224,80 +224,101 @@ const Index = () => {
           </div>
           <div className="flex items-center gap-2">
             <LanguageSelector />
-            <Button variant="outline" size="sm" onClick={reset} className="gold-border">
-              <RotateCcw className="w-4 h-4 mr-2" /> {t("btn.reset")}
-            </Button>
+            {appMode === "analyzer" && (
+              <Button variant="outline" size="sm" onClick={reset} className="gold-border">
+                <RotateCcw className="w-4 h-4 mr-2" /> {t("btn.reset")}
+              </Button>
+            )}
           </div>
         </div>
       </header>
 
       <main className="container py-8 grid lg:grid-cols-2 gap-8">
         <div className="space-y-6">
-          <Card className="glass-panel p-5">
-            <StreetSlots
-              hole={hole}
-              flop={flop}
-              turn={turn}
-              river={river}
-              pickMode={pickMode}
-              setPickMode={setPickMode}
-              onRemove={removeCard}
-              currentStreet={currentStreet}
-            />
-            <div className="pt-5 mt-5 border-t border-border/40">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{t("section.deck")}</p>
-              <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
-            </div>
-          </Card>
+      <div className="container pt-6">
+        <Tabs value={appMode} onValueChange={(v) => setAppMode(v as "analyzer" | "training")}>
+          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
+            <TabsTrigger value="analyzer">{t("mode.analyzer")}</TabsTrigger>
+            <TabsTrigger value="training">{t("mode.training")}</TabsTrigger>
+          </TabsList>
 
-          <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">{t("section.tableAndPosition")}</h2>
-            <PokerTable
-              size={tableSize}
-              dealerIdx={dealerIdx}
-              userIdx={userIdx}
-              mode={seatMode}
-              onSeatClick={handleSeatClick}
-              onModeChange={setSeatMode}
-              onSizeChange={handleSizeChange}
-            />
-          </Card>
+          <TabsContent value="analyzer">
+            <main className="py-6 grid lg:grid-cols-2 gap-8">
+              <div className="space-y-6">
+                <Card className="glass-panel p-5">
+                  <StreetSlots
+                    hole={hole}
+                    flop={flop}
+                    turn={turn}
+                    river={river}
+                    pickMode={pickMode}
+                    setPickMode={setPickMode}
+                    onRemove={removeCard}
+                    currentStreet={currentStreet}
+                  />
+                  <div className="pt-5 mt-5 border-t border-border/40">
+                    <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{t("section.deck")}</p>
+                    <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
+                  </div>
+                </Card>
 
-          <Card className="glass-panel p-6">
-            <h2 className="display text-xl mb-4">{t("section.stakes")}</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>{t("field.stack")}</Label>
-                <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
+                <Card className="glass-panel p-6">
+                  <h2 className="display text-xl mb-4">{t("section.tableAndPosition")}</h2>
+                  <PokerTable
+                    size={tableSize}
+                    dealerIdx={dealerIdx}
+                    userIdx={userIdx}
+                    mode={seatMode}
+                    onSeatClick={handleSeatClick}
+                    onModeChange={setSeatMode}
+                    onSizeChange={handleSizeChange}
+                  />
+                </Card>
+
+                <Card className="glass-panel p-6">
+                  <h2 className="display text-xl mb-4">{t("section.stakes")}</h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>{t("field.stack")}</Label>
+                      <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t("field.pot")}</Label>
+                      <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5 col-span-2">
+                      <Label>{t("field.call")}</Label>
+                      <Input type="number" min={0} value={call} onChange={e => setCall(+e.target.value)} />
+                    </div>
+                  </div>
+                </Card>
               </div>
-              <div className="space-y-1.5">
-                <Label>{t("field.pot")}</Label>
-                <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} />
+
+              <div className="space-y-6">
+                <EngineReadout result={engine} />
+
+                <Button
+                  onClick={runAI}
+                  disabled={!engine || aiLoading}
+                  className="w-full h-12 text-base font-semibold"
+                  style={{ background: "var(--gradient-gold)", color: "hsl(var(--primary-foreground))" }}
+                >
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  {aiLoading ? t("btn.analyzing") : `${t("btn.runAi")} (${currentStreet})`}
+                </Button>
+
+                <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
               </div>
-              <div className="space-y-1.5 col-span-2">
-                <Label>{t("field.call")}</Label>
-                <Input type="number" min={0} value={call} onChange={e => setCall(+e.target.value)} />
-              </div>
-            </div>
-          </Card>
-        </div>
+            </main>
+          </TabsContent>
 
-        <div className="space-y-6">
-          <EngineReadout result={engine} />
-
-          <Button
-            onClick={runAI}
-            disabled={!engine || aiLoading}
-            className="w-full h-12 text-base font-semibold"
-            style={{ background: "var(--gradient-gold)", color: "hsl(var(--primary-foreground))" }}
-          >
-            <Sparkles className="w-5 h-5 mr-2" />
-            {aiLoading ? t("btn.analyzing") : `${t("btn.runAi")} (${currentStreet})`}
-          </Button>
-
-          <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
-        </div>
-      </main>
+          <TabsContent value="training">
+            <main className="py-6">
+              <TrainingMode />
+            </main>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       <footer className="container py-8 text-center text-xs text-muted-foreground">
         {t("footer.note")}
