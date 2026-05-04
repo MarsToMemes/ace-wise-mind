@@ -215,6 +215,12 @@ export interface DecisionInput {
   equityPct: number;       // 0..100
   potOddsPct: number | null; // required equity %, null if no call amount
   boardLen: number;
+  facingRaise?: boolean;     // hero already bet this street, now facing a re-raise
+  betSizePct?: number;       // call amount as % of pot (sizing pressure)
+  street?: Street;
+  texture?: "Dry" | "Semi-wet" | "Wet";
+  opponents?: number;
+  position?: string;
 }
 export interface DecisionOutput {
   action: "Raise" | "Call" | "Check" | "Fold";
@@ -222,7 +228,43 @@ export interface DecisionOutput {
 }
 
 export function decide(d: DecisionInput): DecisionOutput {
-  const { adjScore, baseScore, equityPct, potOddsPct, outs } = d;
+  const { adjScore, baseScore, equityPct, potOddsPct, outs, facingRaise, betSizePct, street, opponents, position } = d;
+
+  // ---- FACING A RAISE (after hero bet) — flop/turn/river pressure logic ----
+  if (facingRaise && potOddsPct !== null) {
+    const sizePct = betSizePct ?? 66;
+    const isSmall = sizePct < 50;
+    const isLarge = sizePct >= 100;
+    const multiway = (opponents ?? 1) >= 2;
+    const oop = position && ["SB", "BB", "UTG", "MP"].includes(position);
+
+    // Strong hand → call or re-raise
+    if (baseScore >= 110 || adjScore >= 95) {
+      if (!multiway && !isLarge && adjScore >= 100) {
+        return { action: "Raise", reason: `Facing a raise with a strong hand — 3-bet for value (size ${sizePct.toFixed(0)}% pot).` };
+      }
+      return { action: "Call", reason: `Facing a raise with a strong hand — call to keep range balanced and trap${multiway ? " (multiway)" : ""}.` };
+    }
+    // Draw → call if pot odds correct, sometimes semi-bluff raise
+    if (outs >= 8) {
+      if (equityPct >= potOddsPct) {
+        if (!multiway && outs >= 12 && isSmall) {
+          return { action: "Raise", reason: `Facing a raise with a combo draw — semi-bluff raise has equity (${equityPct.toFixed(0)}%) + fold equity vs small sizing.` };
+        }
+        return { action: "Call", reason: `Facing a raise with a strong draw — equity ${equityPct.toFixed(0)}% ≥ price ${potOddsPct.toFixed(0)}%, call to realize.` };
+      }
+      return { action: "Fold", reason: `Facing a raise with a draw — equity ${equityPct.toFixed(0)}% < ${potOddsPct.toFixed(0)}%, no price.` };
+    }
+    // Medium hand → mostly fold; call only vs small sizing in position
+    if (adjScore >= 50) {
+      if (isSmall && !multiway && !oop && equityPct + 5 >= potOddsPct) {
+        return { action: "Call", reason: `Medium hand vs small raise (${sizePct.toFixed(0)}% pot) in position — call once and reassess.` };
+      }
+      return { action: "Fold", reason: `Medium hand facing a raise${isLarge ? " (large sizing)" : ""} — fold, dominated too often.` };
+    }
+    // Weak → fold
+    return { action: "Fold", reason: `Weak hand facing a raise — clear fold.` };
+  }
 
   // Strong made hand → value raise
   if (baseScore >= 110) return { action: "Raise", reason: "Strong made hand — raise for value." };
