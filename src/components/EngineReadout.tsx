@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Target, Layers, Flame, Percent } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
 export interface EngineResult {
@@ -100,15 +100,32 @@ export const EngineReadout = ({ result }: { result: EngineResult | null }) => {
           <p className="font-semibold">{result.villainRA}</p>
         </Card>
 
+        {result.equityPct > 0 && (
+          <Card className="glass-panel p-4 col-span-2">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground mb-1">
+              <Percent className="w-3.5 h-3.5" /> {t("engine.equity")}
+            </div>
+            <div className="flex justify-between items-center">
+              <p className="font-semibold text-lg text-primary">{result.equityPct.toFixed(0)}%</p>
+              <p className="text-xs text-muted-foreground">{t("engine.equityRule")}</p>
+            </div>
+          </Card>
+        )}
+
         {result.potOdds !== null && (
           <Card className="glass-panel p-4 col-span-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground mb-1">
               <Minus className="w-3.5 h-3.5" /> {t("engine.potOdds")}
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <p className="font-semibold">{(result.potOdds * 100).toFixed(1)}%</p>
               <p className="text-sm text-muted-foreground">{t("engine.needEquity", { n: result.reqEquity?.toFixed(1) ?? "0" })}</p>
             </div>
+            {result.equityPct > 0 && result.reqEquity !== null && (
+              <p className={`text-xs mt-2 font-semibold ${result.equityPct >= result.reqEquity ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
+                {result.equityPct >= result.reqEquity ? "✓" : "✗"} {t("engine.equityVsOdds", { eq: result.equityPct.toFixed(0), need: result.reqEquity.toFixed(0) })}
+              </p>
+            )}
           </Card>
         )}
       </div>
