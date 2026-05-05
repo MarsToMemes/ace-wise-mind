@@ -42,7 +42,7 @@ const STREET_ORDER: Street[] = ["Preflop", "Flop", "Turn", "River"];
  *   River:   big bet -> polarized (nuts/bluff); small bet -> thin value/block.
  */
 export function inferRanges(inp: Inputs): RangeReadout {
-  const { actions, liveOpponentSeats, positions = {}, basePotBB = 0 } = inp;
+  const { actions, liveOpponentSeats, positions = {}, basePotBB = 0, boardTexture } = inp;
 
   const opponents: OpponentRange[] = liveOpponentSeats.map(seat => {
     const own = actions.filter(a => a.seatIdx === seat);
