@@ -413,7 +413,11 @@ export function decide(d: DecisionInput): DecisionOutput {
   // ---- NO BET FACED ----
   if (potOddsPct === null) {
     if (isStrong) return { action: "Raise", reason: `Strong hand (${handClass?.reason}) — bet/raise for value.` };
-    if (isDraw)   return { action: "Raise", reason: `Strong draw (${outs} outs) — semi-bluff has fold equity + equity.` };
+  if (isDraw)   {
+    const fe = d.foldEquityPct ?? 0.25;
+    if (fe < 0.1) return { action: "Check", reason: `Low fold equity — check draw instead of semi-bluffing (${outs} outs).` };
+    return { action: "Raise", reason: `Strong draw (${outs} outs) — semi-bluff has fold equity + equity.` };
+  }
     if (isMedium) return { action: "Check", reason: `Medium hand (${handClass?.reason}) — pot control.` };
     return { action: "Check", reason: `Weak hand — check and reassess.` };
   }
