@@ -180,12 +180,13 @@ export function potOdds(call: number, pot: number) {
 }
 
 // Equity estimation — Rule of 4 (flop→river) and Rule of 2 (turn→river / per street).
-export function estimateEquity(outs: number, boardLen: number): number {
-  if (outs <= 0) return 0;
+export function estimateEquity(outs: number, boardLen: number, backdoorOuts = 0): number {
+  if (outs <= 0 && backdoorOuts <= 0) return 0;
   let pct = 0;
   if (boardLen <= 3) pct = outs * 4;       // flop → river
   else if (boardLen === 4) pct = outs * 2; // turn → river
   else pct = 0;                             // river — no draws
+  if (boardLen === 3 && backdoorOuts > 0) pct += backdoorOuts * 0.5; // backdoor ~ half an out
   return Math.max(0, Math.min(100, pct));
 }
 
