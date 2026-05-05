@@ -27,6 +27,8 @@ interface Inputs {
   liveOpponentSeats: number[];           // seats still in the hand (excluding hero)
   positions?: Record<number, string>;    // seatIdx -> label
   basePotBB?: number;                    // pot at start (for sizing %)
+  boardCards?: string[];
+  boardTexture?: "Dry" | "Semi-wet" | "Wet";
 }
 
 const STREET_ORDER: Street[] = ["Preflop", "Flop", "Turn", "River"];
