@@ -137,6 +137,13 @@ export function inferRanges(inp: Inputs): RangeReadout {
             strength += street === "River" ? 4 : 6;
             notes.push(`${street}: small bet (~${sizePct.toFixed(0)}% pot) → ${street === "River" ? "thin value / block" : "wide range bet"}.`);
           }
+          if (boardTexture === "Wet" && last.type === "Bet" && sizePct >= 75) {
+            bluffFreq = Math.max(0.15, bluffFreq - 0.08);
+            notes.push(`Large bet on wet board → protection/value heavy, not polarized bluff.`);
+          } else if (boardTexture === "Dry" && last.type === "Bet" && sizePct >= 75) {
+            bluffFreq = Math.min(0.45, bluffFreq + 0.07);
+            notes.push(`Large bet on dry board → polarized, bluff frequency elevated.`);
+          }
           lastBetterSelf = true;
         } else if (last.type === "Call") {
           calledStations++;
