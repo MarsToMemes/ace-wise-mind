@@ -89,7 +89,10 @@ export function inferRanges(inp: Inputs): RangeReadout {
 
       // Last action of opponent on this street drives interpretation
       const last = acts[acts.length - 1];
-      const sizePct = cumBefore > 0 ? (last.amountBB / cumBefore) * 100 : 0;
+      const potForSizing = actions
+        .filter(a => a.street === street && a.seatIdx !== seat)
+        .reduce((s, a) => s + (a.amountBB || 0), 0);
+      const sizePct = cumBefore > 0 ? ((last.amountBB || 0) / (cumBefore + potForSizing)) * 100 : 0;
 
       if (street === "Preflop") {
         const pos = positions[seat];
