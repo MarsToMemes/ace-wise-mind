@@ -27,6 +27,8 @@ interface Inputs {
   liveOpponentSeats: number[];           // seats still in the hand (excluding hero)
   positions?: Record<number, string>;    // seatIdx -> label
   basePotBB?: number;                    // pot at start (for sizing %)
+  boardCards?: string[];
+  boardTexture?: "Dry" | "Semi-wet" | "Wet";
 }
 
 const STREET_ORDER: Street[] = ["Preflop", "Flop", "Turn", "River"];
@@ -40,7 +42,7 @@ const STREET_ORDER: Street[] = ["Preflop", "Flop", "Turn", "River"];
  *   River:   big bet -> polarized (nuts/bluff); small bet -> thin value/block.
  */
 export function inferRanges(inp: Inputs): RangeReadout {
-  const { actions, liveOpponentSeats, positions = {}, basePotBB = 0 } = inp;
+  const { actions, liveOpponentSeats, positions = {}, basePotBB = 0, boardTexture } = inp;
 
   const opponents: OpponentRange[] = liveOpponentSeats.map(seat => {
     const own = actions.filter(a => a.seatIdx === seat);
@@ -87,7 +89,10 @@ export function inferRanges(inp: Inputs): RangeReadout {
 
       // Last action of opponent on this street drives interpretation
       const last = acts[acts.length - 1];
-      const sizePct = cumBefore > 0 ? (last.amountBB / cumBefore) * 100 : 0;
+      const potForSizing = actions
+        .filter(a => a.street === street && a.seatIdx !== seat)
+        .reduce((s, a) => s + (a.amountBB || 0), 0);
+      const sizePct = cumBefore > 0 ? ((last.amountBB || 0) / (cumBefore + potForSizing)) * 100 : 0;
 
       if (street === "Preflop") {
         const pos = positions[seat];
@@ -131,6 +136,13 @@ export function inferRanges(inp: Inputs): RangeReadout {
             bluffFreq = 0.22;
             strength += street === "River" ? 4 : 6;
             notes.push(`${street}: small bet (~${sizePct.toFixed(0)}% pot) → ${street === "River" ? "thin value / block" : "wide range bet"}.`);
+          }
+          if (boardTexture === "Wet" && last.type === "Bet" && sizePct >= 75) {
+            bluffFreq = Math.max(0.15, bluffFreq - 0.08);
+            notes.push(`Large bet on wet board → protection/value heavy, not polarized bluff.`);
+          } else if (boardTexture === "Dry" && last.type === "Bet" && sizePct >= 75) {
+            bluffFreq = Math.min(0.45, bluffFreq + 0.07);
+            notes.push(`Large bet on dry board → polarized, bluff frequency elevated.`);
           }
           lastBetterSelf = true;
         } else if (last.type === "Call") {
@@ -183,10 +195,12 @@ export function inferRanges(inp: Inputs): RangeReadout {
     };
   });
 
-  // Aggregate: take strongest opponent (worst case for hero) but blend with avg
+  // Aggregate: weight top-2 opponents heavily; remainder smoothed
+  const sorted = opponents.map(o => o.estimatedStrength).sort((a, b) => b - a);
   const aggregateStrength = opponents.length === 0 ? 0 : Math.round(
-    0.6 * Math.max(...opponents.map(o => o.estimatedStrength)) +
-    0.4 * (opponents.reduce((s, o) => s + o.estimatedStrength, 0) / opponents.length),
+    opponents.length === 1
+      ? sorted[0]
+      : 0.5 * sorted[0] + 0.3 * sorted[1] + 0.2 * (sorted.slice(2).reduce((s, v) => s + v, 0) / Math.max(1, sorted.length - 2))
   );
   const aggregateBluffFreq = opponents.length === 0 ? 0 :
     +(opponents.reduce((s, o) => s + o.bluffFrequency, 0) / opponents.length).toFixed(2);

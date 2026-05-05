@@ -180,12 +180,13 @@ export function potOdds(call: number, pot: number) {
 }
 
 // Equity estimation — Rule of 4 (flop→river) and Rule of 2 (turn→river / per street).
-export function estimateEquity(outs: number, boardLen: number): number {
-  if (outs <= 0) return 0;
+export function estimateEquity(outs: number, boardLen: number, backdoorOuts = 0): number {
+  if (outs <= 0 && backdoorOuts <= 0) return 0;
   let pct = 0;
   if (boardLen <= 3) pct = outs * 4;       // flop → river
   else if (boardLen === 4) pct = outs * 2; // turn → river
   else pct = 0;                             // river — no draws
+  if (boardLen === 3 && backdoorOuts > 0) pct += backdoorOuts * 0.5; // backdoor ~ half an out
   return Math.max(0, Math.min(100, pct));
 }
 
@@ -229,6 +230,7 @@ export interface HandClassificationInput {
   street: Street;
   facingAggression?: boolean;               // bet/raise in front of hero
   betSizePct?: number;                      // call as % of pot
+  boardCards?: string[];                    // optional board cards for board-vs-range interaction
 }
 
 export interface HandClassification {
@@ -238,7 +240,7 @@ export interface HandClassification {
 }
 
 export function classifyHandStrength(h: HandClassificationInput): HandClassification {
-  const { baseScore, category, outs, equityPct, texture, opponents, position, street, facingAggression, betSizePct } = h;
+  const { baseScore, category, outs, equityPct, texture, opponents, position, street, facingAggression, betSizePct, boardCards } = h;
   const ip = ["BTN", "CO", "HJ"].includes(position);
   const multiway = opponents >= 2;
   const heavyMultiway = opponents >= 3;
@@ -325,6 +327,24 @@ export function classifyHandStrength(h: HandClassificationInput): HandClassifica
   if (cat === "Medium" && equityPct >= 65) { cat = "Strong"; conf = Math.max(conf, 0.7); }
   if (cat === "Weak" && equityPct >= 55 && !facingAggression) { cat = "Medium"; conf = 0.5; }
 
+  // Board interaction: high cards + monotone affect range vs board fit
+  if (boardCards && boardCards.length >= 3) {
+    const parsedB = boardCards.map(parseCard);
+    const highCount = parsedB.filter(p => p.val >= 11).length;
+    if (highCount >= 3 && tier === "decent") {
+      cat = "Weak";
+      conf = Math.max(0.4, conf - 0.1);
+      reasons.push("high-card board favors PFR range");
+    }
+    const suitCounts: Record<string, number> = { s: 0, h: 0, d: 0, c: 0 };
+    parsedB.forEach(p => suitCounts[p.suit]++);
+    const monotone = Object.values(suitCounts).some(c => c === parsedB.length);
+    if (monotone && category !== "Flush" && category !== "Straight Flush") {
+      reasons.push("monotone board — flush possible");
+      conf = Math.max(0.3, conf - 0.1);
+    }
+  }
+
   return { hand_category: cat, confidence_level: +conf.toFixed(2), reason: reasons.join(", ") };
 }
 
@@ -343,6 +363,7 @@ export interface DecisionInput {
   opponents?: number;
   position?: string;
   handClass?: HandClassification;     // contextual classification (preferred driver)
+  foldEquityPct?: number;             // 0..1 estimated fold equity (default 0.25)
 }
 export interface DecisionOutput {
   action: "Raise" | "Call" | "Check" | "Fold";
@@ -392,7 +413,11 @@ export function decide(d: DecisionInput): DecisionOutput {
   // ---- NO BET FACED ----
   if (potOddsPct === null) {
     if (isStrong) return { action: "Raise", reason: `Strong hand (${handClass?.reason}) — bet/raise for value.` };
-    if (isDraw)   return { action: "Raise", reason: `Strong draw (${outs} outs) — semi-bluff has fold equity + equity.` };
+  if (isDraw)   {
+    const fe = d.foldEquityPct ?? 0.25;
+    if (fe < 0.1) return { action: "Check", reason: `Low fold equity — check draw instead of semi-bluffing (${outs} outs).` };
+    return { action: "Raise", reason: `Strong draw (${outs} outs) — semi-bluff has fold equity + equity.` };
+  }
     if (isMedium) return { action: "Check", reason: `Medium hand (${handClass?.reason}) — pot control.` };
     return { action: "Check", reason: `Weak hand — check and reassess.` };
   }

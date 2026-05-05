@@ -41,6 +41,7 @@ export const TrainingMode = () => {
     setUserChoice(choice);
     setEvaluation(ev);
 
+    const newStreak = ev.correct ? stats.streak + 1 : 0;
     const newStats: Stats = {
       total: stats.total + 1,
       correct: stats.correct + (ev.correct ? 1 : 0),
@@ -55,6 +56,10 @@ export const TrainingMode = () => {
       leaks: { ...stats.leaks },
       rangeAttempts: stats.rangeAttempts + (range ? 1 : 0),
       rangeCorrect: stats.rangeCorrect + (ev.rangeCorrect ? 1 : 0),
+      streak: newStreak,
+      bestStreak: Math.max(stats.bestStreak, newStreak),
+      sessionTotal: stats.sessionTotal + 1,
+      sessionCorrect: stats.sessionCorrect + (ev.correct ? 1 : 0),
     };
     ev.leakTags.forEach(tag => { newStats.leaks[tag] = (newStats.leaks[tag] || 0) + 1; });
     setStats(newStats);

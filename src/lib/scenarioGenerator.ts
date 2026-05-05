@@ -52,7 +52,7 @@ export interface Scenario {
 }
 
 const POSITIONS: Position[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
-const STREETS: Street[] = ["Preflop", "Flop", "Turn", "River"];
+const STREETS: Street[] = ["Flop", "Turn", "River"]; // TODO: re-enable Preflop once hand rank table (AA/KK/AKs tiers) is implemented
 
 function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice();
@@ -64,11 +64,11 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function impliedRange(call: number, pot: number, texture: string, position: Position): RangeGuess {
-  // Heuristic: bigger bets = tighter, wet boards & passive lines = balanced
   if (call === 0) return "Balanced";
   const ratio = call / Math.max(1, pot);
-  if (ratio > 0.9) return "Very tight";
-  if (ratio > 0.6) return texture === "Wet" ? "Tight" : "Tight";
+  if (ratio > 1.0) return "Bluff-heavy"; // overbet = polarized, not tight
+  if (ratio > 0.6 && texture === "Dry") return "Very tight";    // large bet dry = value-heavy
+  if (ratio > 0.6 && texture === "Wet") return "Loose aggressive"; // large bet wet = could be draw
   if (ratio > 0.35) return "Balanced";
   if (["BTN", "CO"].includes(position)) return "Loose aggressive";
   return "Bluff-heavy";
@@ -127,7 +127,11 @@ export function computeActionEVs(s: Scenario): ActionEV {
   const eq = s.equityPct / 100;
   const evCall = s.call > 0 ? eq * (s.pot + s.call) - (1 - eq) * s.call : 0;
   const raiseSize = Math.max(s.call, s.pot);
-  const fe = 0.25;
+  // Fold equity varies by street and texture
+  const fe = s.street === "River" ? 0.12
+    : s.texture === "Dry" ? 0.35
+    : s.texture === "Wet" ? 0.20
+    : 0.25;
   const evRaise = fe * s.pot + (1 - fe) * (eq * (s.pot + 2 * raiseSize) - (1 - eq) * raiseSize);
   const evCheck = s.call > 0 ? -Infinity : eq * s.pot; // can't check facing a bet
   return {
@@ -147,6 +151,7 @@ export interface Evaluation {
   rangeCorrect: boolean | null;
   leakTags: LeakTag[];
   timeout?: boolean;
+  updatedStats?: Stats; // populated when caller passes a stats object
 }
 
 export function evaluateDecision(
@@ -154,6 +159,7 @@ export function evaluateDecision(
   choice: UserAction,
   rangeGuess: RangeGuess | null,
   timeout = false,
+  prevStats?: Stats,
 ): Evaluation {
   const evs = computeActionEVs(s);
   const userEvRaw = evs[choice];
@@ -188,6 +194,18 @@ export function evaluateDecision(
     feedback = `Better play: ${s.correctAction}. ${s.reason}`;
   }
 
+  let updatedStats: Stats | undefined;
+  if (prevStats) {
+    const newStreak = correct ? prevStats.streak + 1 : 0;
+    updatedStats = {
+      ...prevStats,
+      streak: newStreak,
+      bestStreak: Math.max(prevStats.bestStreak, newStreak),
+      sessionTotal: prevStats.sessionTotal + 1,
+      sessionCorrect: prevStats.sessionCorrect + (correct ? 1 : 0),
+    };
+  }
+
   return {
     correct,
     evDiff,
@@ -197,6 +215,7 @@ export function evaluateDecision(
     rangeCorrect,
     leakTags: tags,
     timeout,
+    updatedStats,
   };
 }
 
@@ -208,6 +227,10 @@ export interface Stats {
   leaks: Record<LeakTag, number>;
   rangeAttempts: number;
   rangeCorrect: number;
+  streak: number;           // current correct streak
+  bestStreak: number;       // all-time best streak
+  sessionTotal: number;     // hands this session (reset on new load)
+  sessionCorrect: number;
 }
 
 const STATS_KEY = "training-stats-v2";
@@ -226,20 +249,27 @@ const empty = (): Stats => ({
   leaks: emptyLeaks(),
   rangeAttempts: 0,
   rangeCorrect: 0,
+  streak: 0,
+  bestStreak: 0,
+  sessionTotal: 0,
+  sessionCorrect: 0,
 });
 
 export function loadStats(): Stats {
+  if (typeof window === "undefined") return empty();
   try {
     const raw = localStorage.getItem(STATS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...empty(), ...parsed, leaks: { ...emptyLeaks(), ...(parsed.leaks || {}) } };
+      // Reset session counters on fresh load
+      return { ...empty(), ...parsed, leaks: { ...emptyLeaks(), ...(parsed.leaks || {}) }, sessionTotal: 0, sessionCorrect: 0 };
     }
   } catch {}
   return empty();
 }
 
 export function saveStats(s: Stats) {
+  if (typeof window === "undefined") return;
   try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {}
 }
 
