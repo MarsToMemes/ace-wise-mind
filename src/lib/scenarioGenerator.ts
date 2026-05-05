@@ -127,7 +127,11 @@ export function computeActionEVs(s: Scenario): ActionEV {
   const eq = s.equityPct / 100;
   const evCall = s.call > 0 ? eq * (s.pot + s.call) - (1 - eq) * s.call : 0;
   const raiseSize = Math.max(s.call, s.pot);
-  const fe = 0.25;
+  // Fold equity varies by street and texture
+  const fe = s.street === "River" ? 0.12
+    : s.texture === "Dry" ? 0.35
+    : s.texture === "Wet" ? 0.20
+    : 0.25;
   const evRaise = fe * s.pot + (1 - fe) * (eq * (s.pot + 2 * raiseSize) - (1 - eq) * raiseSize);
   const evCheck = s.call > 0 ? -Infinity : eq * s.pot; // can't check facing a bet
   return {
