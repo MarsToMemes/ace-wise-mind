@@ -326,6 +326,24 @@ export function classifyHandStrength(h: HandClassificationInput): HandClassifica
   if (cat === "Medium" && equityPct >= 65) { cat = "Strong"; conf = Math.max(conf, 0.7); }
   if (cat === "Weak" && equityPct >= 55 && !facingAggression) { cat = "Medium"; conf = 0.5; }
 
+  // Board interaction: high cards + monotone affect range vs board fit
+  if (boardCards && boardCards.length >= 3) {
+    const parsedB = boardCards.map(parseCard);
+    const highCount = parsedB.filter(p => p.val >= 11).length;
+    if (highCount >= 3 && tier === "decent") {
+      cat = "Weak";
+      conf = Math.max(0.4, conf - 0.1);
+      reasons.push("high-card board favors PFR range");
+    }
+    const suitCounts: Record<string, number> = { s: 0, h: 0, d: 0, c: 0 };
+    parsedB.forEach(p => suitCounts[p.suit]++);
+    const monotone = Object.values(suitCounts).some(c => c === parsedB.length);
+    if (monotone && category !== "Flush" && category !== "Straight Flush") {
+      reasons.push("monotone board — flush possible");
+      conf = Math.max(0.3, conf - 0.1);
+    }
+  }
+
   return { hand_category: cat, confidence_level: +conf.toFixed(2), reason: reasons.join(", ") };
 }
 
