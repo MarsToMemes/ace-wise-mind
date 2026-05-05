@@ -151,6 +151,7 @@ export interface Evaluation {
   rangeCorrect: boolean | null;
   leakTags: LeakTag[];
   timeout?: boolean;
+  updatedStats?: Stats; // populated when caller passes a stats object
 }
 
 export function evaluateDecision(
