@@ -227,6 +227,10 @@ export interface Stats {
   leaks: Record<LeakTag, number>;
   rangeAttempts: number;
   rangeCorrect: number;
+  streak: number;           // current correct streak
+  bestStreak: number;       // all-time best streak
+  sessionTotal: number;     // hands this session (reset on new load)
+  sessionCorrect: number;
 }
 
 const STATS_KEY = "training-stats-v2";
@@ -245,20 +249,27 @@ const empty = (): Stats => ({
   leaks: emptyLeaks(),
   rangeAttempts: 0,
   rangeCorrect: 0,
+  streak: 0,
+  bestStreak: 0,
+  sessionTotal: 0,
+  sessionCorrect: 0,
 });
 
 export function loadStats(): Stats {
+  if (typeof window === "undefined") return empty();
   try {
     const raw = localStorage.getItem(STATS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...empty(), ...parsed, leaks: { ...emptyLeaks(), ...(parsed.leaks || {}) } };
+      // Reset session counters on fresh load
+      return { ...empty(), ...parsed, leaks: { ...emptyLeaks(), ...(parsed.leaks || {}) }, sessionTotal: 0, sessionCorrect: 0 };
     }
   } catch {}
   return empty();
 }
 
 export function saveStats(s: Stats) {
+  if (typeof window === "undefined") return;
   try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch {}
 }
 
