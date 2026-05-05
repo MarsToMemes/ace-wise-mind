@@ -363,6 +363,7 @@ export interface DecisionInput {
   opponents?: number;
   position?: string;
   handClass?: HandClassification;     // contextual classification (preferred driver)
+  foldEquityPct?: number;             // 0..1 estimated fold equity (default 0.25)
 }
 export interface DecisionOutput {
   action: "Raise" | "Call" | "Check" | "Fold";
