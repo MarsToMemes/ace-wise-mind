@@ -229,6 +229,7 @@ export interface HandClassificationInput {
   street: Street;
   facingAggression?: boolean;               // bet/raise in front of hero
   betSizePct?: number;                      // call as % of pot
+  boardCards?: string[];                    // optional board cards for board-vs-range interaction
 }
 
 export interface HandClassification {
