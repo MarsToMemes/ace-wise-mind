@@ -159,6 +159,7 @@ export function evaluateDecision(
   choice: UserAction,
   rangeGuess: RangeGuess | null,
   timeout = false,
+  prevStats?: Stats,
 ): Evaluation {
   const evs = computeActionEVs(s);
   const userEvRaw = evs[choice];
