@@ -194,6 +194,18 @@ export function evaluateDecision(
     feedback = `Better play: ${s.correctAction}. ${s.reason}`;
   }
 
+  let updatedStats: Stats | undefined;
+  if (prevStats) {
+    const newStreak = correct ? prevStats.streak + 1 : 0;
+    updatedStats = {
+      ...prevStats,
+      streak: newStreak,
+      bestStreak: Math.max(prevStats.bestStreak, newStreak),
+      sessionTotal: prevStats.sessionTotal + 1,
+      sessionCorrect: prevStats.sessionCorrect + (correct ? 1 : 0),
+    };
+  }
+
   return {
     correct,
     evDiff,
@@ -203,6 +215,7 @@ export function evaluateDecision(
     rangeCorrect,
     leakTags: tags,
     timeout,
+    updatedStats,
   };
 }
 
