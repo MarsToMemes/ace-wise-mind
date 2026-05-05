@@ -239,7 +239,7 @@ export interface HandClassification {
 }
 
 export function classifyHandStrength(h: HandClassificationInput): HandClassification {
-  const { baseScore, category, outs, equityPct, texture, opponents, position, street, facingAggression, betSizePct } = h;
+  const { baseScore, category, outs, equityPct, texture, opponents, position, street, facingAggression, betSizePct, boardCards } = h;
   const ip = ["BTN", "CO", "HJ"].includes(position);
   const multiway = opponents >= 2;
   const heavyMultiway = opponents >= 3;
