@@ -195,10 +195,12 @@ export function inferRanges(inp: Inputs): RangeReadout {
     };
   });
 
-  // Aggregate: take strongest opponent (worst case for hero) but blend with avg
+  // Aggregate: weight top-2 opponents heavily; remainder smoothed
+  const sorted = opponents.map(o => o.estimatedStrength).sort((a, b) => b - a);
   const aggregateStrength = opponents.length === 0 ? 0 : Math.round(
-    0.6 * Math.max(...opponents.map(o => o.estimatedStrength)) +
-    0.4 * (opponents.reduce((s, o) => s + o.estimatedStrength, 0) / opponents.length),
+    opponents.length === 1
+      ? sorted[0]
+      : 0.5 * sorted[0] + 0.3 * sorted[1] + 0.2 * (sorted.slice(2).reduce((s, v) => s + v, 0) / Math.max(1, sorted.length - 2))
   );
   const aggregateBluffFreq = opponents.length === 0 ? 0 :
     +(opponents.reduce((s, o) => s + o.bluffFrequency, 0) / opponents.length).toFixed(2);
