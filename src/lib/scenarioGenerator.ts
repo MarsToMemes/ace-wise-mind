@@ -52,7 +52,7 @@ export interface Scenario {
 }
 
 const POSITIONS: Position[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
-const STREETS: Street[] = ["Preflop", "Flop", "Turn", "River"];
+const STREETS: Street[] = ["Flop", "Turn", "River"]; // TODO: re-enable Preflop once hand rank table (AA/KK/AKs tiers) is implemented
 
 function shuffle<T>(arr: T[]): T[] {
   const a = arr.slice();
