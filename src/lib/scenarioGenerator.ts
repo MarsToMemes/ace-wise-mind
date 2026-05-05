@@ -64,11 +64,11 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 function impliedRange(call: number, pot: number, texture: string, position: Position): RangeGuess {
-  // Heuristic: bigger bets = tighter, wet boards & passive lines = balanced
   if (call === 0) return "Balanced";
   const ratio = call / Math.max(1, pot);
-  if (ratio > 0.9) return "Very tight";
-  if (ratio > 0.6) return texture === "Wet" ? "Tight" : "Tight";
+  if (ratio > 1.0) return "Bluff-heavy"; // overbet = polarized, not tight
+  if (ratio > 0.6 && texture === "Dry") return "Very tight";    // large bet dry = value-heavy
+  if (ratio > 0.6 && texture === "Wet") return "Loose aggressive"; // large bet wet = could be draw
   if (ratio > 0.35) return "Balanced";
   if (["BTN", "CO"].includes(position)) return "Loose aggressive";
   return "Bluff-heavy";
