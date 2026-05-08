@@ -13,7 +13,7 @@ export interface CoachEngineInput {
   drawType?: string;
   equityPct?: number;
   texture?: string;
-  potOdds?: string | null;
+  potOdds?: string | number | null;
   reqEquity?: number | null;
   heroRA?: number;
   villainRA?: number;
