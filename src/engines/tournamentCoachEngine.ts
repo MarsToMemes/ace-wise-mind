@@ -261,7 +261,7 @@ export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
     cond.push(fr ? "Si scare card complète un tirage: ralentis OOP, polarise IP." :
       "If scare card completes a draw: slow down OOP, polarize IP.");
   }
-  if (inp.state.isFinalTable || stage === "final-table") {
+  if ((inp.state.playersRemaining <= 9) || stage === "final-table") {
     cond.unshift(fr ? "Final table: applique l'ICM, cible les short-stacks et évite les flips inutiles." :
       "Final table: apply ICM, target short stacks, avoid unnecessary flips.");
   } else if (stage === "bubble") {
@@ -302,7 +302,7 @@ export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
   ];
   if (depth === "critical") keyConcepts.push(fr ? "ZONE DANGER" : "DANGER ZONE");
   if (stage === "bubble") keyConcepts.push(fr ? "Pression bulle" : "Bubble pressure");
-  if (inp.state.isFinalTable) keyConcepts.push(fr ? "Paliers ICM (FT)" : "ICM ladder (FT)");
+  if ((inp.state.playersRemaining <= 9)) keyConcepts.push(fr ? "Paliers ICM (FT)" : "ICM ladder (FT)");
 
   // Range thinking
   const youRep = (() => {
