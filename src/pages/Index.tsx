@@ -294,6 +294,7 @@ const Index = () => {
     setFolded(Array(tableSize).fill(false));
     setStack(100); setPot(10); setCall(0);
     setActionHistory([]);
+    setTournamentResetKey(k => k + 1);
   };
 
   const handleSeatClick = (i: number) => {
