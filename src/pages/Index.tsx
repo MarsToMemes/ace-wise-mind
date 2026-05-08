@@ -425,8 +425,8 @@ const Index = () => {
       if (lastAggressive) ctx.push(`${lang === "fr" ? "adversaire" : "opponent"} ${lastAggressive.type.toLowerCase()} ${lastAggressive.amountBB}bb`);
 
       const local = lang === "fr"
-        ? `Décision: ${engine.suggestedAction}. Main: ${engine.handCategory ?? "?"} (score ajusté ${engine.adjScore}). Équité ${engine.equityPct}%${engine.reqEquity ? ` vs cote requise ${engine.reqEquity}%` : ""}. Position ${position} en ${currentStreet}, ${opponents + 1} joueurs actifs. ${ctx.length ? `Contexte: ${ctx.join(", ")}.` : ""}`
-        : `Decision: ${engine.suggestedAction}. Hand: ${engine.handCategory ?? "?"} (adj. score ${engine.adjScore}). Equity ${engine.equityPct}%${engine.reqEquity ? ` vs required ${engine.reqEquity}%` : ""}. Position ${position} on ${currentStreet}, ${opponents + 1} active players. ${ctx.length ? `Context: ${ctx.join(", ")}.` : ""}`;
+        ? `Décision: ${engine.suggestedAction}. Main: ${engine.category ?? "?"} (score ajusté ${engine.adjScore}). Équité ${engine.equityPct}%${engine.reqEquity ? ` vs cote requise ${engine.reqEquity}%` : ""}. Position ${position} en ${currentStreet}, ${opponents + 1} joueurs actifs. ${ctx.length ? `Contexte: ${ctx.join(", ")}.` : ""}`
+        : `Decision: ${engine.suggestedAction}. Hand: ${engine.category ?? "?"} (adj. score ${engine.adjScore}). Equity ${engine.equityPct}%${engine.reqEquity ? ` vs required ${engine.reqEquity}%` : ""}. Position ${position} on ${currentStreet}, ${opponents + 1} active players. ${ctx.length ? `Context: ${ctx.join(", ")}.` : ""}`;
       setGeminiText(local);
     } catch (e: any) {
       toast.error(e?.message || "Local explanation error");
