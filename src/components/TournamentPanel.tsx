@@ -13,7 +13,15 @@ import { CardPicker } from "@/components/CardPicker";
 import { StreetSlots } from "@/components/StreetSlots";
 import { PokerTable, TableSize, SeatMode, seatLabel, labelToPosition } from "@/components/PokerTable";
 import { PlayerAction, ActionType } from "@/components/ActionMenu";
-import { Trophy } from "lucide-react";
+import { AIPanel, AIAnalysis } from "@/components/AIPanel";
+import { Trophy, Sparkles } from "lucide-react";
+import {
+  evaluateBest, detectDraws, classifyTexture, estimateEquity,
+  adjustedScore, decide, recommendSizing, classifyHandStrength, potOdds,
+} from "@/lib/pokerEngine";
+import { inferRanges } from "@/lib/rangeInference";
+import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
