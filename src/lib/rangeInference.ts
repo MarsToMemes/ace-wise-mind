@@ -184,6 +184,30 @@ export function inferRanges(inp: Inputs): RangeReadout {
       notes.push("Multiple calls → made hand with showdown value.");
     }
 
+    // Tournament-aware modifiers
+    if (inp.tournamentState) {
+      const ts = inp.tournamentState;
+      if (ts.stage === "bubble") {
+        bluffFreq = Math.max(0, bluffFreq - 0.15);
+        notes.push("Bubble: bluff frequency reduced (survival pressure).");
+      }
+      if (ts.stage === "final-table") {
+        strength = Math.min(100, strength + 5);
+        notes.push("Final table: opponent ranges tightened (+5).");
+      }
+      const seatStack = inp.seatStacksBB?.[seat];
+      const heroStack = inp.heroStackBB;
+      if (seatStack != null && heroStack != null && heroStack > 0) {
+        if (seatStack > heroStack * 2) {
+          strength = Math.min(100, strength + 8);
+          notes.push("Big stack villain: applies pressure (+8 strength).");
+        } else if (seatStack < heroStack * 0.5) {
+          rangeType = "polarized";
+          notes.push("Short stack villain: shove-or-fold (polarized).");
+        }
+      }
+    }
+
     strength = Math.max(0, Math.min(100, strength));
     bluffFreq = Math.max(0, Math.min(1, bluffFreq));
     if (rangeType === "unknown") rangeType = "wide";
