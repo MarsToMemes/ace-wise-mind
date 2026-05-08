@@ -43,19 +43,25 @@ interface Props {
   userIdx: number;
   mode: SeatMode;
   folded: boolean[];
-  streetContribs: number[]; // BB committed this street per seat
-  lastActions: (PlayerAction | null)[]; // last action per seat (current street)
-  currentBet: number; // BB to match this street
+  streetContribs: number[];
+  lastActions: (PlayerAction | null)[];
+  currentBet: number;
   defaultRaise: number;
   onSeatClick: (i: number) => void;
   onPlayerAction: (seatIdx: number, type: ActionType, amountBB: number) => void;
   onModeChange: (m: SeatMode) => void;
   onSizeChange: (s: TableSize) => void;
+  // Tournament overlay
+  tournamentState?: TournamentState;
+  seatStacksBB?: number[];
+  levelTimerSec?: number;
+  flashMRatio?: boolean;
 }
 
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
   currentBet, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
+  tournamentState, seatStacksBB, levelTimerSec, flashMRatio,
 }: Props) => {
   const { t } = useI18n();
   const [actionSeat, setActionSeat] = useState<number | null>(null);
