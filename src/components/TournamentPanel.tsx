@@ -20,7 +20,7 @@ import {
   adjustedScore, decide, recommendSizing, classifyHandStrength, potOdds,
 } from "@/lib/pokerEngine";
 import { inferRanges } from "@/lib/rangeInference";
-import { supabase } from "@/integrations/supabase/client";
+import { generateCoachAnalysis } from "@/engines/coachEngine";
 import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
@@ -283,63 +283,52 @@ export function TournamentPanel() {
       const heroStackRelative = state.stackBB > biggest * 2 ? "big"
         : state.stackBB < smallest * 0.5 ? "short" : "medium";
 
-      const { data, error } = await supabase.functions.invoke("poker-coach", {
-        body: {
-          hole, flop, turn, river,
-          currentStreet,
-          stack: state.stackBB,
-          pot: dynPot, call: heroToCall,
-          opponents: liveOpponents.length,
-          position,
-          handCategory: ev.category, handScore: ev.score,
-          adjScore: adj, drawType: draws.drawType, outs: draws.outs,
-          equityPct: eq, texture,
-          potOdds: po?.odds ?? null, reqEquity: po?.reqEquity ?? null,
-          heroRA: 50, villainRA: 50,
-          suggestedAction: pf?.action ?? dec.action,
-          decisionReason: pf?.reasoning ?? dec.reason,
-          sizing,
-          range_inference: {
-            aggregate_strength: rr.aggregateStrength,
-            dominant_range_type: rr.dominantRangeType,
-            aggregate_bluff_frequency: rr.aggregateBluffFreq,
-            opponents: rr.opponents.map(o => ({
-              seat: o.seatIdx, position: o.position,
-              estimated_strength: o.estimatedStrength,
-              range_type: o.rangeType,
-              bluff_frequency: o.bluffFrequency,
-              notes: o.notes,
-            })),
-          },
-          action_history: actionHistory.map(a => ({
-            street: a.street, seat: a.seatIdx,
-            position: positionsMap[a.seatIdx],
-            type: a.type, amount_bb: a.amountBB,
+      const ip = ["BTN", "CO", "HJ"].includes(position);
+      const analysis = generateCoachAnalysis({
+        action: pf?.action ?? dec.action,
+        reasoning: pf?.reasoning ?? dec.reason,
+        handCategory: ev.category,
+        adjScore: adj,
+        baseScore: ev.score,
+        outs: draws.outs,
+        drawType: draws.drawType,
+        equityPct: eq,
+        texture,
+        potOdds: po?.odds ?? null,
+        reqEquity: po?.reqEquity ?? null,
+        heroRA: 50,
+        villainRA: 50,
+        sizing,
+        rangeReadout: {
+          aggregateStrength: rr.aggregateStrength,
+          dominantRangeType: rr.dominantRangeType,
+          aggregateBluffFreq: rr.aggregateBluffFreq,
+          opponents: rr.opponents.map(o => ({
+            position: o.position, estimatedStrength: o.estimatedStrength, rangeType: o.rangeType,
           })),
-          tournament: {
-            type: state.type,
-            mRatio: state.mRatio,
-            stackBB: state.stackBB,
-            stage: state.stage,
-            icmPressure: state.icmPressure,
-            playersRemaining: state.playersRemaining,
-            payoutSpots: state.payoutSpots,
-            bbValue: state.BB,
-            ante: state.ante,
-            blindLevel: levelIdx + 1,
-            timeToNextLevel: timerSec,
-            isNearBubble: state.playersRemaining <= state.payoutSpots * 1.3,
-            isFinalTable: state.playersRemaining <= state.payoutSpots,
-            heroStackRelative,
-          },
-          lang,
         },
+        street: currentStreet,
+        position,
+        opponents: liveOpponents.length,
+        inPosition: ip,
+        tournament: {
+          type: state.type,
+          mRatio: state.mRatio,
+          stackBB: state.stackBB,
+          stage: state.stage,
+          icmPressure: state.icmPressure,
+          playersRemaining: state.playersRemaining,
+          payoutSpots: state.payoutSpots,
+          isNearBubble: state.playersRemaining <= state.payoutSpots * 1.3,
+          isFinalTable: state.playersRemaining <= state.payoutSpots,
+          heroStackRelative,
+          pushFold: pf ? { action: pf.action, reasoning: pf.reasoning, handTier: pf.handTier } : null,
+        },
+        lang,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setAiResult(data?.analysis || null);
+      setAiResult(analysis);
     } catch (e: any) {
-      const msg = e?.message || "AI analysis failed";
+      const msg = e?.message || "Local analysis failed";
       setAiError(msg);
       toast.error(msg);
     } finally {
