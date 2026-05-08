@@ -113,6 +113,39 @@ export const PokerTable = ({
         }}
       >
         <div className="absolute inset-[12%] rounded-[50%] border border-[hsl(45_60%_45%/0.25)]" />
+
+        {tournamentState && (() => {
+          const m = tournamentState.mRatio;
+          const mClass = m > 20 ? "text-emerald-400" : m >= 10 ? "text-yellow-400" : m >= 5 ? "text-orange-400" : "text-red-500";
+          const mins = levelTimerSec != null ? Math.max(0, Math.floor(levelTimerSec / 60)) : null;
+          const secs = levelTimerSec != null ? Math.max(0, levelTimerSec % 60) : null;
+          return (
+            <div
+              className={cn(
+                "absolute left-1/2 -translate-x-1/2 top-3 z-10 pointer-events-none",
+                "px-3 py-1.5 rounded-md bg-card/85 border border-primary/40 backdrop-blur-sm shadow",
+                "flex items-center gap-3 text-[10px]",
+                flashMRatio && "animate-pulse ring-2 ring-red-500/70",
+              )}
+            >
+              <div className="flex flex-col items-center leading-tight">
+                <span className="uppercase text-[8px] text-muted-foreground">M</span>
+                <span className={cn("text-lg font-bold leading-none", mClass)}>{m.toFixed(1)}</span>
+              </div>
+              <div className="flex flex-col items-center leading-tight">
+                <span className="uppercase text-[8px] text-muted-foreground">Stage</span>
+                <span className="font-semibold text-foreground">{stageLabel(tournamentState.stage)}</span>
+              </div>
+              {mins != null && (
+                <div className="flex flex-col items-center leading-tight">
+                  <span className="uppercase text-[8px] text-muted-foreground">Next</span>
+                  <span className="font-mono font-semibold text-foreground">{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <p className="display gold-text text-lg leading-none">Ace Analyst</p>
