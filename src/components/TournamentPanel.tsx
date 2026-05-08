@@ -289,7 +289,7 @@ export function TournamentPanel() {
       const ip = ["BTN", "CO", "HJ"].includes(position);
       // Detect opener position from action history (first non-fold preflop raise/bet)
       const opener = actionHistory.find(a =>
-        a.street === "Preflop" && (a.type === "Raise" || a.type === "Bet" || a.type === "All-in") && a.seatIdx !== userIdx
+        a.street === "Preflop" && (a.type === "Raise" || a.type === "Bet") && a.seatIdx !== userIdx
       );
       const openerPosition = opener && dealerIdx >= 0
         ? seatLabel(opener.seatIdx, dealerIdx, tableSize) : null;
