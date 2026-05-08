@@ -25,13 +25,16 @@ import { useI18n } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TrainingMode } from "@/components/TrainingMode";
+import { TournamentPanel } from "@/components/TournamentPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
+type AnalyzerMode = "cash" | "tournament";
 
 const Index = () => {
   const { t, lang } = useI18n();
   const [appMode, setAppMode] = useState<"analyzer" | "training">("analyzer");
+  const [analyzerMode, setAnalyzerMode] = useState<AnalyzerMode>("cash");
   const [hole, setHole] = useState<string[]>([]);
   const [flop, setFlop] = useState<string[]>([]);
   const [turn, setTurn] = useState<string | null>(null);
@@ -476,6 +479,27 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="analyzer">
+            <div className="flex justify-center gap-2 pt-6">
+              <Button
+                variant={analyzerMode === "cash" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAnalyzerMode("cash")}
+              >
+                Cash Game
+              </Button>
+              <Button
+                variant={analyzerMode === "tournament" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAnalyzerMode("tournament")}
+              >
+                Tournament
+              </Button>
+            </div>
+            {analyzerMode === "tournament" ? (
+              <main className="py-6">
+                <TournamentPanel />
+              </main>
+            ) : (
             <main className="py-6 grid lg:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <Card className="glass-panel p-5">
@@ -562,6 +586,7 @@ const Index = () => {
                 )}
               </div>
             </main>
+            )}
           </TabsContent>
 
           <TabsContent value="training">
