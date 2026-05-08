@@ -287,9 +287,22 @@ export function TournamentPanel() {
         : state.stackBB < smallest * 0.5 ? "short" : "medium";
 
       const ip = ["BTN", "CO", "HJ"].includes(position);
-      const analysis = generateCoachAnalysis({
-        action: pf?.action ?? dec.action,
-        reasoning: pf?.reasoning ?? dec.reason,
+      // Detect opener position from action history (first non-fold preflop raise/bet)
+      const opener = actionHistory.find(a =>
+        a.street === "Preflop" && (a.type === "Raise" || a.type === "Bet" || a.type === "All-in") && a.seatIdx !== userIdx
+      );
+      const openerPosition = opener && dealerIdx >= 0
+        ? seatLabel(opener.seatIdx, dealerIdx, tableSize) : null;
+      const facingAggression = !!opener;
+
+      const handTier = classifyHandTier(hole);
+      const analysis = generateTournamentCoach({
+        state,
+        holeCards: hole,
+        position,
+        street: currentStreet,
+        opponents: liveOpponents.length,
+        handTier,
         handCategory: ev.category,
         adjScore: adj,
         baseScore: ev.score,
@@ -297,36 +310,12 @@ export function TournamentPanel() {
         drawType: draws.drawType,
         equityPct: eq,
         texture,
-        potOdds: po?.odds ?? null,
         reqEquity: po?.reqEquity ?? null,
-        heroRA: 50,
-        villainRA: 50,
-        sizing,
-        rangeReadout: {
-          aggregateStrength: rr.aggregateStrength,
-          dominantRangeType: rr.dominantRangeType,
-          aggregateBluffFreq: rr.aggregateBluffFreq,
-          opponents: rr.opponents.map(o => ({
-            position: o.position, estimatedStrength: o.estimatedStrength, rangeType: o.rangeType,
-          })),
-        },
-        street: currentStreet,
-        position,
-        opponents: liveOpponents.length,
         inPosition: ip,
-        tournament: {
-          type: state.type,
-          mRatio: state.mRatio,
-          stackBB: state.stackBB,
-          stage: state.stage,
-          icmPressure: state.icmPressure,
-          playersRemaining: state.playersRemaining,
-          payoutSpots: state.payoutSpots,
-          isNearBubble: state.playersRemaining <= state.payoutSpots * 1.3,
-          isFinalTable: state.playersRemaining <= state.payoutSpots,
-          heroStackRelative,
-          pushFold: pf ? { action: pf.action, reasoning: pf.reasoning, handTier: pf.handTier } : null,
-        },
+        pushFold: pf ? { action: pf.action, reasoning: pf.reasoning, handTier: pf.handTier } : null,
+        sizing,
+        openerPosition,
+        facingAggression,
         lang,
       });
       setAiResult(analysis);
