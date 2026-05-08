@@ -3,6 +3,7 @@ import { Crown, User, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { ActionMenu, PlayerAction, ActionType } from "@/components/ActionMenu";
 import { useState } from "react";
+import { stackHealth, icmThreat, stageLabel, type TournamentState } from "@/lib/tournamentEngine";
 
 export type TableSize = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export type SeatMode = "dealer" | "user" | "fold" | "action";
