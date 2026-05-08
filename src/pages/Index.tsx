@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -51,6 +51,7 @@ const Index = () => {
   const [call, setCall] = useState(0);
   const [actionHistory, setActionHistory] = useState<PlayerAction[]>([]);
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
+  const [aiActive, setAiActive] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [geminiText, setGeminiText] = useState<string | null>(null);
@@ -333,73 +334,78 @@ const Index = () => {
     setActionHistory([]);
   };
 
+  const buildAnalysis = (): AIAnalysis | null => {
+    if (!engine) return null;
+    const action = engine.suggestedAction || "Check";
+    const sizing = engine.sizing;
+    const rr = engine.rangeReadout;
+    const ip = ["BTN", "CO", "HJ"].includes(position);
+    const explanation = buildExplanation({
+      engine, street: currentStreet, position, opponents,
+      userToCall, pot: dynamicPot, lang,
+    });
+    const reasoning = explanation.fullText;
+    const sizingLine = sizing
+      ? `${t(`act.${sizing.heroAction}`) || sizing.heroAction} ${sizing.amountBB} BB (${sizing.pctMin}–${sizing.pctMax}% ${t("engine.ofPot")}) — ${sizing.intent}. ${sizing.explanation}`
+      : t("local.noBet");
+    const rangeLine = rr && rr.opponents.length
+      ? t("local.oppRange", { s: rr.aggregateStrength, type: rr.dominantRangeType, bf: Math.round(rr.aggregateBluffFreq * 100) })
+      : t("local.noOpp");
+    const flushDrawOnBoard = /([shdc]).*\1.*\1/.test(board.join(""));
+    const boardVals = board.map(c => "23456789TJQKA".indexOf(c[0]) + 2).sort((a, b) => a - b);
+    let straightDrawOnBoard = false;
+    for (let i = 0; i + 1 < boardVals.length; i++) {
+      if (boardVals[i + 1] - boardVals[i] <= 2) { straightDrawOnBoard = true; break; }
+    }
+    const conditional = buildConditionalLines({
+      engine, street: currentStreet, position, opponents,
+      userToCall, pot: dynamicPot, lang,
+      flushDrawOnBoard, straightDrawOnBoard,
+    });
+
+    return {
+      decision_explanation: {
+        action: (["Raise", "Call", "Check", "Fold"].includes(action) ? action : "Check") as string,
+        reasoning: `${reasoning} ${sizingLine}`.trim(),
+        confidence: Math.max(0.5, Math.min(0.95, (engine.adjScore || 50) / 100)),
+      },
+      street_strategy: {
+        current_street_plan: `${currentStreet}: ${sizingLine}`,
+        turn_plan: currentStreet === "Preflop" || currentStreet === "Flop"
+          ? (engine.adjScore >= 65 ? t("local.turnContinue") : engine.outs >= 8 ? t("local.turnBarrel") : t("local.turnControl"))
+          : t("local.recap"),
+        river_plan: currentStreet === "River"
+          ? t("local.riverFinal")
+          : (engine.adjScore >= 70 ? t("local.riverValue") : engine.adjScore <= 35 ? t("local.riverGiveup") : t("local.riverCatch")),
+      },
+      conditional_lines: conditional,
+      range_thinking: {
+        what_you_represent: `${ip ? "IP" : "OOP"} ${userLabel || position}: ${Number(engine.heroRA) >= 55 ? t("local.repAdv") : t("local.repCap")}.`,
+        what_opponent_represents: rangeLine,
+      },
+      key_concepts: [
+        t("local.kc.equity"),
+        t("local.kc.range", { h: engine.heroRA, v: engine.villainRA }),
+        t("local.kc.texture", { t: t(`texture.${engine.texture}`) }),
+        opponents >= 2 ? t("local.kc.multi") : t("local.kc.hu"),
+      ],
+      mistakes_to_avoid: [
+        engine.adjScore <= 35 ? t("local.av.bluff") : t("local.av.slow"),
+        sizing?.facingBet && (engine.potOdds && engine.reqEquity && engine.equityPct < engine.reqEquity)
+          ? t("local.av.callPrice")
+          : t("local.av.sizeOut"),
+        t("local.av.position"),
+      ],
+    };
+  };
+
   const runAI = async () => {
     if (!engine) { toast.error(t("toast.pickHole")); return; }
     setAiLoading(true); setAiError(null); setAiResult(null);
     try {
-      // Local deterministic analysis — no external AI required.
-      const action = engine.suggestedAction || "Check";
-      const sizing = engine.sizing;
-      const rr = engine.rangeReadout;
-      const ip = ["BTN", "CO", "HJ"].includes(position);
-      const explanation = buildExplanation({
-        engine, street: currentStreet, position, opponents,
-        userToCall, pot: dynamicPot, lang,
-      });
-      const reasoning = explanation.fullText;
-      const sizingLine = sizing
-        ? `${t(`act.${sizing.heroAction}`) || sizing.heroAction} ${sizing.amountBB} BB (${sizing.pctMin}–${sizing.pctMax}% ${t("engine.ofPot")}) — ${sizing.intent}. ${sizing.explanation}`
-        : t("local.noBet");
-      const rangeLine = rr && rr.opponents.length
-        ? t("local.oppRange", { s: rr.aggregateStrength, type: rr.dominantRangeType, bf: Math.round(rr.aggregateBluffFreq * 100) })
-        : t("local.noOpp");
-      const flushDrawOnBoard = /([shdc]).*\1.*\1/.test(board.join(""));
-      const boardVals = board.map(c => "23456789TJQKA".indexOf(c[0]) + 2).sort((a, b) => a - b);
-      let straightDrawOnBoard = false;
-      for (let i = 0; i + 1 < boardVals.length; i++) {
-        if (boardVals[i + 1] - boardVals[i] <= 2) { straightDrawOnBoard = true; break; }
-      }
-      const conditional = buildConditionalLines({
-        engine, street: currentStreet, position, opponents,
-        userToCall, pot: dynamicPot, lang,
-        flushDrawOnBoard, straightDrawOnBoard,
-      });
-
-      const analysis: AIAnalysis = {
-        decision_explanation: {
-          action: (["Raise", "Call", "Check", "Fold"].includes(action) ? action : "Check") as string,
-          reasoning: `${reasoning} ${sizingLine}`.trim(),
-          confidence: Math.max(0.5, Math.min(0.95, (engine.adjScore || 50) / 100)),
-        },
-        street_strategy: {
-          current_street_plan: `${currentStreet}: ${sizingLine}`,
-          turn_plan: currentStreet === "Preflop" || currentStreet === "Flop"
-            ? (engine.adjScore >= 65 ? t("local.turnContinue") : engine.outs >= 8 ? t("local.turnBarrel") : t("local.turnControl"))
-            : t("local.recap"),
-          river_plan: currentStreet === "River"
-            ? t("local.riverFinal")
-            : (engine.adjScore >= 70 ? t("local.riverValue") : engine.adjScore <= 35 ? t("local.riverGiveup") : t("local.riverCatch")),
-        },
-        conditional_lines: conditional,
-        range_thinking: {
-          what_you_represent: `${ip ? "IP" : "OOP"} ${userLabel || position}: ${Number(engine.heroRA) >= 55 ? t("local.repAdv") : t("local.repCap")}.`,
-          what_opponent_represents: rangeLine,
-        },
-        key_concepts: [
-          t("local.kc.equity"),
-          t("local.kc.range", { h: engine.heroRA, v: engine.villainRA }),
-          t("local.kc.texture", { t: t(`texture.${engine.texture}`) }),
-          opponents >= 2 ? t("local.kc.multi") : t("local.kc.hu"),
-        ],
-        mistakes_to_avoid: [
-          engine.adjScore <= 35 ? t("local.av.bluff") : t("local.av.slow"),
-          sizing?.facingBet && (engine.potOdds && engine.reqEquity && engine.equityPct < engine.reqEquity)
-            ? t("local.av.callPrice")
-            : t("local.av.sizeOut"),
-          t("local.av.position"),
-        ],
-      };
+      const analysis = buildAnalysis();
       setAiResult(analysis);
+      setAiActive(true);
     } catch (e: any) {
       const msg = e?.message || "Local analysis failed";
       setAiError(msg);
@@ -408,6 +414,16 @@ const Index = () => {
       setAiLoading(false);
     }
   };
+
+  // Re-run coach automatically whenever engine outputs change (Turn/River added, actions, etc.)
+  useEffect(() => {
+    if (!aiActive || !engine) return;
+    try {
+      const analysis = buildAnalysis();
+      if (analysis) setAiResult(analysis);
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, currentStreet, opponents, userToCall, dynamicPot, position, lang, aiActive]);
 
   const explainWithGemini = async () => {
     if (!engine) { toast.error(t("toast.pickHole")); return; }
