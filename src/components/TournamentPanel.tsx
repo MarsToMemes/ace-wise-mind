@@ -562,33 +562,7 @@ export function TournamentPanel() {
 
       <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
 
-      {aiResult && (aiResult as any).analysis && (
-        <Card className="glass-panel p-6 space-y-3">
-          <h4 className="display text-lg gold-text">Tournament Analysis</h4>
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Analysis</p>
-            <p className="text-sm leading-relaxed text-foreground/90">{(aiResult as any).analysis}</p>
-          </div>
-          {(aiResult as any).common_mistakes && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Common Mistakes</p>
-              <p className="text-sm leading-relaxed text-foreground/90">{(aiResult as any).common_mistakes}</p>
-            </div>
-          )}
-          {(aiResult as any).cash_vs_tournament && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Cash vs Tournament</p>
-              <p className="text-sm leading-relaxed text-foreground/90">{(aiResult as any).cash_vs_tournament}</p>
-            </div>
-          )}
-          {(aiResult as any).stack_advice && (
-            <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Stack Advice</p>
-              <p className="text-sm leading-relaxed text-foreground/90">{(aiResult as any).stack_advice}</p>
-            </div>
-          )}
-        </Card>
-      )}
     </div>
   );
 }
+
