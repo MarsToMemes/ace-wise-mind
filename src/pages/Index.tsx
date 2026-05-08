@@ -25,13 +25,16 @@ import { useI18n } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TrainingMode } from "@/components/TrainingMode";
+import { TournamentPanel } from "@/components/TournamentPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
+type AnalyzerMode = "cash" | "tournament";
 
 const Index = () => {
   const { t, lang } = useI18n();
   const [appMode, setAppMode] = useState<"analyzer" | "training">("analyzer");
+  const [analyzerMode, setAnalyzerMode] = useState<AnalyzerMode>("cash");
   const [hole, setHole] = useState<string[]>([]);
   const [flop, setFlop] = useState<string[]>([]);
   const [turn, setTurn] = useState<string | null>(null);
