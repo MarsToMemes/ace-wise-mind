@@ -298,3 +298,27 @@ export function stageLabel(stage: TournamentStage): string {
     case "final-table": return "Final Table";
   }
 }
+
+export const BLIND_STRUCTURES: Record<TournamentType, number[]> = {
+  hyper:     [10, 20, 30, 50, 75, 100, 150, 200, 300, 500],
+  turbo:     [25, 50, 75, 100, 150, 200, 300, 400, 600, 1000],
+  sitngo:    [25, 50, 75, 100, 150, 200, 300, 400],
+  standard:  [25, 50, 100, 150, 200, 300, 400, 600, 1000, 1500],
+  deepstack: [10, 20, 30, 50, 75, 100, 150, 200, 300, 500],
+};
+
+export type StackHealth = "green" | "yellow" | "orange" | "red";
+export function stackHealth(stackBB: number): StackHealth {
+  if (stackBB > 20) return "green";
+  if (stackBB >= 10) return "yellow";
+  if (stackBB >= 5) return "orange";
+  return "red";
+}
+
+export type ICMThreat = "danger" | "target" | "neutral";
+export function icmThreat(seatStackBB: number, heroStackBB: number): ICMThreat {
+  if (heroStackBB <= 0) return "neutral";
+  if (seatStackBB > heroStackBB * 2) return "danger";
+  if (seatStackBB < heroStackBB * 0.5) return "target";
+  return "neutral";
+}
