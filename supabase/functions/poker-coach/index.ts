@@ -119,49 +119,48 @@ Tailor output to the current street: ${streetGuidance[street]}
 
 Write ALL output text in ${langName}. Keep poker terminology ("BTN", "SB", "BB", "UTG", "CO", "MP", "OESD") and action enum values ("Raise", "Call", "Check", "Fold") unchanged.`;
 
-      tool = {
-        type: "function",
-        function: {
-          name: "poker_analysis",
-          description: "Return structured poker analysis",
-          parameters: {
-            type: "object",
-            properties: {
-              decision_explanation: {
-                type: "object",
-                properties: {
-                  action: { type: "string", enum: ["Raise", "Call", "Check", "Fold"] },
-                  reasoning: { type: "string" },
-                  confidence: { type: "number" },
-                },
-                required: ["action", "reasoning", "confidence"],
+    const tool = {
+      type: "function",
+      function: {
+        name: "poker_analysis",
+        description: "Return structured poker analysis",
+        parameters: {
+          type: "object",
+          properties: {
+            decision_explanation: {
+              type: "object",
+              properties: {
+                action: { type: "string", enum: ["Raise", "Call", "Check", "Fold"] },
+                reasoning: { type: "string" },
+                confidence: { type: "number" },
               },
-              street_strategy: {
-                type: "object",
-                properties: {
-                  current_street_plan: { type: "string" },
-                  turn_plan: { type: "string" },
-                  river_plan: { type: "string" },
-                },
-                required: ["current_street_plan", "turn_plan", "river_plan"],
-              },
-              conditional_lines: { type: "array", items: { type: "string" } },
-              range_thinking: {
-                type: "object",
-                properties: {
-                  what_you_represent: { type: "string" },
-                  what_opponent_represents: { type: "string" },
-                },
-                required: ["what_you_represent", "what_opponent_represents"],
-              },
-              key_concepts: { type: "array", items: { type: "string" } },
-              mistakes_to_avoid: { type: "array", items: { type: "string" } },
+              required: ["action", "reasoning", "confidence"],
             },
-            required: ["decision_explanation", "street_strategy", "conditional_lines", "range_thinking", "key_concepts", "mistakes_to_avoid"],
+            street_strategy: {
+              type: "object",
+              properties: {
+                current_street_plan: { type: "string" },
+                turn_plan: { type: "string" },
+                river_plan: { type: "string" },
+              },
+              required: ["current_street_plan", "turn_plan", "river_plan"],
+            },
+            conditional_lines: { type: "array", items: { type: "string" } },
+            range_thinking: {
+              type: "object",
+              properties: {
+                what_you_represent: { type: "string" },
+                what_opponent_represents: { type: "string" },
+              },
+              required: ["what_you_represent", "what_opponent_represents"],
+            },
+            key_concepts: { type: "array", items: { type: "string" } },
+            mistakes_to_avoid: { type: "array", items: { type: "string" } },
           },
+          required: ["decision_explanation", "street_strategy", "conditional_lines", "range_thinking", "key_concepts", "mistakes_to_avoid"],
         },
-      };
-    }
+      },
+    };
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
