@@ -451,6 +451,30 @@ export function TournamentPanel() {
           <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
         </div>
       </Card>
+      </div>
+
+      <div className="space-y-6">
+      <Card className="glass-panel p-6">
+        <h2 className="display text-xl mb-4">Live Read</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <div className="text-xs uppercase text-muted-foreground">M-Ratio</div>
+            <div className={`text-3xl font-bold ${mColor} ${flashMRatio ? "animate-pulse" : ""}`}>{state.mRatio.toFixed(1)}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase text-muted-foreground">Stack (BB)</div>
+            <div className="text-3xl font-bold">{state.stackBB.toFixed(1)}</div>
+          </div>
+          <div>
+            <div className="text-xs uppercase text-muted-foreground">Stage</div>
+            <Badge variant="outline" className="text-sm mt-1">{stageLabel(state.stage)}</Badge>
+          </div>
+          <div>
+            <div className="text-xs uppercase text-muted-foreground">ICM Pressure</div>
+            <Badge className={`text-sm mt-1 ${icmColor}`} variant="outline">{state.icmPressure.toUpperCase()}</Badge>
+          </div>
+        </div>
+      </Card>
 
       {pf && (
         <Card className="glass-panel p-6">
