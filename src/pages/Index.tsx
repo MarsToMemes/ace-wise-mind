@@ -51,6 +51,7 @@ const Index = () => {
   const [call, setCall] = useState(0);
   const [actionHistory, setActionHistory] = useState<PlayerAction[]>([]);
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
+  const [aiActive, setAiActive] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [geminiText, setGeminiText] = useState<string | null>(null);
