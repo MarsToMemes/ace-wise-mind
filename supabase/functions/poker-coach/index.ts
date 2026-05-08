@@ -79,7 +79,90 @@ Briefly comment on: (1) whether range read was right, (2) the EV mistake if any,
 
     const langMap: Record<string, string> = { en: "English", fr: "French (français)" };
     const langName = langMap[ctx.lang] || "English";
-    const systemPrompt = `You are a high-level professional poker coach interpreting the output of a deterministic poker math engine.
+
+    const tournament = ctx.tournament;
+    const isTournament = !!tournament;
+
+    let systemPrompt: string;
+    let tool: any;
+    let userPayload = userMessage;
+
+    if (isTournament) {
+      systemPrompt = `You are a professional poker tournament coach with deep MTT and SNG experience.
+You receive structured data including hand strength, board texture, AND full tournament context (M-ratio, ICM pressure, stage, tournament type, blind level).
+
+Rules:
+- Never give cash game advice when M < 13. Push/fold logic only.
+- Always mention the tournament type when it affects the decision (e.g. Hyper-Turbo with M=8 differs from Standard MTT with M=8 due to ICM structure and payout spots).
+- If near bubble, ICM must be the dominant factor in your analysis.
+- Be precise with numbers: cite the M-ratio, equity %, pot odds exactly as provided.
+- The deterministic engine is SOURCE OF TRUTH — never recompute, only interpret.
+- Your "decision_explanation.action" MUST match the engine's recommendation.
+
+Write ALL output text in ${langName}. Keep poker terminology and action enums unchanged.`;
+
+      userPayload = `${userMessage}
+
+Tournament context (TRUSTED):
+- Type: ${tournament.type}
+- M-ratio: ${tournament.mRatio?.toFixed?.(2) ?? tournament.mRatio}
+- Stack (BB): ${tournament.stackBB?.toFixed?.(1) ?? tournament.stackBB}
+- Stage: ${tournament.stage}
+- ICM pressure: ${tournament.icmPressure}
+- Players remaining: ${tournament.playersRemaining} / paid: ${tournament.payoutSpots}
+- BB chip value: ${tournament.bbValue}, ante: ${tournament.ante}
+- Blind level: ${tournament.blindLevel ?? "n/a"}, time to next: ${tournament.timeToNextLevel ?? "n/a"}s
+- Near bubble: ${tournament.isNearBubble}, Final table: ${tournament.isFinalTable}
+- Hero stack relative to opponents: ${tournament.heroStackRelative}`;
+
+      tool = {
+        type: "function",
+        function: {
+          name: "tournament_analysis",
+          description: "Return structured tournament poker analysis",
+          parameters: {
+            type: "object",
+            properties: {
+              decision_explanation: {
+                type: "object",
+                properties: {
+                  action: { type: "string", enum: ["Raise", "Call", "Check", "Fold", "Shove", "Call-Shove"] },
+                  reasoning: { type: "string" },
+                  confidence: { type: "number" },
+                },
+                required: ["action", "reasoning", "confidence"],
+              },
+              analysis: { type: "string", description: "3-4 sentences. Must explicitly mention M-ratio, ICM pressure, and stage. Explain why the action is correct in this tournament context specifically — not generically." },
+              common_mistakes: { type: "string", description: "1-2 sentences on what recreational tournament players do wrong in this exact spot. Specific to stage and M-ratio." },
+              cash_vs_tournament: { type: "string", description: "1-2 sentences explaining how this decision differs (or not) in a cash game, with ICM reasoning." },
+              stack_advice: { type: "string", description: "1 sentence on hero's stack management priority right now: accumulate / survive / gamble. Justify by M-ratio and stage." },
+              street_strategy: {
+                type: "object",
+                properties: {
+                  current_street_plan: { type: "string" },
+                  turn_plan: { type: "string" },
+                  river_plan: { type: "string" },
+                },
+                required: ["current_street_plan", "turn_plan", "river_plan"],
+              },
+              conditional_lines: { type: "array", items: { type: "string" } },
+              range_thinking: {
+                type: "object",
+                properties: {
+                  what_you_represent: { type: "string" },
+                  what_opponent_represents: { type: "string" },
+                },
+                required: ["what_you_represent", "what_opponent_represents"],
+              },
+              key_concepts: { type: "array", items: { type: "string" } },
+              mistakes_to_avoid: { type: "array", items: { type: "string" } },
+            },
+            required: ["decision_explanation", "analysis", "common_mistakes", "cash_vs_tournament", "stack_advice", "street_strategy", "conditional_lines", "range_thinking", "key_concepts", "mistakes_to_avoid"],
+          },
+        },
+      };
+    } else {
+      systemPrompt = `You are a high-level professional poker coach interpreting the output of a deterministic poker math engine.
 
 CRITICAL RULES:
 1. The engine is the SOURCE OF TRUTH. Outs, equity %, pot odds, hand strength, and the recommended action are already computed deterministically.
@@ -89,55 +172,56 @@ CRITICAL RULES:
 5. Use REAL position logic: early positions tighten ranges, late positions widen, blinds play defensively/reactively.
 6. Be precise, structured, actionable. Never vague.
 7. When sizing is provided by the engine, quote it exactly (BB amount and % of pot range) and explain WHY this size fits the current street: what it achieves (pressure, value extraction, fold equity, protection, pot control), and how it interacts with board texture, range advantage, opponent's likely response, AND the number of active players still in the hand (heads-up vs multiway). Multiway pots tighten ranges, increase value sizing, and suppress bluffs — explain how this affects the current decision.
-8. USE the action history. Read the sequence of actions across streets to infer aggression levels, range narrowing, and betting patterns (e.g., a 3-bettor's range is much tighter than an opener's; a passive caller capping their range; multiple raisers compressing the field). Mention specific actions when relevant ("villain's flop check-raise", "BTN's 3x open", etc.).
-9. When a "Range inference" block is provided, treat the engine-derived opponent range strength, dominant range type (polarized / merged / capped / linear / wide), and bluff frequency as TRUSTED inputs. Reference them explicitly to justify the decision and sizing — e.g. "vs a capped range we extract thin value with smaller sizing", "vs a polarized large bet, our medium hand becomes a bluff-catcher", "opponent's continued aggression signals a strong/committed range".
+8. USE the action history. Read the sequence of actions across streets to infer aggression levels, range narrowing, and betting patterns.
+9. When a "Range inference" block is provided, treat the engine-derived opponent range strength, dominant range type, and bluff frequency as TRUSTED inputs. Reference them explicitly to justify the decision and sizing.
 
 Tailor output to the current street: ${streetGuidance[street]}
 
 Write ALL output text in ${langName}. Keep poker terminology ("BTN", "SB", "BB", "UTG", "CO", "MP", "OESD") and action enum values ("Raise", "Call", "Check", "Fold") unchanged.`;
 
-    const tool = {
-      type: "function",
-      function: {
-        name: "poker_analysis",
-        description: "Return structured poker analysis",
-        parameters: {
-          type: "object",
-          properties: {
-            decision_explanation: {
-              type: "object",
-              properties: {
-                action: { type: "string", enum: ["Raise", "Call", "Check", "Fold"] },
-                reasoning: { type: "string" },
-                confidence: { type: "number" },
+      tool = {
+        type: "function",
+        function: {
+          name: "poker_analysis",
+          description: "Return structured poker analysis",
+          parameters: {
+            type: "object",
+            properties: {
+              decision_explanation: {
+                type: "object",
+                properties: {
+                  action: { type: "string", enum: ["Raise", "Call", "Check", "Fold"] },
+                  reasoning: { type: "string" },
+                  confidence: { type: "number" },
+                },
+                required: ["action", "reasoning", "confidence"],
               },
-              required: ["action", "reasoning", "confidence"],
-            },
-            street_strategy: {
-              type: "object",
-              properties: {
-                current_street_plan: { type: "string" },
-                turn_plan: { type: "string" },
-                river_plan: { type: "string" },
+              street_strategy: {
+                type: "object",
+                properties: {
+                  current_street_plan: { type: "string" },
+                  turn_plan: { type: "string" },
+                  river_plan: { type: "string" },
+                },
+                required: ["current_street_plan", "turn_plan", "river_plan"],
               },
-              required: ["current_street_plan", "turn_plan", "river_plan"],
-            },
-            conditional_lines: { type: "array", items: { type: "string" } },
-            range_thinking: {
-              type: "object",
-              properties: {
-                what_you_represent: { type: "string" },
-                what_opponent_represents: { type: "string" },
+              conditional_lines: { type: "array", items: { type: "string" } },
+              range_thinking: {
+                type: "object",
+                properties: {
+                  what_you_represent: { type: "string" },
+                  what_opponent_represents: { type: "string" },
+                },
+                required: ["what_you_represent", "what_opponent_represents"],
               },
-              required: ["what_you_represent", "what_opponent_represents"],
+              key_concepts: { type: "array", items: { type: "string" } },
+              mistakes_to_avoid: { type: "array", items: { type: "string" } },
             },
-            key_concepts: { type: "array", items: { type: "string" } },
-            mistakes_to_avoid: { type: "array", items: { type: "string" } },
+            required: ["decision_explanation", "street_strategy", "conditional_lines", "range_thinking", "key_concepts", "mistakes_to_avoid"],
           },
-          required: ["decision_explanation", "street_strategy", "conditional_lines", "range_thinking", "key_concepts", "mistakes_to_avoid"],
         },
-      },
-    };
+      };
+    }
 
     const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -149,10 +233,10 @@ Write ALL output text in ${langName}. Keep poker terminology ("BTN", "SB", "BB",
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
+          { role: "user", content: userPayload },
         ],
         tools: [tool],
-        tool_choice: { type: "function", function: { name: "poker_analysis" } },
+        tool_choice: { type: "function", function: { name: tool.function.name } },
       }),
     });
 
