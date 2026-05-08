@@ -35,6 +35,7 @@ const Index = () => {
   const { t, lang } = useI18n();
   const [appMode, setAppMode] = useState<"analyzer" | "training">("analyzer");
   const [analyzerMode, setAnalyzerMode] = useState<AnalyzerMode>("cash");
+  const [tournamentResetKey, setTournamentResetKey] = useState(0);
   const [hole, setHole] = useState<string[]>([]);
   const [flop, setFlop] = useState<string[]>([]);
   const [turn, setTurn] = useState<string | null>(null);
@@ -293,6 +294,7 @@ const Index = () => {
     setFolded(Array(tableSize).fill(false));
     setStack(100); setPot(10); setCall(0);
     setActionHistory([]);
+    setTournamentResetKey(k => k + 1);
   };
 
   const handleSeatClick = (i: number) => {
@@ -485,7 +487,7 @@ const Index = () => {
             </div>
             {analyzerMode === "tournament" ? (
               <main className="py-6">
-                <TournamentPanel />
+                <TournamentPanel key={tournamentResetKey} />
               </main>
             ) : (
             <main className="py-6 grid lg:grid-cols-2 gap-8">
