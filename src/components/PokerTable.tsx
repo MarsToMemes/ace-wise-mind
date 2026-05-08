@@ -3,6 +3,7 @@ import { Crown, User, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { ActionMenu, PlayerAction, ActionType } from "@/components/ActionMenu";
 import { useState } from "react";
+import { stackHealth, icmThreat, stageLabel, type TournamentState } from "@/lib/tournamentEngine";
 
 export type TableSize = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export type SeatMode = "dealer" | "user" | "fold" | "action";
@@ -42,19 +43,25 @@ interface Props {
   userIdx: number;
   mode: SeatMode;
   folded: boolean[];
-  streetContribs: number[]; // BB committed this street per seat
-  lastActions: (PlayerAction | null)[]; // last action per seat (current street)
-  currentBet: number; // BB to match this street
+  streetContribs: number[];
+  lastActions: (PlayerAction | null)[];
+  currentBet: number;
   defaultRaise: number;
   onSeatClick: (i: number) => void;
   onPlayerAction: (seatIdx: number, type: ActionType, amountBB: number) => void;
   onModeChange: (m: SeatMode) => void;
   onSizeChange: (s: TableSize) => void;
+  // Tournament overlay
+  tournamentState?: TournamentState;
+  seatStacksBB?: number[];
+  levelTimerSec?: number;
+  flashMRatio?: boolean;
 }
 
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
   currentBet, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
+  tournamentState, seatStacksBB, levelTimerSec, flashMRatio,
 }: Props) => {
   const { t } = useI18n();
   const [actionSeat, setActionSeat] = useState<number | null>(null);
@@ -106,6 +113,39 @@ export const PokerTable = ({
         }}
       >
         <div className="absolute inset-[12%] rounded-[50%] border border-[hsl(45_60%_45%/0.25)]" />
+
+        {tournamentState && (() => {
+          const m = tournamentState.mRatio;
+          const mClass = m > 20 ? "text-emerald-400" : m >= 10 ? "text-yellow-400" : m >= 5 ? "text-orange-400" : "text-red-500";
+          const mins = levelTimerSec != null ? Math.max(0, Math.floor(levelTimerSec / 60)) : null;
+          const secs = levelTimerSec != null ? Math.max(0, levelTimerSec % 60) : null;
+          return (
+            <div
+              className={cn(
+                "absolute left-1/2 -translate-x-1/2 top-3 z-10 pointer-events-none",
+                "px-3 py-1.5 rounded-md bg-card/85 border border-primary/40 backdrop-blur-sm shadow",
+                "flex items-center gap-3 text-[10px]",
+                flashMRatio && "animate-pulse ring-2 ring-red-500/70",
+              )}
+            >
+              <div className="flex flex-col items-center leading-tight">
+                <span className="uppercase text-[8px] text-muted-foreground">M</span>
+                <span className={cn("text-lg font-bold leading-none", mClass)}>{m.toFixed(1)}</span>
+              </div>
+              <div className="flex flex-col items-center leading-tight">
+                <span className="uppercase text-[8px] text-muted-foreground">Stage</span>
+                <span className="font-semibold text-foreground">{stageLabel(tournamentState.stage)}</span>
+              </div>
+              {mins != null && (
+                <div className="flex flex-col items-center leading-tight">
+                  <span className="uppercase text-[8px] text-muted-foreground">Next</span>
+                  <span className="font-mono font-semibold text-foreground">{String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <p className="display gold-text text-lg leading-none">Ace Analyst</p>
@@ -183,6 +223,36 @@ export const PokerTable = ({
                   </span>
                 </div>
               )}
+
+              {/* Tournament: stack badge + ICM threat */}
+              {tournamentState && seatStacksBB && seatStacksBB[i] != null && !isFolded && (() => {
+                const sBB = seatStacksBB[i];
+                const heroBB = userIdx >= 0 && seatStacksBB[userIdx] != null ? seatStacksBB[userIdx] : tournamentState.stackBB;
+                const health = stackHealth(sBB);
+                const threat = isUser ? "neutral" : icmThreat(sBB, heroBB);
+                const stackColor =
+                  health === "green" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50" :
+                  health === "yellow" ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/50" :
+                  health === "orange" ? "bg-orange-500/20 text-orange-300 border-orange-500/50" :
+                  "bg-red-500/25 text-red-300 border-red-500/60 animate-pulse";
+                const threatColor =
+                  threat === "danger" ? "bg-red-500/20 text-red-300 border-red-500/50" :
+                  threat === "target" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50" :
+                  "bg-muted text-muted-foreground border-border";
+                return (
+                  <div
+                    className="absolute -translate-x-1/2 pointer-events-none flex flex-col items-center gap-0.5"
+                    style={{ left: `${x}%`, top: `calc(${y}% + ${last ? 50 : 32}px)` }}
+                  >
+                    <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold border", stackColor)}>
+                      {sBB.toFixed(1)} BB
+                    </span>
+                    <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-semibold border capitalize", threatColor)}>
+                      {threat}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

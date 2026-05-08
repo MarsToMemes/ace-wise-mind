@@ -1,5 +1,6 @@
 // Range Inference Engine — interprets action history into strategic intelligence.
 import type { PlayerAction } from "@/components/ActionMenu";
+import type { TournamentState } from "@/lib/tournamentEngine";
 
 export type Street = "Preflop" | "Flop" | "Turn" | "River";
 export type RangeType = "polarized" | "merged" | "capped" | "linear" | "wide" | "unknown";
@@ -15,20 +16,22 @@ export interface OpponentRange {
 
 export interface RangeReadout {
   opponents: OpponentRange[];
-  // Aggregate of all live opponents
-  aggregateStrength: number; // 0..100
-  aggregateBluffFreq: number; // 0..1
+  aggregateStrength: number;
+  aggregateBluffFreq: number;
   dominantRangeType: RangeType;
   notes: string[];
 }
 
 interface Inputs {
-  actions: PlayerAction[];               // full chronological history
-  liveOpponentSeats: number[];           // seats still in the hand (excluding hero)
-  positions?: Record<number, string>;    // seatIdx -> label
-  basePotBB?: number;                    // pot at start (for sizing %)
+  actions: PlayerAction[];
+  liveOpponentSeats: number[];
+  positions?: Record<number, string>;
+  basePotBB?: number;
   boardCards?: string[];
   boardTexture?: "Dry" | "Semi-wet" | "Wet";
+  tournamentState?: TournamentState;
+  seatStacksBB?: Record<number, number>;
+  heroStackBB?: number;
 }
 
 const STREET_ORDER: Street[] = ["Preflop", "Flop", "Turn", "River"];
@@ -179,6 +182,30 @@ export function inferRanges(inp: Inputs): RangeReadout {
     if (calledStations >= 2) {
       strength = Math.max(strength, 60);
       notes.push("Multiple calls → made hand with showdown value.");
+    }
+
+    // Tournament-aware modifiers
+    if (inp.tournamentState) {
+      const ts = inp.tournamentState;
+      if (ts.stage === "bubble") {
+        bluffFreq = Math.max(0, bluffFreq - 0.15);
+        notes.push("Bubble: bluff frequency reduced (survival pressure).");
+      }
+      if (ts.stage === "final-table") {
+        strength = Math.min(100, strength + 5);
+        notes.push("Final table: opponent ranges tightened (+5).");
+      }
+      const seatStack = inp.seatStacksBB?.[seat];
+      const heroStack = inp.heroStackBB;
+      if (seatStack != null && heroStack != null && heroStack > 0) {
+        if (seatStack > heroStack * 2) {
+          strength = Math.min(100, strength + 8);
+          notes.push("Big stack villain: applies pressure (+8 strength).");
+        } else if (seatStack < heroStack * 0.5) {
+          rangeType = "polarized";
+          notes.push("Short stack villain: shove-or-fold (polarized).");
+        }
+      }
     }
 
     strength = Math.max(0, Math.min(100, strength));
