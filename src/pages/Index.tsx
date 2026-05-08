@@ -487,7 +487,7 @@ const Index = () => {
             </div>
             {analyzerMode === "tournament" ? (
               <main className="py-6">
-                <TournamentPanel />
+                <TournamentPanel key={tournamentResetKey} />
               </main>
             ) : (
             <main className="py-6 grid lg:grid-cols-2 gap-8">
