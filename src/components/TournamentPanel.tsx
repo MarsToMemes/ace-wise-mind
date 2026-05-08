@@ -232,8 +232,10 @@ export function TournamentPanel() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  const hasAnalyzed = useRef(false);
   const runAI = async () => {
     if (hole.length < 2) { toast.error("Pick your hole cards first"); return; }
+    hasAnalyzed.current = true;
     setAiLoading(true); setAiError(null); setAiResult(null);
     try {
       const all = [...hole, ...board];
