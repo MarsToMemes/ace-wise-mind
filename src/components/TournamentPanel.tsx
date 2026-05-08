@@ -337,7 +337,8 @@ export function TournamentPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="grid lg:grid-cols-2 gap-8">
+      <div className="space-y-6">
       <Card className="glass-panel p-6">
         <div className="flex items-center gap-2 mb-4">
           <Trophy className="w-5 h-5 text-primary" />
