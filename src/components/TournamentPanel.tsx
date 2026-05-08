@@ -455,6 +455,46 @@ export function TournamentPanel() {
 
       <div className="space-y-6">
       <Card className="glass-panel p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="display text-xl">Tournament HUD</h2>
+          {(() => {
+            const depth = classifyStackDepth(state.stackBB);
+            const cls = depth === "deep" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+              : depth === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
+              : depth === "short" ? "bg-orange-500/20 text-orange-400 border-orange-500/40"
+              : "bg-red-500/20 text-red-400 border-red-500/40 animate-pulse";
+            const label = depth === "deep" ? "Deep Stack"
+              : depth === "medium" ? "Medium Stack"
+              : depth === "short" ? "Short Stack" : "Critical Stack";
+            return <Badge variant="outline" className={`text-sm ${cls}`}>{label}</Badge>;
+          })()}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          <div className="p-2 rounded border border-border/40">
+            <div className="text-muted-foreground uppercase">Push/Fold Zone</div>
+            <div className="font-semibold mt-1">{state.mRatio < cfg.pushFoldThresholdM ? "ACTIVE" : "Inactive"}</div>
+          </div>
+          <div className="p-2 rounded border border-border/40">
+            <div className="text-muted-foreground uppercase">Danger</div>
+            <div className="font-semibold mt-1">
+              {state.stackBB < 10 ? "Critical < 10BB" : state.stackBB < 15 ? "Short < 15BB" : "Safe"}
+            </div>
+          </div>
+          <div className="p-2 rounded border border-border/40">
+            <div className="text-muted-foreground uppercase">Aggression Target</div>
+            <div className="font-semibold mt-1">
+              {state.icmPressure === "critical" ? "Low" : state.icmPressure === "high" ? "Selective" : state.stackBB < 15 ? "High (FE)" : "Standard"}
+            </div>
+          </div>
+        </div>
+        {pf && (
+          <div className="mt-3 text-xs text-muted-foreground">
+            Preflop recommendation: <span className={`font-semibold ${pf.action === "Shove" ? "text-emerald-400" : pf.action === "Fold" ? "text-red-400" : "text-yellow-400"}`}>{pf.action}</span> · {pf.handTier}
+          </div>
+        )}
+      </Card>
+
+      <Card className="glass-panel p-6">
         <h2 className="display text-xl mb-4">Live Read</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
