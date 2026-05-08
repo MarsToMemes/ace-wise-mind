@@ -223,6 +223,36 @@ export const PokerTable = ({
                   </span>
                 </div>
               )}
+
+              {/* Tournament: stack badge + ICM threat */}
+              {tournamentState && seatStacksBB && seatStacksBB[i] != null && !isFolded && (() => {
+                const sBB = seatStacksBB[i];
+                const heroBB = userIdx >= 0 && seatStacksBB[userIdx] != null ? seatStacksBB[userIdx] : tournamentState.stackBB;
+                const health = stackHealth(sBB);
+                const threat = isUser ? "neutral" : icmThreat(sBB, heroBB);
+                const stackColor =
+                  health === "green" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50" :
+                  health === "yellow" ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/50" :
+                  health === "orange" ? "bg-orange-500/20 text-orange-300 border-orange-500/50" :
+                  "bg-red-500/25 text-red-300 border-red-500/60 animate-pulse";
+                const threatColor =
+                  threat === "danger" ? "bg-red-500/20 text-red-300 border-red-500/50" :
+                  threat === "target" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50" :
+                  "bg-muted text-muted-foreground border-border";
+                return (
+                  <div
+                    className="absolute -translate-x-1/2 pointer-events-none flex flex-col items-center gap-0.5"
+                    style={{ left: `${x}%`, top: `calc(${y}% + ${last ? 50 : 32}px)` }}
+                  >
+                    <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold border", stackColor)}>
+                      {sBB.toFixed(1)} BB
+                    </span>
+                    <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-semibold border capitalize", threatColor)}>
+                      {threat}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
