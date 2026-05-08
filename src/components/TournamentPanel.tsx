@@ -20,7 +20,7 @@ import {
   adjustedScore, decide, recommendSizing, classifyHandStrength, potOdds,
 } from "@/lib/pokerEngine";
 import { inferRanges } from "@/lib/rangeInference";
-import { supabase } from "@/integrations/supabase/client";
+import { generateCoachAnalysis } from "@/engines/coachEngine";
 import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
