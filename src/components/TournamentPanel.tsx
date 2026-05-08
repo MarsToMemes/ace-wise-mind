@@ -226,6 +226,127 @@ export function TournamentPanel() {
     : state.icmPressure === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
     : "bg-emerald-500/20 text-emerald-400 border-emerald-500/40";
 
+  // ===== AI Coach (Tournament Mode) =====
+  const { lang } = useI18n();
+  const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const runAI = async () => {
+    if (hole.length < 2) { toast.error("Pick your hole cards first"); return; }
+    setAiLoading(true); setAiError(null); setAiResult(null);
+    try {
+      const all = [...hole, ...board];
+      const ev = evaluateBest(all);
+      const draws = detectDraws(hole, board);
+      const texture = classifyTexture(board);
+      const eq = estimateEquity(draws.outs, board.length);
+      const adj = adjustedScore({ baseScore: ev.score, outs: draws.outs, texture, position });
+      const liveOpponents: number[] = [];
+      const positionsMap: Record<number, string> = {};
+      const seatStacksBBMap: Record<number, number> = {};
+      for (let i = 0; i < tableSize; i++) {
+        if (i !== userIdx && !folded[i]) liveOpponents.push(i);
+        if (dealerIdx >= 0) positionsMap[i] = seatLabel(i, dealerIdx, tableSize);
+        seatStacksBBMap[i] = seatStacksBB[i] || 0;
+      }
+      const rr = inferRanges({
+        actions: actionHistory, liveOpponentSeats: liveOpponents,
+        positions: positionsMap, basePotBB: 1.5,
+        boardTexture: texture, tournamentState: state,
+        seatStacksBB: seatStacksBBMap, heroStackBB: state.stackBB,
+      });
+      const heroToCall = 0;
+      const dynPot = 1.5;
+      const po = potOdds(heroToCall, dynPot);
+      const handClass = classifyHandStrength({
+        baseScore: ev.score, category: ev.category, outs: draws.outs,
+        drawType: draws.drawType, equityPct: eq, texture,
+        opponents: liveOpponents.length, position, street: currentStreet,
+        facingAggression: false, betSizePct: 0,
+      });
+      const dec = decide({
+        baseScore: ev.score, adjScore: adj, outs: draws.outs, equityPct: eq,
+        potOddsPct: po?.reqEquity ?? null, boardLen: board.length,
+        facingRaise: false, betSizePct: 0, street: currentStreet,
+        texture, opponents: liveOpponents.length, position, handClass,
+      });
+      const sizing = recommendSizing({
+        street: currentStreet, baseScore: ev.score, adjScore: adj,
+        outs: draws.outs, equityPct: eq, texture, position,
+        pot: dynPot, call: heroToCall, opponents: liveOpponents.length,
+        action: dec.action,
+      });
+      const stacks = seatStacksBB.filter((_, i) => liveOpponents.includes(i));
+      const biggest = stacks.length ? Math.max(...stacks) : 0;
+      const smallest = stacks.length ? Math.min(...stacks) : 0;
+      const heroStackRelative = state.stackBB > biggest * 2 ? "big"
+        : state.stackBB < smallest * 0.5 ? "short" : "medium";
+
+      const { data, error } = await supabase.functions.invoke("poker-coach", {
+        body: {
+          hole, flop, turn, river,
+          currentStreet,
+          stack: state.stackBB,
+          pot: dynPot, call: heroToCall,
+          opponents: liveOpponents.length,
+          position,
+          handCategory: ev.category, handScore: ev.score,
+          adjScore: adj, drawType: draws.drawType, outs: draws.outs,
+          equityPct: eq, texture,
+          potOdds: po?.odds ?? null, reqEquity: po?.reqEquity ?? null,
+          heroRA: 50, villainRA: 50,
+          suggestedAction: pf?.action ?? dec.action,
+          decisionReason: pf?.reasoning ?? dec.reason,
+          sizing,
+          range_inference: {
+            aggregate_strength: rr.aggregateStrength,
+            dominant_range_type: rr.dominantRangeType,
+            aggregate_bluff_frequency: rr.aggregateBluffFreq,
+            opponents: rr.opponents.map(o => ({
+              seat: o.seatIdx, position: o.position,
+              estimated_strength: o.estimatedStrength,
+              range_type: o.rangeType,
+              bluff_frequency: o.bluffFrequency,
+              notes: o.notes,
+            })),
+          },
+          action_history: actionHistory.map(a => ({
+            street: a.street, seat: a.seatIdx,
+            position: positionsMap[a.seatIdx],
+            type: a.type, amount_bb: a.amountBB,
+          })),
+          tournament: {
+            type: state.type,
+            mRatio: state.mRatio,
+            stackBB: state.stackBB,
+            stage: state.stage,
+            icmPressure: state.icmPressure,
+            playersRemaining: state.playersRemaining,
+            payoutSpots: state.payoutSpots,
+            bbValue: state.BB,
+            ante: state.ante,
+            blindLevel: levelIdx + 1,
+            timeToNextLevel: timerSec,
+            isNearBubble: state.playersRemaining <= state.payoutSpots * 1.3,
+            isFinalTable: state.playersRemaining <= state.payoutSpots,
+            heroStackRelative,
+          },
+          lang,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setAiResult(data?.analysis || null);
+    } catch (e: any) {
+      const msg = e?.message || "AI analysis failed";
+      setAiError(msg);
+      toast.error(msg);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card className="glass-panel p-6">
