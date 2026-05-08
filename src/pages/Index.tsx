@@ -35,6 +35,7 @@ const Index = () => {
   const { t, lang } = useI18n();
   const [appMode, setAppMode] = useState<"analyzer" | "training">("analyzer");
   const [analyzerMode, setAnalyzerMode] = useState<AnalyzerMode>("cash");
+  const [tournamentResetKey, setTournamentResetKey] = useState(0);
   const [hole, setHole] = useState<string[]>([]);
   const [flop, setFlop] = useState<string[]>([]);
   const [turn, setTurn] = useState<string | null>(null);
