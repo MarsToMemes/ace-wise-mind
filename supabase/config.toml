@@ -1,7 +1,1 @@
 project_id = "wmwhiyhbwyizooqsnjqi"
-
-[functions.poker-coach]
-verify_jwt = false
-
-[functions.gemini-explain]
-verify_jwt = false
