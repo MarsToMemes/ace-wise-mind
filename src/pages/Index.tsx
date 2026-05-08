@@ -586,6 +586,7 @@ const Index = () => {
                 )}
               </div>
             </main>
+            )}
           </TabsContent>
 
           <TabsContent value="training">
