@@ -20,7 +20,8 @@ import {
   adjustedScore, decide, recommendSizing, classifyHandStrength, potOdds,
 } from "@/lib/pokerEngine";
 import { inferRanges } from "@/lib/rangeInference";
-import { generateCoachAnalysis } from "@/engines/coachEngine";
+import { generateTournamentCoach, classifyStackDepth } from "@/engines/tournamentCoachEngine";
+import { classifyHandTier } from "@/lib/tournamentEngine";
 import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
@@ -286,9 +287,22 @@ export function TournamentPanel() {
         : state.stackBB < smallest * 0.5 ? "short" : "medium";
 
       const ip = ["BTN", "CO", "HJ"].includes(position);
-      const analysis = generateCoachAnalysis({
-        action: pf?.action ?? dec.action,
-        reasoning: pf?.reasoning ?? dec.reason,
+      // Detect opener position from action history (first non-fold preflop raise/bet)
+      const opener = actionHistory.find(a =>
+        a.street === "Preflop" && (a.type === "Raise" || a.type === "Bet") && a.seatIdx !== userIdx
+      );
+      const openerPosition = opener && dealerIdx >= 0
+        ? seatLabel(opener.seatIdx, dealerIdx, tableSize) : null;
+      const facingAggression = !!opener;
+
+      const handTier = classifyHandTier(hole);
+      const analysis = generateTournamentCoach({
+        state,
+        holeCards: hole,
+        position,
+        street: currentStreet,
+        opponents: liveOpponents.length,
+        handTier,
         handCategory: ev.category,
         adjScore: adj,
         baseScore: ev.score,
@@ -296,36 +310,12 @@ export function TournamentPanel() {
         drawType: draws.drawType,
         equityPct: eq,
         texture,
-        potOdds: po?.odds ?? null,
         reqEquity: po?.reqEquity ?? null,
-        heroRA: 50,
-        villainRA: 50,
-        sizing,
-        rangeReadout: {
-          aggregateStrength: rr.aggregateStrength,
-          dominantRangeType: rr.dominantRangeType,
-          aggregateBluffFreq: rr.aggregateBluffFreq,
-          opponents: rr.opponents.map(o => ({
-            position: o.position, estimatedStrength: o.estimatedStrength, rangeType: o.rangeType,
-          })),
-        },
-        street: currentStreet,
-        position,
-        opponents: liveOpponents.length,
         inPosition: ip,
-        tournament: {
-          type: state.type,
-          mRatio: state.mRatio,
-          stackBB: state.stackBB,
-          stage: state.stage,
-          icmPressure: state.icmPressure,
-          playersRemaining: state.playersRemaining,
-          payoutSpots: state.payoutSpots,
-          isNearBubble: state.playersRemaining <= state.payoutSpots * 1.3,
-          isFinalTable: state.playersRemaining <= state.payoutSpots,
-          heroStackRelative,
-          pushFold: pf ? { action: pf.action, reasoning: pf.reasoning, handTier: pf.handTier } : null,
-        },
+        pushFold: pf ? { action: pf.action, reasoning: pf.reasoning, handTier: pf.handTier } : null,
+        sizing,
+        openerPosition,
+        facingAggression,
         lang,
       });
       setAiResult(analysis);
@@ -464,6 +454,46 @@ export function TournamentPanel() {
       </div>
 
       <div className="space-y-6">
+      <Card className="glass-panel p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="display text-xl">Tournament HUD</h2>
+          {(() => {
+            const depth = classifyStackDepth(state.stackBB);
+            const cls = depth === "deep" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+              : depth === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
+              : depth === "short" ? "bg-orange-500/20 text-orange-400 border-orange-500/40"
+              : "bg-red-500/20 text-red-400 border-red-500/40 animate-pulse";
+            const label = depth === "deep" ? "Deep Stack"
+              : depth === "medium" ? "Medium Stack"
+              : depth === "short" ? "Short Stack" : "Critical Stack";
+            return <Badge variant="outline" className={`text-sm ${cls}`}>{label}</Badge>;
+          })()}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          <div className="p-2 rounded border border-border/40">
+            <div className="text-muted-foreground uppercase">Push/Fold Zone</div>
+            <div className="font-semibold mt-1">{state.mRatio < cfg.pushFoldThresholdM ? "ACTIVE" : "Inactive"}</div>
+          </div>
+          <div className="p-2 rounded border border-border/40">
+            <div className="text-muted-foreground uppercase">Danger</div>
+            <div className="font-semibold mt-1">
+              {state.stackBB < 10 ? "Critical < 10BB" : state.stackBB < 15 ? "Short < 15BB" : "Safe"}
+            </div>
+          </div>
+          <div className="p-2 rounded border border-border/40">
+            <div className="text-muted-foreground uppercase">Aggression Target</div>
+            <div className="font-semibold mt-1">
+              {state.icmPressure === "critical" ? "Low" : state.icmPressure === "high" ? "Selective" : state.stackBB < 15 ? "High (FE)" : "Standard"}
+            </div>
+          </div>
+        </div>
+        {pf && (
+          <div className="mt-3 text-xs text-muted-foreground">
+            Preflop recommendation: <span className={`font-semibold ${pf.action === "Shove" ? "text-emerald-400" : pf.action === "Fold" ? "text-red-400" : "text-yellow-400"}`}>{pf.action}</span> · {pf.handTier}
+          </div>
+        )}
+      </Card>
+
       <Card className="glass-panel p-6">
         <h2 className="display text-xl mb-4">Live Read</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
