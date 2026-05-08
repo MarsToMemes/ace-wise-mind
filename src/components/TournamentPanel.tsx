@@ -338,6 +338,14 @@ export function TournamentPanel() {
     }
   };
 
+  // Re-run tournament coach automatically when board updates (Turn/River) after first analysis
+  useEffect(() => {
+    if (!hasAnalyzed.current) return;
+    if (hole.length < 2) return;
+    runAI();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board.length, turn, river, state.mRatio, state.stage, state.icmPressure]);
+
   return (
     <div className="grid lg:grid-cols-2 gap-8">
       <div className="space-y-6">
