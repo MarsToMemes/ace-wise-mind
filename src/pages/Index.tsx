@@ -413,35 +413,23 @@ const Index = () => {
     try {
       const ctx: string[] = [];
       if (engine.equityPct && engine.reqEquity) {
-        ctx.push(engine.equityPct >= engine.reqEquity ? "equity exceeds pot odds" : "equity below pot odds");
+        ctx.push(engine.equityPct >= engine.reqEquity
+          ? (lang === "fr" ? "équité supérieure à la cote du pot" : "equity exceeds pot odds")
+          : (lang === "fr" ? "équité inférieure à la cote du pot" : "equity below pot odds"));
       }
       if (engine.drawType && engine.drawType !== "None") ctx.push(engine.drawType);
       if (engine.texture) ctx.push(`${engine.texture} board`);
-      if (opponents >= 2) ctx.push("multiway pot");
-      if (engine.sizing?.facingBet) ctx.push("facing a bet");
+      if (opponents >= 2) ctx.push(lang === "fr" ? "pot multiway" : "multiway pot");
+      if (engine.sizing?.facingBet) ctx.push(lang === "fr" ? "face à une mise" : "facing a bet");
       const lastAggressive = [...actionHistory].reverse().find(a => a.type === "Bet" || a.type === "Raise");
-      if (lastAggressive) ctx.push(`opponent ${lastAggressive.type.toLowerCase()} ${lastAggressive.amountBB}bb`);
+      if (lastAggressive) ctx.push(`${lang === "fr" ? "adversaire" : "opponent"} ${lastAggressive.type.toLowerCase()} ${lastAggressive.amountBB}bb`);
 
-      const { data, error } = await supabase.functions.invoke("gemini-explain", {
-        body: {
-          hand: hole.join(" "),
-          board: board.join(" "),
-          street: currentStreet,
-          position,
-          action_taken: actionHistory.length ? actionHistory[actionHistory.length - 1].type : "",
-          recommended_action: engine.suggestedAction,
-          bet_size: userToCall,
-          pot_size: dynamicPot,
-          active_players: opponents + 1,
-          explanation_context: ctx,
-          lang,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      setGeminiText(data?.explanation || "");
+      const local = lang === "fr"
+        ? `Décision: ${engine.suggestedAction}. Main: ${engine.handCategory ?? "?"} (score ajusté ${engine.adjScore}). Équité ${engine.equityPct}%${engine.reqEquity ? ` vs cote requise ${engine.reqEquity}%` : ""}. Position ${position} en ${currentStreet}, ${opponents + 1} joueurs actifs. ${ctx.length ? `Contexte: ${ctx.join(", ")}.` : ""}`
+        : `Decision: ${engine.suggestedAction}. Hand: ${engine.handCategory ?? "?"} (adj. score ${engine.adjScore}). Equity ${engine.equityPct}%${engine.reqEquity ? ` vs required ${engine.reqEquity}%` : ""}. Position ${position} on ${currentStreet}, ${opponents + 1} active players. ${ctx.length ? `Context: ${ctx.join(", ")}.` : ""}`;
+      setGeminiText(local);
     } catch (e: any) {
-      toast.error(e?.message || "Gemini error");
+      toast.error(e?.message || "Local explanation error");
     } finally {
       setGeminiLoading(false);
     }
