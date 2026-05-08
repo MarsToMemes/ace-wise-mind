@@ -552,7 +552,7 @@ export function TournamentPanel() {
       </Button>
 
       <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
-
+      </div>
     </div>
   );
 }
