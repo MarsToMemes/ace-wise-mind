@@ -1,5 +1,6 @@
 // Range Inference Engine — interprets action history into strategic intelligence.
 import type { PlayerAction } from "@/components/ActionMenu";
+import type { TournamentState } from "@/lib/tournamentEngine";
 
 export type Street = "Preflop" | "Flop" | "Turn" | "River";
 export type RangeType = "polarized" | "merged" | "capped" | "linear" | "wide" | "unknown";
@@ -15,20 +16,22 @@ export interface OpponentRange {
 
 export interface RangeReadout {
   opponents: OpponentRange[];
-  // Aggregate of all live opponents
-  aggregateStrength: number; // 0..100
-  aggregateBluffFreq: number; // 0..1
+  aggregateStrength: number;
+  aggregateBluffFreq: number;
   dominantRangeType: RangeType;
   notes: string[];
 }
 
 interface Inputs {
-  actions: PlayerAction[];               // full chronological history
-  liveOpponentSeats: number[];           // seats still in the hand (excluding hero)
-  positions?: Record<number, string>;    // seatIdx -> label
-  basePotBB?: number;                    // pot at start (for sizing %)
+  actions: PlayerAction[];
+  liveOpponentSeats: number[];
+  positions?: Record<number, string>;
+  basePotBB?: number;
   boardCards?: string[];
   boardTexture?: "Dry" | "Semi-wet" | "Wet";
+  tournamentState?: TournamentState;
+  seatStacksBB?: Record<number, number>;
+  heroStackBB?: number;
 }
 
 const STREET_ORDER: Street[] = ["Preflop", "Flop", "Turn", "River"];
