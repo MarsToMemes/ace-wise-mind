@@ -130,16 +130,26 @@ function decisionQuality(
 
 function pickPrimaryAction(inp: TournamentCoachInput, depth: StackDepth): DecisionAction {
   if (inp.street === "Preflop") {
+    // Equilibrium push range (red/orange zones)
+    const zone = classifyZone(inp.state.mRatio);
+    if (zone === "red" || zone === "orange") {
+      const eq = equilibriumPush(inp.holeCards, inp.position, inp.state.stackBB);
+      if (eq.inPushRange) return inp.facingAggression ? "RESHOVE" : "PUSH";
+      // BB defense vs push
+      if (inp.position === "BB" && inp.facingAggression) {
+        const bb = bbCallVsPush(inp.holeCards, inp.openerPosition ?? null);
+        if (bb.canCall) return "CALL";
+      }
+      return "FOLD";
+    }
     if (inp.pushFold) {
       if (inp.pushFold.action === "Shove") return inp.facingAggression ? "RESHOVE" : "PUSH";
       if (inp.pushFold.action === "Call-Shove") return "CALL";
       return "FOLD";
     }
-    // Deep/medium preflop: heuristic from tier
     const tier = inp.handTier ?? "Trash";
     if (depth === "deep") {
-      if (tier === "Premium") return "RAISE";
-      if (tier === "Strong") return "RAISE";
+      if (tier === "Premium" || tier === "Strong") return "RAISE";
       if (tier === "Playable" && inp.inPosition) return "RAISE";
       return "FOLD";
     }
@@ -148,7 +158,6 @@ function pickPrimaryAction(inp: TournamentCoachInput, depth: StackDepth): Decisi
       if (tier === "Playable" && inp.inPosition) return "RAISE";
       return "FOLD";
     }
-    // short/critical with M above push-fold threshold
     if (tier === "Premium") return "PUSH";
     if (tier === "Strong" && (inp.inPosition || depth === "critical")) return "PUSH";
     return "FOLD";
