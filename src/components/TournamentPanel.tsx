@@ -22,6 +22,10 @@ import {
 import { inferRanges } from "@/lib/rangeInference";
 import { generateTournamentCoach, classifyStackDepth } from "@/engines/tournamentCoachEngine";
 import { classifyHandTier } from "@/lib/tournamentEngine";
+import { classifyZone, zoneLabel, equilibriumPush, zoneAggressionTarget } from "@/engines/zoneSystem";
+import { computeFE } from "@/engines/foldEquity";
+import { computeICMOverlay } from "@/engines/icmOverlay";
+import { PROFILES, type OpponentProfile } from "@/engines/opponentProfile";
 import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
