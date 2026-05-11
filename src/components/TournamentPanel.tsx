@@ -321,6 +321,9 @@ export function TournamentPanel() {
         sizing,
         openerPosition,
         facingAggression,
+        opponentProfile,
+        potBB: dynPot,
+        betBB: state.stackBB,
         lang,
       });
       setAiResult(analysis);
