@@ -5,6 +5,10 @@
 
 import type { AIAnalysis } from "@/components/AIPanel";
 import type { TournamentState, TournamentType } from "@/lib/tournamentEngine";
+import { classifyZone, equilibriumPush, bbCallVsPush, zoneLabel, type Zone } from "./zoneSystem";
+import { computeFE, type FEResult } from "./foldEquity";
+import { computeICMOverlay, type ICMOverlay } from "./icmOverlay";
+import { PROFILES, type OpponentProfile } from "./opponentProfile";
 
 export type StackDepth = "deep" | "medium" | "short" | "critical";
 export type DecisionAction = "PUSH" | "CALL" | "FOLD" | "RESHOVE" | "RAISE" | "CHECK";
