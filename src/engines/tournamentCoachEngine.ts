@@ -203,11 +203,34 @@ function dominationRisk(holeCards: string[], openerGroup?: string): string | nul
 export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
   const fr = FR(inp.lang);
   const depth = classifyStackDepth(inp.state.stackBB);
+  const zone: Zone = classifyZone(inp.state.mRatio);
+  const icmOverlay: ICMOverlay = computeICMOverlay(inp.state);
+  const profile: OpponentProfile = inp.opponentProfile ?? "unknown";
+  const profileGuide = PROFILES[profile];
   const action = pickPrimaryAction(inp, depth);
   const rank = tierRank(inp.handTier);
-  const hasFE = depth !== "deep"; // shorter stacks generate more fold equity when shoving
+  const hasFE = depth !== "deep";
   const dq = decisionQuality(action, depth, inp.state, hasFE, rank);
   const aggressionTarget = recommendedAggression(depth, inp.state.icmPressure);
+
+  // Fold-equity readout when we have a pot context and we're aggressive
+  let fe: FEResult | null = null;
+  if ((action === "PUSH" || action === "RESHOVE" || action === "RAISE") && (inp.potBB ?? 0) > 0) {
+    fe = computeFE({
+      potBB: inp.potBB!,
+      betBB: inp.betBB ?? inp.state.stackBB,
+      opponents: inp.opponents,
+      heroStackBB: inp.state.stackBB,
+      position: inp.position,
+      profile,
+      icmPressureBoost: inp.state.icmPressure === "high" || inp.state.icmPressure === "critical",
+      showdownEquityPct: inp.equityPct,
+    });
+  }
+
+  // Equilibrium-range note (preflop, short/critical)
+  const eqRange = inp.street === "Preflop" ? equilibriumPush(inp.holeCards, inp.position, inp.state.stackBB) : null;
+
 
   const stage = inp.state.stage;
   const stageNote = (() => {
