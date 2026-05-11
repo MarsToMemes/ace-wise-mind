@@ -26,6 +26,8 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TrainingMode } from "@/components/TrainingMode";
 import { TournamentPanel } from "@/components/TournamentPanel";
+import { analyzePreflop } from "@/engines/cashPreflopEngine";
+import { CashHUD } from "@/components/CashHUD";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
