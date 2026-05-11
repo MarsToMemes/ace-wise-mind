@@ -390,11 +390,21 @@ export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
   const reasoning = [
     depthNote,
     stageNote + ".",
+    `Zone ${zone.toUpperCase()}: ${zoneLabel(zone)}.`,
     why.join(" "),
     inp.pushFold ? `${inp.pushFold.action} (${inp.pushFold.handTier}): ${inp.pushFold.reasoning}` : "",
+    eqRange && eqRange.bracket && inp.state.stackBB <= 15
+      ? (fr ? `Range équilibre ${inp.position} @${eqRange.bracket}BB: ${eqRange.inPushRange ? "main DANS la range de shove" : "main HORS range"}.`
+            : `Equilibrium ${inp.position} @${eqRange.bracket}BB push range: hand is ${eqRange.inPushRange ? "INSIDE" : "OUTSIDE"}.`)
+      : "",
+    fe ? (fr ? `Fold equity ${fe.level} (${fe.estimatedFoldPct}% folds, break-even ${fe.breakEvenFoldPct}%). ${fe.reasoning}`
+             : `Fold equity ${fe.level} (${fe.estimatedFoldPct}% folds, break-even ${fe.breakEvenFoldPct}%). ${fe.reasoning}`) : "",
+    icmOverlay.bubbleFactor > 1.1
+      ? (fr ? `ICM: bubble factor ${icmOverlay.bubbleFactor.toFixed(2)}x, floor d'équité ${icmOverlay.callEquityFloorPct}%. ${icmOverlay.recommendation}`
+            : `ICM: bubble factor ${icmOverlay.bubbleFactor.toFixed(2)}x, call equity floor ${icmOverlay.callEquityFloorPct}%. ${icmOverlay.recommendation}`)
+      : "",
     inp.sizing && inp.street !== "Preflop"
-      ? (fr ? `Sizing: ${inp.sizing.heroAction} ${inp.sizing.amountBB}BB (${inp.sizing.pctMin}-${inp.sizing.pctMax}% pot) — ${inp.sizing.intent}.`
-            : `Sizing: ${inp.sizing.heroAction} ${inp.sizing.amountBB}BB (${inp.sizing.pctMin}-${inp.sizing.pctMax}% pot) — ${inp.sizing.intent}.`)
+      ? `Sizing: ${inp.sizing.heroAction} ${inp.sizing.amountBB}BB (${inp.sizing.pctMin}-${inp.sizing.pctMax}% pot) — ${inp.sizing.intent}.`
       : "",
   ].filter(Boolean).join(" ");
 
