@@ -50,6 +50,11 @@ export interface TournamentCoachInput {
   openerPosition?: string | null;
   // Hero faces aggression?
   facingAggression?: boolean;
+  // Opponent profile (default unknown)
+  opponentProfile?: OpponentProfile;
+  // Pot context for fold equity (BB)
+  potBB?: number;
+  betBB?: number;
   lang?: "en" | "fr";
 }
 
