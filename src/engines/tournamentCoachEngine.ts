@@ -344,6 +344,21 @@ export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
   if (depth === "critical") keyConcepts.push(fr ? "ZONE DANGER" : "DANGER ZONE");
   if (stage === "bubble") keyConcepts.push(fr ? "Pression bulle" : "Bubble pressure");
   if ((inp.state.playersRemaining <= 9)) keyConcepts.push(fr ? "Paliers ICM (FT)" : "ICM ladder (FT)");
+  keyConcepts.push(fr ? `Zone: ${zone.toUpperCase()}` : `Zone: ${zone.toUpperCase()} — ${zoneLabel(zone).split(" — ")[1] ?? ""}`);
+  keyConcepts.push(fr ? `Vilain: ${profileGuide.label}` : `Villain: ${profileGuide.label}`);
+  keyConcepts.push(fr ? `Bubble factor: ${icmOverlay.bubbleFactor.toFixed(2)}x` : `Bubble factor: ${icmOverlay.bubbleFactor.toFixed(2)}x`);
+  keyConcepts.push(fr ? `Floor d'équité call: ${icmOverlay.callEquityFloorPct}%` : `Call equity floor: ${icmOverlay.callEquityFloorPct}%`);
+  if (fe) keyConcepts.push(fr ? `Fold equity: ${fe.level.toUpperCase()} (${fe.estimatedFoldPct}%)` : `Fold equity: ${fe.level.toUpperCase()} (${fe.estimatedFoldPct}%)`);
+  if (eqRange && eqRange.bracket && inp.state.stackBB <= 15) {
+    keyConcepts.push(fr ? `Range ${inp.position} ${eqRange.bracket}BB: ${eqRange.inPushRange ? "IN" : "OUT"}` :
+      `${inp.position} ${eqRange.bracket}BB push: ${eqRange.inPushRange ? "IN" : "OUT"}`);
+  }
+
+  // Opponent-profile-driven mistakes / lines
+  if (!profileGuide.bluffOK) {
+    mistakes.push(fr ? `Bluffer un ${profileGuide.label}: il paie trop large.` : `Bluffing a ${profileGuide.label}: they call too wide.`);
+  }
+  cond.push(fr ? `Vilain (${profileGuide.label}): ${profileGuide.exploit}` : `Villain (${profileGuide.label}): ${profileGuide.exploit}`);
 
   // Range thinking
   const youRep = (() => {
