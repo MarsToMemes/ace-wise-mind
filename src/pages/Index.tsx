@@ -26,6 +26,8 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { TrainingMode } from "@/components/TrainingMode";
 import { TournamentPanel } from "@/components/TournamentPanel";
+import { analyzePreflop } from "@/engines/cashPreflopEngine";
+import { CashHUD } from "@/components/CashHUD";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -548,6 +550,19 @@ const Index = () => {
               </div>
 
               <div className="space-y-6">
+                <CashHUD
+                  preflop={hole.length === 2 ? analyzePreflop({
+                    hole,
+                    position,
+                    stackBB: stack,
+                    facingRaise: userToCall > 0,
+                    raiseSizeBB: currentBet,
+                    opponents,
+                  }) : null}
+                  street={currentStreet}
+                  stackBB={stack}
+                  opponents={opponents}
+                />
                 <EngineReadout result={engine} />
 
                 <Button
