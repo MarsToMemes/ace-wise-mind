@@ -550,6 +550,19 @@ const Index = () => {
               </div>
 
               <div className="space-y-6">
+                <CashHUD
+                  preflop={hole.length === 2 ? analyzePreflop({
+                    hole,
+                    position,
+                    stackBB: stack,
+                    facingRaise: userToCall > 0,
+                    raiseSizeBB: currentBet,
+                    opponents,
+                  }) : null}
+                  street={currentStreet}
+                  stackBB={stack}
+                  opponents={opponents}
+                />
                 <EngineReadout result={engine} />
 
                 <Button
