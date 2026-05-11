@@ -28,6 +28,7 @@ import { TrainingMode } from "@/components/TrainingMode";
 import { TournamentPanel } from "@/components/TournamentPanel";
 import { analyzePreflop } from "@/engines/cashPreflopEngine";
 import { CashHUD } from "@/components/CashHUD";
+import { AlphaPanel } from "@/components/AlphaPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -564,6 +565,12 @@ const Index = () => {
                   opponents={opponents}
                 />
                 <EngineReadout result={engine} />
+
+                <AlphaPanel
+                  defaultPot={dynamicPot}
+                  defaultBet={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
+                  perspective={userToCall > 0 ? "hero-facing" : "hero-betting"}
+                />
 
                 <Button
                   onClick={runAI}
