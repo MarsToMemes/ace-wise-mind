@@ -31,6 +31,8 @@ import { CashHUD } from "@/components/CashHUD";
 import { AlphaPanel } from "@/components/AlphaPanel";
 import { GeometricSizingPanel } from "@/components/GeometricSizingPanel";
 import { KellyPanel } from "@/components/KellyPanel";
+import { assessPolarization } from "@/engines/polarizationAssessor";
+import { PolarizationPanel } from "@/components/PolarizationPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -591,6 +593,24 @@ const Index = () => {
                   defaultEquityPct={engine?.equityPct ?? 50}
                   defaultRiskBB={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
                   defaultRewardBB={Math.max(1, dynamicPot)}
+                />
+
+                <PolarizationPanel
+                  result={engine ? assessPolarization({
+                    position,
+                    street: currentStreet,
+                    texture: engine.texture,
+                    handCategory: engine.handClass?.hand_category ?? "Medium",
+                    equityPct: engine.equityPct,
+                    heroRA: Number(engine.heroRA) || 50,
+                    villainRA: Number(engine.villainRA) || 50,
+                    opponents,
+                    heroIsAggressor: userIdx >= 0 && actionHistory.some(
+                      a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
+                    ),
+                    facingBet: userToCall > 0,
+                    betSizePctOfPot: dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
+                  }) : null}
                 />
 
                 <Button
