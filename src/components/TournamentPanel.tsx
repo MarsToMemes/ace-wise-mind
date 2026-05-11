@@ -60,6 +60,7 @@ export function TournamentPanel() {
   const [turn, setTurn] = useState<string | null>(null);
   const [river, setRiver] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>("hole");
+  const [opponentProfile, setOpponentProfile] = useState<OpponentProfile>("unknown");
 
   // Timer
   const cfg = TOURNAMENT_TYPES[type];
