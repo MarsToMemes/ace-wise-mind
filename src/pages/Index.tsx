@@ -31,6 +31,8 @@ import { CashHUD } from "@/components/CashHUD";
 import { AlphaPanel } from "@/components/AlphaPanel";
 import { GeometricSizingPanel } from "@/components/GeometricSizingPanel";
 import { KellyPanel } from "@/components/KellyPanel";
+import { assessPolarization } from "@/engines/polarizationAssessor";
+import { PolarizationPanel } from "@/components/PolarizationPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
