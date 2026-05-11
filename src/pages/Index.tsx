@@ -587,6 +587,12 @@ const Index = () => {
                   }
                 />
 
+                <KellyPanel
+                  defaultEquityPct={engine?.equityPct ?? 50}
+                  defaultRiskBB={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
+                  defaultRewardBB={Math.max(1, dynamicPot)}
+                />
+
                 <Button
                   onClick={runAI}
                   disabled={!engine || aiLoading}
