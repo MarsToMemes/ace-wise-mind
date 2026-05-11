@@ -29,6 +29,7 @@ import { TournamentPanel } from "@/components/TournamentPanel";
 import { analyzePreflop } from "@/engines/cashPreflopEngine";
 import { CashHUD } from "@/components/CashHUD";
 import { AlphaPanel } from "@/components/AlphaPanel";
+import { GeometricSizingPanel } from "@/components/GeometricSizingPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -570,6 +571,19 @@ const Index = () => {
                   defaultPot={dynamicPot}
                   defaultBet={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
                   perspective={userToCall > 0 ? "hero-facing" : "hero-betting"}
+                />
+
+                <GeometricSizingPanel
+                  defaultPot={dynamicPot}
+                  defaultHeroStack={stack}
+                  defaultVillainStack={stack}
+                  streetsRemaining={
+                    (currentStreet === "Preflop" || currentStreet === "Flop"
+                      ? 3
+                      : currentStreet === "Turn"
+                      ? 2
+                      : 1) as 1 | 2 | 3
+                  }
                 />
 
                 <Button
