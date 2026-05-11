@@ -30,6 +30,7 @@ import { analyzePreflop } from "@/engines/cashPreflopEngine";
 import { CashHUD } from "@/components/CashHUD";
 import { AlphaPanel } from "@/components/AlphaPanel";
 import { GeometricSizingPanel } from "@/components/GeometricSizingPanel";
+import { KellyPanel } from "@/components/KellyPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -584,6 +585,12 @@ const Index = () => {
                       ? 2
                       : 1) as 1 | 2 | 3
                   }
+                />
+
+                <KellyPanel
+                  defaultEquityPct={engine?.equityPct ?? 50}
+                  defaultRiskBB={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
+                  defaultRewardBB={Math.max(1, dynamicPot)}
                 />
 
                 <Button
