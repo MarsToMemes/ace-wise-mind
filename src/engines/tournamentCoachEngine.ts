@@ -5,6 +5,10 @@
 
 import type { AIAnalysis } from "@/components/AIPanel";
 import type { TournamentState, TournamentType } from "@/lib/tournamentEngine";
+import { classifyZone, equilibriumPush, bbCallVsPush, zoneLabel, type Zone } from "./zoneSystem";
+import { computeFE, type FEResult } from "./foldEquity";
+import { computeICMOverlay, type ICMOverlay } from "./icmOverlay";
+import { PROFILES, type OpponentProfile } from "./opponentProfile";
 
 export type StackDepth = "deep" | "medium" | "short" | "critical";
 export type DecisionAction = "PUSH" | "CALL" | "FOLD" | "RESHOVE" | "RAISE" | "CHECK";
@@ -46,6 +50,11 @@ export interface TournamentCoachInput {
   openerPosition?: string | null;
   // Hero faces aggression?
   facingAggression?: boolean;
+  // Opponent profile (default unknown)
+  opponentProfile?: OpponentProfile;
+  // Pot context for fold equity (BB)
+  potBB?: number;
+  betBB?: number;
   lang?: "en" | "fr";
 }
 
@@ -121,16 +130,26 @@ function decisionQuality(
 
 function pickPrimaryAction(inp: TournamentCoachInput, depth: StackDepth): DecisionAction {
   if (inp.street === "Preflop") {
+    // Equilibrium push range (red/orange zones)
+    const zone = classifyZone(inp.state.mRatio);
+    if (zone === "red" || zone === "orange") {
+      const eq = equilibriumPush(inp.holeCards, inp.position, inp.state.stackBB);
+      if (eq.inPushRange) return inp.facingAggression ? "RESHOVE" : "PUSH";
+      // BB defense vs push
+      if (inp.position === "BB" && inp.facingAggression) {
+        const bb = bbCallVsPush(inp.holeCards, inp.openerPosition ?? null);
+        if (bb.canCall) return "CALL";
+      }
+      return "FOLD";
+    }
     if (inp.pushFold) {
       if (inp.pushFold.action === "Shove") return inp.facingAggression ? "RESHOVE" : "PUSH";
       if (inp.pushFold.action === "Call-Shove") return "CALL";
       return "FOLD";
     }
-    // Deep/medium preflop: heuristic from tier
     const tier = inp.handTier ?? "Trash";
     if (depth === "deep") {
-      if (tier === "Premium") return "RAISE";
-      if (tier === "Strong") return "RAISE";
+      if (tier === "Premium" || tier === "Strong") return "RAISE";
       if (tier === "Playable" && inp.inPosition) return "RAISE";
       return "FOLD";
     }
@@ -139,7 +158,6 @@ function pickPrimaryAction(inp: TournamentCoachInput, depth: StackDepth): Decisi
       if (tier === "Playable" && inp.inPosition) return "RAISE";
       return "FOLD";
     }
-    // short/critical with M above push-fold threshold
     if (tier === "Premium") return "PUSH";
     if (tier === "Strong" && (inp.inPosition || depth === "critical")) return "PUSH";
     return "FOLD";
@@ -185,11 +203,34 @@ function dominationRisk(holeCards: string[], openerGroup?: string): string | nul
 export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
   const fr = FR(inp.lang);
   const depth = classifyStackDepth(inp.state.stackBB);
+  const zone: Zone = classifyZone(inp.state.mRatio);
+  const icmOverlay: ICMOverlay = computeICMOverlay(inp.state);
+  const profile: OpponentProfile = inp.opponentProfile ?? "unknown";
+  const profileGuide = PROFILES[profile];
   const action = pickPrimaryAction(inp, depth);
   const rank = tierRank(inp.handTier);
-  const hasFE = depth !== "deep"; // shorter stacks generate more fold equity when shoving
+  const hasFE = depth !== "deep";
   const dq = decisionQuality(action, depth, inp.state, hasFE, rank);
   const aggressionTarget = recommendedAggression(depth, inp.state.icmPressure);
+
+  // Fold-equity readout when we have a pot context and we're aggressive
+  let fe: FEResult | null = null;
+  if ((action === "PUSH" || action === "RESHOVE" || action === "RAISE") && (inp.potBB ?? 0) > 0) {
+    fe = computeFE({
+      potBB: inp.potBB!,
+      betBB: inp.betBB ?? inp.state.stackBB,
+      opponents: inp.opponents,
+      heroStackBB: inp.state.stackBB,
+      position: inp.position,
+      profile,
+      icmPressureBoost: inp.state.icmPressure === "high" || inp.state.icmPressure === "critical",
+      showdownEquityPct: inp.equityPct,
+    });
+  }
+
+  // Equilibrium-range note (preflop, short/critical)
+  const eqRange = inp.street === "Preflop" ? equilibriumPush(inp.holeCards, inp.position, inp.state.stackBB) : null;
+
 
   const stage = inp.state.stage;
   const stageNote = (() => {
@@ -303,6 +344,21 @@ export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
   if (depth === "critical") keyConcepts.push(fr ? "ZONE DANGER" : "DANGER ZONE");
   if (stage === "bubble") keyConcepts.push(fr ? "Pression bulle" : "Bubble pressure");
   if ((inp.state.playersRemaining <= 9)) keyConcepts.push(fr ? "Paliers ICM (FT)" : "ICM ladder (FT)");
+  keyConcepts.push(fr ? `Zone: ${zone.toUpperCase()}` : `Zone: ${zone.toUpperCase()} — ${zoneLabel(zone).split(" — ")[1] ?? ""}`);
+  keyConcepts.push(fr ? `Vilain: ${profileGuide.label}` : `Villain: ${profileGuide.label}`);
+  keyConcepts.push(fr ? `Bubble factor: ${icmOverlay.bubbleFactor.toFixed(2)}x` : `Bubble factor: ${icmOverlay.bubbleFactor.toFixed(2)}x`);
+  keyConcepts.push(fr ? `Floor d'équité call: ${icmOverlay.callEquityFloorPct}%` : `Call equity floor: ${icmOverlay.callEquityFloorPct}%`);
+  if (fe) keyConcepts.push(fr ? `Fold equity: ${fe.level.toUpperCase()} (${fe.estimatedFoldPct}%)` : `Fold equity: ${fe.level.toUpperCase()} (${fe.estimatedFoldPct}%)`);
+  if (eqRange && eqRange.bracket && inp.state.stackBB <= 15) {
+    keyConcepts.push(fr ? `Range ${inp.position} ${eqRange.bracket}BB: ${eqRange.inPushRange ? "IN" : "OUT"}` :
+      `${inp.position} ${eqRange.bracket}BB push: ${eqRange.inPushRange ? "IN" : "OUT"}`);
+  }
+
+  // Opponent-profile-driven mistakes / lines
+  if (!profileGuide.bluffOK) {
+    mistakes.push(fr ? `Bluffer un ${profileGuide.label}: il paie trop large.` : `Bluffing a ${profileGuide.label}: they call too wide.`);
+  }
+  cond.push(fr ? `Vilain (${profileGuide.label}): ${profileGuide.exploit}` : `Villain (${profileGuide.label}): ${profileGuide.exploit}`);
 
   // Range thinking
   const youRep = (() => {
@@ -334,11 +390,21 @@ export function generateTournamentCoach(inp: TournamentCoachInput): AIAnalysis {
   const reasoning = [
     depthNote,
     stageNote + ".",
+    `Zone ${zone.toUpperCase()}: ${zoneLabel(zone)}.`,
     why.join(" "),
     inp.pushFold ? `${inp.pushFold.action} (${inp.pushFold.handTier}): ${inp.pushFold.reasoning}` : "",
+    eqRange && eqRange.bracket && inp.state.stackBB <= 15
+      ? (fr ? `Range équilibre ${inp.position} @${eqRange.bracket}BB: ${eqRange.inPushRange ? "main DANS la range de shove" : "main HORS range"}.`
+            : `Equilibrium ${inp.position} @${eqRange.bracket}BB push range: hand is ${eqRange.inPushRange ? "INSIDE" : "OUTSIDE"}.`)
+      : "",
+    fe ? (fr ? `Fold equity ${fe.level} (${fe.estimatedFoldPct}% folds, break-even ${fe.breakEvenFoldPct}%). ${fe.reasoning}`
+             : `Fold equity ${fe.level} (${fe.estimatedFoldPct}% folds, break-even ${fe.breakEvenFoldPct}%). ${fe.reasoning}`) : "",
+    icmOverlay.bubbleFactor > 1.1
+      ? (fr ? `ICM: bubble factor ${icmOverlay.bubbleFactor.toFixed(2)}x, floor d'équité ${icmOverlay.callEquityFloorPct}%. ${icmOverlay.recommendation}`
+            : `ICM: bubble factor ${icmOverlay.bubbleFactor.toFixed(2)}x, call equity floor ${icmOverlay.callEquityFloorPct}%. ${icmOverlay.recommendation}`)
+      : "",
     inp.sizing && inp.street !== "Preflop"
-      ? (fr ? `Sizing: ${inp.sizing.heroAction} ${inp.sizing.amountBB}BB (${inp.sizing.pctMin}-${inp.sizing.pctMax}% pot) — ${inp.sizing.intent}.`
-            : `Sizing: ${inp.sizing.heroAction} ${inp.sizing.amountBB}BB (${inp.sizing.pctMin}-${inp.sizing.pctMax}% pot) — ${inp.sizing.intent}.`)
+      ? `Sizing: ${inp.sizing.heroAction} ${inp.sizing.amountBB}BB (${inp.sizing.pctMin}-${inp.sizing.pctMax}% pot) — ${inp.sizing.intent}.`
       : "",
   ].filter(Boolean).join(" ");
 

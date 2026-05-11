@@ -22,6 +22,10 @@ import {
 import { inferRanges } from "@/lib/rangeInference";
 import { generateTournamentCoach, classifyStackDepth } from "@/engines/tournamentCoachEngine";
 import { classifyHandTier } from "@/lib/tournamentEngine";
+import { classifyZone, zoneLabel, equilibriumPush, zoneAggressionTarget } from "@/engines/zoneSystem";
+import { computeFE } from "@/engines/foldEquity";
+import { computeICMOverlay } from "@/engines/icmOverlay";
+import { PROFILES, type OpponentProfile } from "@/engines/opponentProfile";
 import { useI18n } from "@/lib/i18n";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
@@ -56,6 +60,7 @@ export function TournamentPanel() {
   const [turn, setTurn] = useState<string | null>(null);
   const [river, setRiver] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>("hole");
+  const [opponentProfile, setOpponentProfile] = useState<OpponentProfile>("unknown");
 
   // Timer
   const cfg = TOURNAMENT_TYPES[type];
@@ -316,6 +321,9 @@ export function TournamentPanel() {
         sizing,
         openerPosition,
         facingAggression,
+        opponentProfile,
+        potBB: dynPot,
+        betBB: state.stackBB,
         lang,
       });
       setAiResult(analysis);
@@ -455,43 +463,106 @@ export function TournamentPanel() {
 
       <div className="space-y-6">
       <Card className="glass-panel p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="display text-xl">Tournament HUD</h2>
           {(() => {
-            const depth = classifyStackDepth(state.stackBB);
-            const cls = depth === "deep" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-              : depth === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
-              : depth === "short" ? "bg-orange-500/20 text-orange-400 border-orange-500/40"
+            const zone = classifyZone(state.mRatio);
+            const cls = zone === "green" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+              : zone === "yellow" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
+              : zone === "orange" ? "bg-orange-500/20 text-orange-400 border-orange-500/40"
               : "bg-red-500/20 text-red-400 border-red-500/40 animate-pulse";
-            const label = depth === "deep" ? "Deep Stack"
-              : depth === "medium" ? "Medium Stack"
-              : depth === "short" ? "Short Stack" : "Critical Stack";
-            return <Badge variant="outline" className={`text-sm ${cls}`}>{label}</Badge>;
+            return <Badge variant="outline" className={`text-sm ${cls}`}>{zoneLabel(zone)}</Badge>;
           })()}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-          <div className="p-2 rounded border border-border/40">
-            <div className="text-muted-foreground uppercase">Push/Fold Zone</div>
-            <div className="font-semibold mt-1">{state.mRatio < cfg.pushFoldThresholdM ? "ACTIVE" : "Inactive"}</div>
-          </div>
-          <div className="p-2 rounded border border-border/40">
-            <div className="text-muted-foreground uppercase">Danger</div>
-            <div className="font-semibold mt-1">
-              {state.stackBB < 10 ? "Critical < 10BB" : state.stackBB < 15 ? "Short < 15BB" : "Safe"}
+
+        {(() => {
+          const zone = classifyZone(state.mRatio);
+          const icm = computeICMOverlay(state);
+          const eq = hole.length === 2 ? equilibriumPush(hole, position, state.stackBB) : null;
+          const fe = (hole.length === 2 && state.stackBB <= 25) ? computeFE({
+            potBB: 1.5,
+            betBB: state.stackBB,
+            opponents: Math.max(1, playersAtTable - 1),
+            heroStackBB: state.stackBB,
+            position,
+            profile: opponentProfile,
+            icmPressureBoost: state.icmPressure === "high" || state.icmPressure === "critical",
+          }) : null;
+          const aggro = zoneAggressionTarget(zone, state.icmPressure === "high" || state.icmPressure === "critical");
+          return (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div className="p-2 rounded border border-border/40">
+                  <div className="text-muted-foreground uppercase">Push/Fold</div>
+                  <div className="font-semibold mt-1">{state.mRatio < cfg.pushFoldThresholdM ? "ACTIVE" : "Inactive"}</div>
+                </div>
+                <div className="p-2 rounded border border-border/40">
+                  <div className="text-muted-foreground uppercase">Bubble Factor</div>
+                  <div className="font-semibold mt-1">{icm.bubbleFactor.toFixed(2)}x</div>
+                </div>
+                <div className="p-2 rounded border border-border/40">
+                  <div className="text-muted-foreground uppercase">Call EQ Floor</div>
+                  <div className="font-semibold mt-1">{icm.callEquityFloorPct}%</div>
+                </div>
+                <div className="p-2 rounded border border-border/40">
+                  <div className="text-muted-foreground uppercase">Aggression Target</div>
+                  <div className="font-semibold mt-1">{aggro}/100</div>
+                </div>
+              </div>
+
+              {fe && (
+                <div className="p-3 rounded border border-border/40">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs uppercase text-muted-foreground">Fold Equity (shove now)</div>
+                    <Badge variant="outline" className={`text-[10px] ${
+                      fe.level === "high" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                      : fe.level === "medium" ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/40"
+                      : "bg-red-500/20 text-red-400 border-red-500/40"}`}>{fe.level.toUpperCase()}</Badge>
+                  </div>
+                  <div className="h-2 rounded-full bg-muted/30 overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-emerald-500"
+                      style={{ width: `${fe.estimatedFoldPct}%` }} />
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    P(fold) ≈ {fe.estimatedFoldPct}% · break-even {fe.breakEvenFoldPct}% · EV {fe.evOfBluffBB > 0 ? "+" : ""}{fe.evOfBluffBB}BB
+                  </div>
+                </div>
+              )}
+
+              {eq && eq.bracket && state.stackBB <= 15 && (
+                <div className="p-3 rounded border border-border/40 text-xs">
+                  <div className="text-muted-foreground uppercase mb-1">Equilibrium {position} @ {eq.bracket}BB</div>
+                  <div className={`font-semibold ${eq.inPushRange ? "text-emerald-400" : "text-red-400"}`}>
+                    Hand is {eq.inPushRange ? "INSIDE shove range" : "OUTSIDE shove range"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground mt-1 leading-snug">{eq.rangeStr}</div>
+                </div>
+              )}
+
+              <div>
+                <Label className="text-xs uppercase text-muted-foreground">Opponent Profile</Label>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
+                  {(Object.keys(PROFILES) as OpponentProfile[]).map(p => (
+                    <button key={p}
+                      onClick={() => setOpponentProfile(p)}
+                      className={`text-[11px] p-2 rounded border transition ${
+                        opponentProfile === p ? "border-primary bg-primary/10" : "border-border/40 hover:border-primary/50"
+                      }`}>
+                      {PROFILES[p].label}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-2 leading-snug">{PROFILES[opponentProfile].exploit}</div>
+              </div>
+
+              {pf && (
+                <div className="text-xs text-muted-foreground">
+                  Preflop recommendation: <span className={`font-semibold ${pf.action === "Shove" ? "text-emerald-400" : pf.action === "Fold" ? "text-red-400" : "text-yellow-400"}`}>{pf.action}</span> · {pf.handTier}
+                </div>
+              )}
             </div>
-          </div>
-          <div className="p-2 rounded border border-border/40">
-            <div className="text-muted-foreground uppercase">Aggression Target</div>
-            <div className="font-semibold mt-1">
-              {state.icmPressure === "critical" ? "Low" : state.icmPressure === "high" ? "Selective" : state.stackBB < 15 ? "High (FE)" : "Standard"}
-            </div>
-          </div>
-        </div>
-        {pf && (
-          <div className="mt-3 text-xs text-muted-foreground">
-            Preflop recommendation: <span className={`font-semibold ${pf.action === "Shove" ? "text-emerald-400" : pf.action === "Fold" ? "text-red-400" : "text-yellow-400"}`}>{pf.action}</span> · {pf.handTier}
-          </div>
-        )}
+          );
+        })()}
       </Card>
 
       <Card className="glass-panel p-6">
