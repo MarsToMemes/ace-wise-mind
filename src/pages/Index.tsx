@@ -658,6 +658,7 @@ const Index = () => {
                   </Card>
                 )}
               </div>
+              </div>
             </main>
             )}
           </TabsContent>
