@@ -33,6 +33,7 @@ import { GeometricSizingPanel } from "@/components/GeometricSizingPanel";
 import { KellyPanel } from "@/components/KellyPanel";
 import { assessPolarization } from "@/engines/polarizationAssessor";
 import { PolarizationPanel } from "@/components/PolarizationPanel";
+import { JamFoldPanel } from "@/components/JamFoldPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
