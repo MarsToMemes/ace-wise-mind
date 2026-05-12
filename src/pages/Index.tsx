@@ -252,6 +252,25 @@ const Index = () => {
     } as EngineResult;
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
 
+  const polarization = useMemo(() => {
+    if (!engine) return null;
+    return assessPolarization({
+      position,
+      street: currentStreet,
+      texture: engine.texture,
+      handCategory: engine.handClass?.hand_category ?? "Medium",
+      equityPct: engine.equityPct,
+      heroRA: Number(engine.heroRA) || 50,
+      villainRA: Number(engine.villainRA) || 50,
+      opponents,
+      heroIsAggressor: userIdx >= 0 && actionHistory.some(
+        a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
+      ),
+      facingBet: userToCall > 0,
+      betSizePctOfPot: dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
+    });
+  }, [engine, position, currentStreet, opponents, userIdx, actionHistory, userToCall, dynamicPot]);
+
   const removeCard = (card: string) => {
     if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
     if (flop.includes(card)) {
