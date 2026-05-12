@@ -625,23 +625,7 @@ const Index = () => {
                   defaultRewardBB={Math.max(1, dynamicPot)}
                 />
 
-                <PolarizationPanel
-                  result={engine ? assessPolarization({
-                    position,
-                    street: currentStreet,
-                    texture: engine.texture,
-                    handCategory: engine.handClass?.hand_category ?? "Medium",
-                    equityPct: engine.equityPct,
-                    heroRA: Number(engine.heroRA) || 50,
-                    villainRA: Number(engine.villainRA) || 50,
-                    opponents,
-                    heroIsAggressor: userIdx >= 0 && actionHistory.some(
-                      a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
-                    ),
-                    facingBet: userToCall > 0,
-                    betSizePctOfPot: dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
-                  }) : null}
-                />
+                <PolarizationPanel result={polarization} />
 
                 <JamFoldPanel
                   defaultPotBB={dynamicPot}
