@@ -34,6 +34,7 @@ import { KellyPanel } from "@/components/KellyPanel";
 import { assessPolarization } from "@/engines/polarizationAssessor";
 import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
+import { DecisionVerdict } from "@/components/DecisionVerdict";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -250,6 +251,25 @@ const Index = () => {
       handClass,
     } as EngineResult;
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
+
+  const polarization = useMemo(() => {
+    if (!engine) return null;
+    return assessPolarization({
+      position,
+      street: currentStreet,
+      texture: engine.texture,
+      handCategory: engine.handClass?.hand_category ?? "Medium",
+      equityPct: engine.equityPct,
+      heroRA: Number(engine.heroRA) || 50,
+      villainRA: Number(engine.villainRA) || 50,
+      opponents,
+      heroIsAggressor: userIdx >= 0 && actionHistory.some(
+        a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
+      ),
+      facingBet: userToCall > 0,
+      betSizePctOfPot: dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
+    });
+  }, [engine, position, currentStreet, opponents, userIdx, actionHistory, userToCall, dynamicPot]);
 
   const removeCard = (card: string) => {
     if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
@@ -498,7 +518,16 @@ const Index = () => {
                 <TournamentPanel key={tournamentResetKey} />
               </main>
             ) : (
-            <main className="py-6 grid lg:grid-cols-2 gap-8">
+            <main className="py-6 space-y-6">
+              <DecisionVerdict
+                street={currentStreet}
+                engine={engine}
+                polar={polarization}
+                pot={dynamicPot}
+                toCall={userToCall}
+                stack={stack}
+              />
+              <div className="grid lg:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <Card className="glass-panel p-5">
                   <StreetSlots
@@ -596,23 +625,7 @@ const Index = () => {
                   defaultRewardBB={Math.max(1, dynamicPot)}
                 />
 
-                <PolarizationPanel
-                  result={engine ? assessPolarization({
-                    position,
-                    street: currentStreet,
-                    texture: engine.texture,
-                    handCategory: engine.handClass?.hand_category ?? "Medium",
-                    equityPct: engine.equityPct,
-                    heroRA: Number(engine.heroRA) || 50,
-                    villainRA: Number(engine.villainRA) || 50,
-                    opponents,
-                    heroIsAggressor: userIdx >= 0 && actionHistory.some(
-                      a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
-                    ),
-                    facingBet: userToCall > 0,
-                    betSizePctOfPot: dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
-                  }) : null}
-                />
+                <PolarizationPanel result={polarization} />
 
                 <JamFoldPanel
                   defaultPotBB={dynamicPot}
@@ -644,6 +657,7 @@ const Index = () => {
                     {geminiText && <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{geminiText}</p>}
                   </Card>
                 )}
+              </div>
               </div>
             </main>
             )}
