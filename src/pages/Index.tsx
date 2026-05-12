@@ -34,6 +34,7 @@ import { KellyPanel } from "@/components/KellyPanel";
 import { assessPolarization } from "@/engines/polarizationAssessor";
 import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
+import { DecisionVerdict } from "@/components/DecisionVerdict";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
