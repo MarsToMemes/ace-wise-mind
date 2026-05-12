@@ -614,6 +614,12 @@ const Index = () => {
                   }) : null}
                 />
 
+                <JamFoldPanel
+                  defaultPotBB={dynamicPot}
+                  defaultStackBB={stack}
+                  defaultEquityPct={Math.round(engine?.equityPct ?? 35)}
+                />
+
                 <Button
                   onClick={runAI}
                   disabled={!engine || aiLoading}
