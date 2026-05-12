@@ -33,6 +33,7 @@ import { GeometricSizingPanel } from "@/components/GeometricSizingPanel";
 import { KellyPanel } from "@/components/KellyPanel";
 import { assessPolarization } from "@/engines/polarizationAssessor";
 import { PolarizationPanel } from "@/components/PolarizationPanel";
+import { JamFoldPanel } from "@/components/JamFoldPanel";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -611,6 +612,12 @@ const Index = () => {
                     facingBet: userToCall > 0,
                     betSizePctOfPot: dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
                   }) : null}
+                />
+
+                <JamFoldPanel
+                  defaultPotBB={dynamicPot}
+                  defaultStackBB={stack}
+                  defaultEquityPct={Math.round(engine?.equityPct ?? 35)}
                 />
 
                 <Button
