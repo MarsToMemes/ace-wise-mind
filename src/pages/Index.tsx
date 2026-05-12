@@ -518,7 +518,16 @@ const Index = () => {
                 <TournamentPanel key={tournamentResetKey} />
               </main>
             ) : (
-            <main className="py-6 grid lg:grid-cols-2 gap-8">
+            <main className="py-6 space-y-6">
+              <DecisionVerdict
+                street={currentStreet}
+                engine={engine}
+                polar={polarization}
+                pot={dynamicPot}
+                toCall={userToCall}
+                stack={stack}
+              />
+              <div className="grid lg:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <Card className="glass-panel p-5">
                   <StreetSlots
