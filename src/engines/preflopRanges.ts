@@ -229,11 +229,144 @@ export const RANGE_VS_UTG_OPEN_100BB: PreflopRange = {
 };
 
 // =====================================================================
+// Range #2 — Hero BTN facing CO 2.5bb open, 100bb effective
+// Wider defense + aggression than vs UTG. Suited hands gain in position,
+// blocker bluffs increase, polarized 3bet, mixed frequencies dominate.
+// =====================================================================
+
+const HANDS_BTN_VS_CO_OPEN_100BB: HandEntry[] = [
+  // --- Pocket pairs ---
+  f("AA", { raise: 100 }, "Always 3bet for value"),
+  f("KK", { raise: 100 }, "Always 3bet for value"),
+  f("QQ", { raise: 100 }, "Always 3bet for value"),
+  f("JJ", { raise: 100 }, "Pure 3bet IP vs CO"),
+  f("TT", { raise: 65, call: 35 }, "Mixed value 3bet / call IP"),
+  f("99", { raise: 45, call: 55 }, "Mixed continue, slight call lean"),
+  f("88", { raise: 30, call: 70 }, "Mostly call, occasional 3bet"),
+  f("77", { raise: 20, call: 80 }, "Mostly set-mine"),
+  f("66", { raise: 15, call: 85 }, "Set-mine with occasional 3bet"),
+  f("55", { call: 90, raise: 5, fold: 5 }, "Mostly call IP"),
+  f("44", { call: 70, fold: 30 }, "Low frequency call IP"),
+  f("33", { call: 55, fold: 45 }, "Low frequency call"),
+  f("22", { call: 45, fold: 55 }, "Low frequency call"),
+
+  // --- Suited aces ---
+  f("AKs", { raise: 100 }, "Always 3bet for value"),
+  f("AQs", { raise: 100 }, "Always 3bet for value"),
+  f("AJs", { raise: 40, call: 60 }, "Mixed 3bet / call IP"),
+  f("ATs", { raise: 20, call: 80 }, "Mostly call IP, some 3bet"),
+  f("A9s", { raise: 50, fold: 50 }, "Polarized — 3bet bluff with blocker or fold"),
+  f("A8s", { raise: 25, call: 15, fold: 60 }, "Low frequency 3bet bluff, occasional flat"),
+  f("A7s", { raise: 30, fold: 70 }, "Bluff 3bet with blocker"),
+  f("A6s", { raise: 25, fold: 75 }, "Bluff 3bet with blocker"),
+  f("A5s", { raise: 55, call: 20, fold: 25 }, "Wheel blocker — preferred bluff IP"),
+  f("A4s", { raise: 45, call: 15, fold: 40 }, "Wheel blocker bluff"),
+  f("A3s", { raise: 35, fold: 65 }, "Wheel blocker bluff"),
+  f("A2s", { raise: 30, fold: 70 }, "Wheel blocker bluff"),
+
+  // --- Offsuit aces ---
+  f("AKo", { raise: 100 }, "Always 3bet for value"),
+  f("AQo", { raise: 80, call: 20 }, "Mixed 3bet / call IP"),
+  f("AJo", { raise: 100 }, "Pure 3bet IP vs CO"),
+  f("ATo", { raise: 20, call: 30, fold: 50 }, "Low frequency raise, mixed continue"),
+  f("A9o", { fold: 100 }),
+  f("A8o", { fold: 100 }),
+  f("A7o", { fold: 100 }),
+  f("A6o", { fold: 100 }),
+  f("A5o", { fold: 100 }),
+  f("A4o", { fold: 100 }),
+  f("A3o", { fold: 100 }),
+  f("A2o", { fold: 100 }),
+
+  // --- Suited kings ---
+  f("KQs", { raise: 60, call: 40 }, "Mixed value 3bet / call IP"),
+  f("KJs", { raise: 25, call: 75 }, "Mostly call IP"),
+  f("KTs", { raise: 30, call: 60, fold: 10 }, "Mixed raise/call IP"),
+  f("K9s", { raise: 20, call: 50, fold: 30 }, "Low frequency raise, mostly call"),
+  f("K8s", { call: 30, fold: 70 }, "Low frequency call"),
+  f("K7s", { call: 15, fold: 85 }, "Rare call"),
+  f("K6s", { fold: 100 }),
+  f("K5s", { raise: 10, fold: 90 }, "Rare blocker bluff"),
+  f("K4s", { fold: 100 }),
+  f("K3s", { fold: 100 }),
+  f("K2s", { fold: 100 }),
+
+  // --- Offsuit kings ---
+  f("KQo", { raise: 100 }, "Pure 3bet IP vs CO"),
+  f("KJo", { raise: 100 }, "Pure 3bet IP vs CO"),
+  f("KTo", { raise: 25, call: 25, fold: 50 }, "Low frequency mixed continue"),
+  f("K9o", { fold: 100 }),
+  f("K8o", { fold: 100 }),
+
+  // --- Suited queens ---
+  f("QJs", { raise: 35, call: 60, fold: 5 }, "Mixed raise/call IP"),
+  f("QTs", { raise: 20, call: 60, fold: 20 }, "Mixed continue IP"),
+  f("Q9s", { fold: 100 }),
+  f("Q8s", { fold: 100 }),
+
+  // --- Offsuit queens ---
+  f("QJo", { fold: 100 }),
+  f("QTo", { fold: 100 }),
+  f("Q9o", { fold: 100 }),
+
+  // --- Suited jacks / connectors ---
+  f("JTs", { raise: 15, call: 85 }, "Mostly call IP, rare 3bet bluff"),
+  f("J9s", { fold: 100 }, "Fold vs CO at 100bb"),
+  f("J8s", { fold: 100 }),
+
+  // --- Suited connectors / gappers ---
+  f("T9s", { raise: 10, call: 70, fold: 20 }, "Mixed continue IP"),
+  f("T8s", { call: 25, fold: 75 }, "Low frequency call"),
+  f("98s", { raise: 10, call: 65, fold: 25 }, "Mixed continue IP"),
+  f("97s", { fold: 100 }),
+  f("87s", { call: 50, fold: 50 }, "Low frequency continue IP"),
+  f("86s", { fold: 100 }),
+  f("76s", { raise: 15, call: 30, fold: 55 }, "Rare bluff raise, mixed continue"),
+  f("75s", { fold: 100 }),
+  f("65s", { raise: 25, call: 25, fold: 50 }, "Bluff raise mixed with call/fold"),
+  f("54s", { raise: 25, call: 20, fold: 55 }, "Bluff raise mixed with call/fold"),
+  f("43s", { fold: 100 }),
+
+  // --- Offsuit junk ---
+  f("JTo", { fold: 100 }),
+  f("T9o", { fold: 100 }),
+  f("98o", { fold: 100 }),
+  f("87o", { fold: 100 }),
+  f("76o", { fold: 100 }),
+  f("65o", { fold: 100 }),
+];
+
+export const RANGE_BTN_VS_CO_OPEN_100BB: PreflopRange = {
+  id: "BTN_vs_CO_2.5bb_100bb",
+  label: "Hero BTN facing CO open 2.5bb (100bb effective)",
+  context: {
+    heroPosition: "BTN",
+    villainPosition: "CO",
+    facingAction: "open",
+    openSizeBB: 2.5,
+    effectiveStackBB: 100,
+    rangeArchetype: "balanced",
+    flags: [
+      "btn-vs-co",
+      "wide-defense-ip",
+      "polarized-3bet",
+      "blocker-bluff-heavy",
+      "suited-connectors-mixed",
+      "positional-advantage",
+      "mixed-frequencies-dominant",
+    ],
+  },
+  hands: HANDS_BTN_VS_CO_OPEN_100BB,
+  metadata: buildMetadata(HANDS_BTN_VS_CO_OPEN_100BB),
+};
+
+// =====================================================================
 // Range registry — engine entry point
 // =====================================================================
 
 export const PREFLOP_RANGE_DB: Record<string, PreflopRange> = {
   [RANGE_VS_UTG_OPEN_100BB.id]: RANGE_VS_UTG_OPEN_100BB,
+  [RANGE_BTN_VS_CO_OPEN_100BB.id]: RANGE_BTN_VS_CO_OPEN_100BB,
 };
 
 /**
