@@ -361,12 +361,135 @@ export const RANGE_BTN_VS_CO_OPEN_100BB: PreflopRange = {
 };
 
 // =====================================================================
+// Range #3 — Hero CO facing MP/HJ 2.5bb open, 100bb effective
+// Medium-tight defense. MP ranges stronger than CO opens; CO cannot
+// overdefend. Premium-heavy 3bet, moderate calling, fewer speculatives.
+// =====================================================================
+
+const HANDS_CO_VS_MP_OPEN_100BB: HandEntry[] = [
+  // --- Pocket pairs ---
+  f("AA", { raise: 100 }, "Always 3bet for value"),
+  f("KK", { raise: 100 }, "Always 3bet for value"),
+  f("QQ", { raise: 100 }, "Always 3bet for value"),
+  f("JJ", { raise: 70, call: 30 }, "Mostly 3bet, mixed call"),
+  f("TT", { raise: 60, call: 40 }, "Mixed value 3bet / call"),
+  f("99", { raise: 40, call: 60 }, "Mixed continue"),
+  f("88", { raise: 25, call: 75 }, "Mostly call"),
+  f("77", { raise: 15, call: 85 }, "Set-mine, occasional 3bet"),
+  f("66", { raise: 10, call: 40, fold: 50 }, "Low frequency mixed continue"),
+  f("55", { call: 25, fold: 75 }, "Mostly fold, rare set-mine"),
+  f("44", { call: 15, fold: 85 }, "Mostly fold"),
+  f("33", { call: 10, fold: 90 }, "Mostly fold"),
+  f("22", { fold: 100 }),
+
+  // --- Suited aces ---
+  f("AKs", { raise: 100 }, "Always 3bet for value"),
+  f("AQs", { raise: 90, call: 10 }, "Mostly 3bet, tiny mixed call"),
+  f("AJs", { raise: 40, call: 60 }, "Mixed 3bet / call"),
+  f("ATs", { raise: 20, call: 80 }, "Mostly call"),
+  f("A9s", { raise: 35, fold: 65 }, "Mixed bluff 3bet / fold"),
+  f("A8s", { raise: 20, fold: 80 }, "Low freq blocker bluff"),
+  f("A7s", { raise: 15, fold: 85 }, "Low freq blocker bluff"),
+  f("A6s", { raise: 15, fold: 85 }, "Low freq blocker bluff"),
+  f("A5s", { raise: 30, fold: 70 }, "Wheel blocker — preferred bluff"),
+  f("A4s", { raise: 10, fold: 90 }, "Mostly fold"),
+  f("A3s", { fold: 100 }),
+  f("A2s", { fold: 100 }),
+
+  // --- Offsuit aces ---
+  f("AKo", { raise: 100 }, "Always 3bet for value"),
+  f("AQo", { raise: 80, call: 20 }, "Mixed 3bet / call"),
+  f("AJo", { raise: 15, fold: 85 }, "Mostly fold vs MP"),
+  f("ATo", { fold: 100 }),
+  f("A9o", { fold: 100 }),
+  f("A8o", { fold: 100 }),
+  f("A7o", { fold: 100 }),
+  f("A6o", { fold: 100 }),
+  f("A5o", { fold: 100 }),
+  f("A4o", { fold: 100 }),
+  f("A3o", { fold: 100 }),
+  f("A2o", { fold: 100 }),
+
+  // --- Suited kings ---
+  f("KQs", { raise: 50, call: 50 }, "Mixed 3bet / call"),
+  f("KJs", { raise: 25, call: 75 }, "Mostly call"),
+  f("KTs", { raise: 15, call: 35, fold: 50 }, "Low frequency mixed continue"),
+  f("K9s", { fold: 100 }),
+  f("K8s", { fold: 100 }),
+  f("K7s", { fold: 100 }),
+  f("K6s", { fold: 100 }),
+  f("K5s", { fold: 100 }),
+  f("K4s", { fold: 100 }),
+  f("K3s", { fold: 100 }),
+  f("K2s", { fold: 100 }),
+
+  // --- Offsuit kings ---
+  f("KQo", { raise: 100 }, "Pure 3bet for value"),
+  f("KJo", { raise: 20, fold: 80 }, "Low frequency 3bet / fold"),
+  f("KTo", { fold: 100 }),
+  f("K9o", { fold: 100 }),
+
+  // --- Suited queens ---
+  f("QJs", { raise: 25, call: 70, fold: 5 }, "Mixed raise/call"),
+  f("QTs", { call: 35, fold: 65 }, "Low frequency continue"),
+  f("Q9s", { fold: 100 }),
+  f("Q8s", { fold: 100 }),
+
+  // --- Offsuit queens ---
+  f("QJo", { fold: 100 }),
+  f("QTo", { fold: 100 }),
+
+  // --- Suited jacks / connectors ---
+  f("JTs", { raise: 10, call: 85, fold: 5 }, "Mostly call, rare 3bet bluff"),
+  f("J9s", { fold: 100 }),
+  f("T9s", { call: 40, fold: 60 }, "Low frequency continue"),
+  f("T8s", { fold: 100 }),
+  f("98s", { call: 25, fold: 75 }, "Rare mixed continue"),
+  f("87s", { call: 15, fold: 85 }, "Very low frequency continue"),
+  f("76s", { fold: 100 }),
+  f("65s", { raise: 15, fold: 85 }, "Occasional bluff 3bet"),
+  f("54s", { raise: 15, fold: 85 }, "Occasional bluff 3bet"),
+
+  // --- Offsuit junk ---
+  f("JTo", { fold: 100 }),
+  f("T9o", { fold: 100 }),
+  f("98o", { fold: 100 }),
+  f("87o", { fold: 100 }),
+  f("76o", { fold: 100 }),
+];
+
+export const RANGE_CO_VS_MP_OPEN_100BB: PreflopRange = {
+  id: "CO_vs_MP_2.5bb_100bb",
+  label: "Hero CO facing MP/HJ open 2.5bb (100bb effective)",
+  context: {
+    heroPosition: "CO",
+    villainPosition: "MP",
+    facingAction: "open",
+    openSizeBB: 2.5,
+    effectiveStackBB: 100,
+    rangeArchetype: "balanced",
+    flags: [
+      "co-vs-mp",
+      "medium-tight-defense",
+      "premium-heavy-3bet",
+      "moderate-calling-range",
+      "fewer-speculatives",
+      "wheel-blocker-bluffs",
+      "mixed-frequencies",
+    ],
+  },
+  hands: HANDS_CO_VS_MP_OPEN_100BB,
+  metadata: buildMetadata(HANDS_CO_VS_MP_OPEN_100BB),
+};
+
+// =====================================================================
 // Range registry — engine entry point
 // =====================================================================
 
 export const PREFLOP_RANGE_DB: Record<string, PreflopRange> = {
   [RANGE_VS_UTG_OPEN_100BB.id]: RANGE_VS_UTG_OPEN_100BB,
   [RANGE_BTN_VS_CO_OPEN_100BB.id]: RANGE_BTN_VS_CO_OPEN_100BB,
+  [RANGE_CO_VS_MP_OPEN_100BB.id]: RANGE_CO_VS_MP_OPEN_100BB,
 };
 
 /**
