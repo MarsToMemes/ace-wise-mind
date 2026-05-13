@@ -35,6 +35,7 @@ import { assessPolarization } from "@/engines/polarizationAssessor";
 import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
+import { RangeExplorer } from "@/components/RangeExplorer";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -467,6 +468,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen">
+      <RangeExplorer />
       <header className="border-b border-border/40 backdrop-blur-md bg-background/40 sticky top-0 z-20">
         <div className="container py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
