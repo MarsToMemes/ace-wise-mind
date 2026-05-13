@@ -2,8 +2,34 @@
 // Mixed frequencies sum to ~100 per hand. Hands not listed = pure fold.
 
 import { MatrixHandData } from "@/components/RangeMatrix";
+import {
+  RANGE_VS_UTG_OPEN_100BB,
+  RANGE_CO_VS_MP_OPEN_100BB,
+  RANGE_BTN_VS_CO_OPEN_100BB,
+  PreflopRange,
+} from "@/engines/preflopRanges";
 
 type RangeMap = Record<string, MatrixHandData>;
+
+// Convert a stored PreflopRange (hero's response: 3bet/call/fold) into a
+// matrix map for the Range Explorer "3bet" tab.
+function rangeToMatrix(range: PreflopRange): RangeMap {
+  const out: RangeMap = {};
+  for (const h of range.hands) {
+    out[h.hand] = {
+      hand: h.hand,
+      combos: h.combos,
+      frequencies: h.frequencies,
+      notes: h.notes,
+    };
+  }
+  return out;
+}
+
+// 3bet matrices = hero's response when villain (UTG/MP/CO) opens 2.5bb @100bb.
+export const UTG_3BET_MATRIX: RangeMap = rangeToMatrix(RANGE_VS_UTG_OPEN_100BB);
+export const MP_3BET_MATRIX: RangeMap  = rangeToMatrix(RANGE_CO_VS_MP_OPEN_100BB);
+export const CO_3BET_MATRIX: RangeMap  = rangeToMatrix(RANGE_BTN_VS_CO_OPEN_100BB);
 
 const COMBOS = (h: string) =>
   h.length === 2 ? 6 : h.endsWith("s") ? 4 : 12;
