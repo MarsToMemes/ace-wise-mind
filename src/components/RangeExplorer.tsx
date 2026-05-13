@@ -24,7 +24,9 @@ export function RangeExplorer() {
   const [hovered, setHovered] = useState<MatrixHandData | null>(null);
 
   const info = POSITION_RANGE_CATALOG[position];
-  const matrix = info.matrix;
+  const has3bet = !!info.matrix3bet;
+  const matrix =
+    rangeType === "3bet" && info.matrix3bet ? info.matrix3bet : info.matrix;
 
   // Derived metrics
   const totalCombos = Object.values(matrix).reduce(
