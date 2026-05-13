@@ -137,7 +137,9 @@ export function RangeExplorer() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                {position} · {rangeType}
+                {rangeType === "3bet" && info.threeBetContext
+                  ? info.threeBetContext
+                  : `${position} · ${rangeType}`}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground">
                 {continuePct.toFixed(1)}% combos
