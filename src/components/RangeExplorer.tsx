@@ -24,7 +24,9 @@ export function RangeExplorer() {
   const [hovered, setHovered] = useState<MatrixHandData | null>(null);
 
   const info = POSITION_RANGE_CATALOG[position];
-  const matrix = info.matrix;
+  const has3bet = !!info.matrix3bet;
+  const matrix =
+    rangeType === "3bet" && info.matrix3bet ? info.matrix3bet : info.matrix;
 
   // Derived metrics
   const totalCombos = Object.values(matrix).reduce(
@@ -135,7 +137,9 @@ export function RangeExplorer() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                {position} · {rangeType}
+                {rangeType === "3bet" && info.threeBetContext
+                  ? info.threeBetContext
+                  : `${position} · ${rangeType}`}
               </div>
               <div className="text-[10px] font-mono text-muted-foreground">
                 {continuePct.toFixed(1)}% combos
