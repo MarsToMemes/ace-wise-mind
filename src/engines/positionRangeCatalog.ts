@@ -220,6 +220,8 @@ export interface PositionRangeInfo {
   archetype: string;
   openFrequencyPct: number;
   matrix: RangeMap;
+  matrix3bet?: RangeMap;
+  threeBetContext?: string;
   insights: string[];
 }
 
@@ -230,6 +232,8 @@ export const POSITION_RANGE_CATALOG: Record<string, PositionRangeInfo> = {
     archetype: "Extremely tight",
     openFrequencyPct: 14,
     matrix: UTG_OPEN_MATRIX,
+    matrix3bet: UTG_3BET_MATRIX,
+    threeBetContext: "Hero facing UTG open 2.5bb · 100bb",
     insights: [
       "Tightest range at the table",
       "Strong top-pair density",
@@ -244,6 +248,8 @@ export const POSITION_RANGE_CATALOG: Record<string, PositionRangeInfo> = {
     archetype: "Medium-tight",
     openFrequencyPct: 19,
     matrix: MP_OPEN_MATRIX,
+    matrix3bet: MP_3BET_MATRIX,
+    threeBetContext: "Hero CO facing MP open 2.5bb · 100bb",
     insights: [
       "Wider than UTG",
       "More suited broadways",
@@ -257,6 +263,8 @@ export const POSITION_RANGE_CATALOG: Record<string, PositionRangeInfo> = {
     archetype: "Wide steal",
     openFrequencyPct: 28,
     matrix: CO_OPEN_MATRIX,
+    matrix3bet: CO_3BET_MATRIX,
+    threeBetContext: "Hero BTN facing CO open 2.5bb · 100bb",
     insights: [
       "Wider steal range",
       "More suited connectors",
