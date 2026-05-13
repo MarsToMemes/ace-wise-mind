@@ -44,7 +44,10 @@ export function RangeMatrix({ data, onHover }: RangeMatrixProps) {
   const [hovered, setHovered] = useState<string | null>(null);
 
   return (
-    <div className="grid grid-cols-13 gap-[2px] p-2 bg-background/40 rounded-md border border-border/40">
+    <div
+      className="grid gap-[2px] p-2 bg-background/40 rounded-md border border-border/40"
+      style={{ gridTemplateColumns: "repeat(13, minmax(0, 1fr))" }}
+    >
       {RANKS.map((_, r) =>
         RANKS.map((__, c) => {
           const label = handLabel(r, c);
