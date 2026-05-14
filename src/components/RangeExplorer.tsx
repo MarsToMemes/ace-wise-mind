@@ -158,96 +158,209 @@ export function RangeExplorer() {
             </div>
           )}
 
-          {/* Matrix */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                {rangeType === "3bet" && info.threeBetContext
-                  ? info.threeBetContext
-                  : `${position} · ${rangeType}`}
-              </div>
-              <div className="text-[10px] font-mono text-muted-foreground">
-                {continuePct.toFixed(1)}% combos
-              </div>
-            </div>
-            <RangeMatrix data={matrix} onHover={setHovered} />
-
-            {/* Legend */}
-            <div className="flex flex-wrap gap-3 mt-2 text-[10px]">
-              {(["raise", "call", "fold", "jam"] as PreflopAction[]).map(a => (
-                <div key={a} className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-sm" style={{ background: ACTION_COLORS[a] }} />
-                  <span className="capitalize text-muted-foreground">{a}</span>
+          {rangeType === "scenarios" ? (
+            /* ============== SCENARIO MODE ============== */
+            <div className="space-y-3">
+              {/* Matchup picker */}
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  Matchup
                 </div>
-              ))}
-            </div>
-          </div>
+                <Select
+                  value={matchup}
+                  onValueChange={(v) => {
+                    setMatchup(v);
+                    const first = SCENARIO_GROUPS[v]?.[0];
+                    if (first) setScenarioStack(first.stackBB);
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MATCHUP_KEYS.map((k) => (
+                      <SelectItem key={k} value={k}>
+                        {k.replace("_vs_", " vs ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Hover details */}
-          <div className="rounded-md border border-border bg-background/50 p-3 min-h-[110px]">
-            {hovered ? (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-lg">{hovered.hand}</span>
-                  <Badge variant="outline" className="text-[10px]">{hovered.combos} combos</Badge>
+              {/* Stack toggle (only when matchup has multiple depths) */}
+              {matchupScenarios.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    Stack
+                  </span>
+                  <div className="flex gap-1">
+                    {matchupScenarios.map((s) => (
+                      <button
+                        key={s.stackBB}
+                        onClick={() => setScenarioStack(s.stackBB)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-bold transition-all ${
+                          scenarioStack === s.stackBB
+                            ? s.stackBadgeColor ?? "bg-primary text-primary-foreground"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {s.stackBB}bb
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  {(["raise", "call", "fold", "jam"] as PreflopAction[])
-                    .filter(a => (hovered.frequencies[a] ?? 0) > 0)
-                    .map(a => (
-                      <div key={a} className="flex items-center gap-2 text-xs">
-                        <div className="w-2 h-2 rounded-sm" style={{ background: ACTION_COLORS[a] }} />
-                        <span className="capitalize w-12 text-muted-foreground">{a}</span>
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${hovered.frequencies[a]}%`,
-                              background: ACTION_COLORS[a],
-                            }}
-                          />
-                        </div>
-                        <span className="font-mono text-[10px] w-8 text-right">
-                          {hovered.frequencies[a]}%
+              )}
+
+              {scenario && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {scenario.label}
+                    </div>
+                    <Badge
+                      className={`text-[10px] font-mono ${
+                        scenario.stackBadgeColor ?? ""
+                      }`}
+                      variant={scenario.stackBadgeColor ? "default" : "outline"}
+                    >
+                      {scenario.stackBB}bb
+                    </Badge>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground -mt-1">
+                    {scenario.action}
+                  </div>
+
+                  <ScenarioMatrix scenario={scenario} />
+
+                  {/* Stats legend */}
+                  <div className="space-y-1 rounded-md border border-border bg-background/50 p-3">
+                    {scenario.stats.map((s) => (
+                      <div
+                        key={s.action}
+                        className="flex items-center gap-2 text-xs"
+                      >
+                        <div
+                          className="w-3 h-3 rounded-sm shrink-0"
+                          style={{ background: SCENARIO_ACTION_COLORS[s.action] }}
+                        />
+                        <span className="text-muted-foreground">
+                          {SCENARIO_ACTION_LABELS[s.action]}
+                          {s.sizing && (
+                            <span className="ml-1 text-foreground font-mono">
+                              [{s.sizing}]
+                            </span>
+                          )}
                         </span>
+                        <span className="ml-auto font-mono">
+                          {s.pct.toFixed(1)}%
+                        </span>
+                        {s.ev && (
+                          <span className="font-mono text-primary text-[10px] w-16 text-right">
+                            EV {s.ev}
+                          </span>
+                        )}
                       </div>
                     ))}
-                </div>
-                <div className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/50">
-                  EV: <span className="font-mono">+0.00 bb</span> · {hovered.notes ?? "Solver baseline"}
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Info className="w-3 h-3" />
-                Hover a hand to see frequencies, combos & EV.
-              </div>
-            )}
-          </div>
+                  </div>
 
-          {/* Insights */}
-          <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Filter className="w-3 h-3 text-primary" />
-              <span className="text-xs font-semibold">{info.label} · {info.archetype}</span>
-              <Badge variant="secondary" className="text-[10px] ml-auto">
-                {info.openFrequencyPct}% RFI
-              </Badge>
+                  <div className="text-[10px] text-muted-foreground italic">
+                    Click any hand to see its action, sizing & EV.
+                  </div>
+                </>
+              )}
             </div>
-            <ul className="space-y-1">
-              {info.insights.map((tip, i) => (
-                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
-                  <span className="text-primary mt-0.5">•</span>
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-            {info.calibration && (
-              <div className="mt-2 pt-2 border-t border-primary/20 text-[10px] text-muted-foreground italic leading-relaxed">
-                {info.calibration}
+          ) : (
+            <>
+              {/* Matrix */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {rangeType === "3bet" && info.threeBetContext
+                      ? info.threeBetContext
+                      : `${position} · ${rangeType}`}
+                  </div>
+                  <div className="text-[10px] font-mono text-muted-foreground">
+                    {continuePct.toFixed(1)}% combos
+                  </div>
+                </div>
+                <RangeMatrix data={matrix} onHover={setHovered} />
+
+                {/* Legend */}
+                <div className="flex flex-wrap gap-3 mt-2 text-[10px]">
+                  {(["raise", "call", "fold", "jam"] as PreflopAction[]).map(a => (
+                    <div key={a} className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded-sm" style={{ background: ACTION_COLORS[a] }} />
+                      <span className="capitalize text-muted-foreground">{a}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Hover details */}
+              <div className="rounded-md border border-border bg-background/50 p-3 min-h-[110px]">
+                {hovered ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-lg">{hovered.hand}</span>
+                      <Badge variant="outline" className="text-[10px]">{hovered.combos} combos</Badge>
+                    </div>
+                    <div className="space-y-1">
+                      {(["raise", "call", "fold", "jam"] as PreflopAction[])
+                        .filter(a => (hovered.frequencies[a] ?? 0) > 0)
+                        .map(a => (
+                          <div key={a} className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 rounded-sm" style={{ background: ACTION_COLORS[a] }} />
+                            <span className="capitalize w-12 text-muted-foreground">{a}</span>
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${hovered.frequencies[a]}%`,
+                                  background: ACTION_COLORS[a],
+                                }}
+                              />
+                            </div>
+                            <span className="font-mono text-[10px] w-8 text-right">
+                              {hovered.frequencies[a]}%
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/50">
+                      EV: <span className="font-mono">+0.00 bb</span> · {hovered.notes ?? "Solver baseline"}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Info className="w-3 h-3" />
+                    Hover a hand to see frequencies, combos & EV.
+                  </div>
+                )}
+              </div>
+
+              {/* Insights */}
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Filter className="w-3 h-3 text-primary" />
+                  <span className="text-xs font-semibold">{info.label} · {info.archetype}</span>
+                  <Badge variant="secondary" className="text-[10px] ml-auto">
+                    {info.openFrequencyPct}% RFI
+                  </Badge>
+                </div>
+                <ul className="space-y-1">
+                  {info.insights.map((tip, i) => (
+                    <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                      <span className="text-primary mt-0.5">•</span>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+                {info.calibration && (
+                  <div className="mt-2 pt-2 border-t border-primary/20 text-[10px] text-muted-foreground italic leading-relaxed">
+                    {info.calibration}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           <TeachAccordion content={TEACH_RANGES} />
         </div>
