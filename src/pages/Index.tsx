@@ -30,12 +30,14 @@ import { analyzePreflop } from "@/engines/cashPreflopEngine";
 import { CashHUD } from "@/components/CashHUD";
 import { AlphaPanel } from "@/components/AlphaPanel";
 import { GeometricSizingPanel } from "@/components/GeometricSizingPanel";
-import { KellyPanel } from "@/components/KellyPanel";
+import { EVCalculatorPanel } from "@/components/EVCalculatorPanel";
+import { BankrollPanel } from "@/components/BankrollPanel";
 import { assessPolarization } from "@/engines/polarizationAssessor";
 import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { RangeExplorer } from "@/components/RangeExplorer";
+import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -621,11 +623,13 @@ const Index = () => {
                   }
                 />
 
-                <KellyPanel
+                <EVCalculatorPanel
                   defaultEquityPct={engine?.equityPct ?? 50}
                   defaultRiskBB={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
                   defaultRewardBB={Math.max(1, dynamicPot)}
                 />
+
+                <BankrollPanel />
 
                 <PolarizationPanel result={polarization} />
 
@@ -673,9 +677,7 @@ const Index = () => {
         </Tabs>
       </div>
 
-      <footer className="container py-8 text-center text-xs text-muted-foreground">
-        {t("footer.note")}
-      </footer>
+      <FooterDisclaimer />
     </div>
   );
 };

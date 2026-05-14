@@ -4,8 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Zap, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Zap, TrendingUp, TrendingDown, Scale, AlertTriangle } from "lucide-react";
 import { solveJamFold } from "@/engines/jamFoldSolver";
+import { TeachAccordion } from "@/components/TeachAccordion";
+import { TEACH_JAMFOLD } from "@/lib/teachContent";
 
 interface Props {
   defaultPotBB?: number;
@@ -14,12 +17,21 @@ interface Props {
   defaultFoldPct?: number;
 }
 
+type Context = "mtt" | "sng" | "cash-short";
+
+const CONTEXT_LABEL: Record<Context, string> = {
+  mtt: "MTT push/fold (stack ≤ 15bb)",
+  sng: "SNG bubble (stack ≤ 20bb)",
+  "cash-short": "Cash 4bet/5bet preflop short (stack ≤ 30bb)",
+};
+
 export const JamFoldPanel = ({
   defaultPotBB = 1.5,
   defaultStackBB = 10,
   defaultEquityPct = 35,
   defaultFoldPct = 60,
 }: Props) => {
+  const [context, setContext] = useState<Context>("mtt");
   const [pot, setPot] = useState(defaultPotBB);
   const [stack, setStack] = useState(defaultStackBB);
   const [equity, setEquity] = useState(defaultEquityPct);
@@ -39,6 +51,8 @@ export const JamFoldPanel = ({
     [pot, stack, equity, fold],
   );
 
+  const stackTooDeep = stack > 25;
+
   const Icon = result.decision === "JAM" ? TrendingUp : result.decision === "FOLD" ? TrendingDown : Scale;
   const tone =
     result.decision === "JAM" ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/5"
@@ -57,6 +71,31 @@ export const JamFoldPanel = ({
         </Badge>
       </div>
 
+      {/* Context selector */}
+      <div className="space-y-1.5">
+        <Label className="text-xs uppercase tracking-wider text-muted-foreground">Contexte</Label>
+        <Select value={context} onValueChange={(v) => setContext(v as Context)}>
+          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {(Object.keys(CONTEXT_LABEL) as Context[]).map(c => (
+              <SelectItem key={c} value={c}>{CONTEXT_LABEL[c]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Blocking warning > 25bb */}
+      {stackTooDeep && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 flex items-start gap-2">
+          <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-amber-100/90 leading-relaxed">
+            <strong className="text-amber-300">⚠️ Jam préflop avec un stack &gt; 25bb est rarement optimal.</strong>{" "}
+            Cet outil est conçu pour le push/fold MTT/SNG et les contextes short stack. Pour le cash 100bb,
+            utilisez le <strong>Range Explorer</strong> (modules Open / 3bet / Defense).
+          </div>
+        </div>
+      )}
+
       {/* Inputs */}
       <div className="grid grid-cols-2 gap-3">
         <NumField label="Pot / dead money (BB)" value={pot} step={0.5} min={0} onChange={setPot} />
@@ -64,22 +103,14 @@ export const JamFoldPanel = ({
       </div>
 
       <div className="space-y-3">
-        <SliderRow
-          label="Villain fold %"
-          value={fold}
-          onChange={setFold}
-          rightHint={`needed for break-even: ${result.minFoldEquityNeeded.toFixed(0)}%`}
-        />
-        <SliderRow
-          label="Equity when called %"
-          value={equity}
-          onChange={setEquity}
-          rightHint={`needed for break-even: ${result.minEquityWhenCalledNeeded.toFixed(0)}%`}
-        />
+        <SliderRow label="Villain fold %" value={fold} onChange={setFold}
+          rightHint={`needed for break-even: ${result.minFoldEquityNeeded.toFixed(0)}%`} />
+        <SliderRow label="Equity when called %" value={equity} onChange={setEquity}
+          rightHint={`needed for break-even: ${result.minEquityWhenCalledNeeded.toFixed(0)}%`} />
       </div>
 
       {/* Decision */}
-      <div className={`rounded-lg border p-4 ${tone}`}>
+      <div className={`rounded-lg border p-4 ${tone} ${stackTooDeep ? "opacity-60" : ""}`}>
         <div className="flex items-start gap-3">
           <Icon className="w-6 h-6 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
@@ -96,29 +127,15 @@ export const JamFoldPanel = ({
         </div>
       </div>
 
-      {/* EV decomposition */}
       <div className="grid grid-cols-3 gap-2">
-        <Outcome
-          label="Villain folds"
-          prob={result.ifFolds.prob * 100}
-          delta={`+${result.ifFolds.winBB.toFixed(1)} BB`}
-          tone="text-emerald-400"
-        />
-        <Outcome
-          label="Called, win"
-          prob={result.ifCalledWins.prob * 100}
-          delta={`+${result.ifCalledWins.winBB.toFixed(1)} BB`}
-          tone="text-emerald-400"
-        />
-        <Outcome
-          label="Called, lose"
-          prob={result.ifCalledLoses.prob * 100}
-          delta={`−${result.ifCalledLoses.loseBB.toFixed(1)} BB`}
-          tone="text-destructive"
-        />
+        <Outcome label="Villain folds" prob={result.ifFolds.prob * 100}
+          delta={`+${result.ifFolds.winBB.toFixed(1)} BB`} tone="text-emerald-400" />
+        <Outcome label="Called, win" prob={result.ifCalledWins.prob * 100}
+          delta={`+${result.ifCalledWins.winBB.toFixed(1)} BB`} tone="text-emerald-400" />
+        <Outcome label="Called, lose" prob={result.ifCalledLoses.prob * 100}
+          delta={`−${result.ifCalledLoses.loseBB.toFixed(1)} BB`} tone="text-destructive" />
       </div>
 
-      {/* Reasoning */}
       <div className="space-y-1">
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Mathematical justification</div>
         <ul className="space-y-0.5 text-xs font-mono text-foreground/75">
@@ -127,6 +144,8 @@ export const JamFoldPanel = ({
           ))}
         </ul>
       </div>
+
+      <TeachAccordion content={TEACH_JAMFOLD} />
     </Card>
   );
 };

@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Layers, AlertTriangle, Target } from "lucide-react";
 import { calculateGeometricSizing } from "@/engines/geometricSizing";
+import { TeachAccordion } from "@/components/TeachAccordion";
+import { TEACH_GEOMETRIC } from "@/lib/teachContent";
 
 interface Props {
   defaultPot?: number;
@@ -148,6 +150,8 @@ export const GeometricSizingPanel = ({
         <br />
         <span className="text-primary font-semibold">Avoid when:</span> dynamic board (flush/straight completes), calling station (small sizing extracts more), or SPR &gt; 12.
       </div>
+
+      <TeachAccordion content={TEACH_GEOMETRIC} />
     </Card>
   );
 };

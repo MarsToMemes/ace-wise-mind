@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ACTION_COLORS, PreflopAction } from "@/engines/preflopRanges";
 import { POSITION_RANGE_CATALOG } from "@/engines/positionRangeCatalog";
 import { RangeMatrix, MatrixHandData } from "@/components/RangeMatrix";
+import { TeachAccordion } from "@/components/TeachAccordion";
+import { TEACH_RANGES } from "@/lib/teachContent";
 
 type RangeType = "open" | "3bet" | "defense" | "jam";
 type GameType = "cash" | "mtt";
@@ -217,7 +219,14 @@ export function RangeExplorer() {
                 </li>
               ))}
             </ul>
+            {info.calibration && (
+              <div className="mt-2 pt-2 border-t border-primary/20 text-[10px] text-muted-foreground italic leading-relaxed">
+                {info.calibration}
+              </div>
+            )}
           </div>
+
+          <TeachAccordion content={TEACH_RANGES} />
         </div>
 
         <div className="px-4 py-2 border-t border-border text-[10px] text-muted-foreground bg-background/40">
