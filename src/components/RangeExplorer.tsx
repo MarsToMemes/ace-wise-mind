@@ -44,9 +44,16 @@ export function RangeExplorer() {
   const [scenarioId, setScenarioId] = useState<string>(
     scenariosAtStack[0]?.id ?? SCENARIO_RANGES[0].id,
   );
+  const positionScenarios = useMemo(
+    () => scenariosAtStack.filter((s) => s.hero === position),
+    [position, scenariosAtStack],
+  );
+  const visibleScenarios = positionScenarios.length
+    ? positionScenarios
+    : scenariosAtStack;
   const scenario =
-    scenariosAtStack.find((s) => s.id === scenarioId) ??
-    scenariosAtStack[0] ??
+    visibleScenarios.find((s) => s.id === scenarioId) ??
+    visibleScenarios[0] ??
     SCENARIO_RANGES[0];
 
   useEffect(() => {
@@ -54,15 +61,15 @@ export function RangeExplorer() {
   }, [stackDepth]);
 
   useEffect(() => {
-    if (!scenariosAtStack.length) {
+    if (!visibleScenarios.length) {
       setScenarioId("");
       return;
     }
 
-    if (!scenariosAtStack.some((s) => s.id === scenarioId)) {
-      setScenarioId(scenariosAtStack[0].id);
+    if (!visibleScenarios.some((s) => s.id === scenarioId)) {
+      setScenarioId(visibleScenarios[0].id);
     }
-  }, [scenarioId, scenariosAtStack]);
+  }, [scenarioId, visibleScenarios]);
 
   const info = POSITION_RANGE_CATALOG[position];
   const has3bet = !!info.matrix3bet;
@@ -184,14 +191,14 @@ export function RangeExplorer() {
               {/* Matchup picker — filtered by stack */}
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                  Matchup ({scenariosAtStack.length})
+                  Matchup ({visibleScenarios.length})
                 </div>
                 <Select value={scenarioId} onValueChange={setScenarioId}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {scenariosAtStack.map((s) => (
+                    {visibleScenarios.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.hero} vs {s.villain} · {s.action}
                       </SelectItem>
@@ -200,9 +207,9 @@ export function RangeExplorer() {
                 </Select>
               </div>
 
-              {!scenariosAtStack.length ? (
+              {!visibleScenarios.length ? (
                 <div className="rounded-md border border-border bg-background/50 p-4 text-xs text-muted-foreground">
-                  Aucun spot n&apos;est encore intégré pour {scenarioStack}bb.
+                  Aucun spot n&apos;est encore intégré pour {position} à {scenarioStack}bb.
                 </div>
               ) : scenario && (
                 <>
