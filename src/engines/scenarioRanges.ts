@@ -10,6 +10,9 @@ export type ScenarioAction =
   | "4bet"
   | "4betLight"
   | "allin"
+  | "raise"
+  | "loosie"
+  | "tightfie"
   | "notInRange";
 
 export const SCENARIO_ACTION_COLORS: Record<ScenarioAction, string> = {
@@ -20,6 +23,9 @@ export const SCENARIO_ACTION_COLORS: Record<ScenarioAction, string> = {
   "4bet":     "hsl(28 90% 55%)",    // orange
   "4betLight":"hsl(275 70% 60%)",   // purple
   allin:      "hsl(0 65% 45%)",     // dark red (#C0392B-ish)
+  raise:      "hsl(28 90% 55%)",    // orange
+  loosie:     "hsl(140 65% 45%)",   // green
+  tightfie:   "hsl(204 70% 53%)",   // blue (#3498DB)
   notInRange: "hsl(0 0% 30%)",      // dim grey
 };
 
@@ -31,8 +37,19 @@ export const SCENARIO_ACTION_LABELS: Record<ScenarioAction, string> = {
   "4bet": "4bet (value)",
   "4betLight": "4bet light",
   allin: "All-in",
+  raise: "Raise (open)",
+  loosie: "Loosie (loose open)",
+  tightfie: "Tightfie (tight open)",
   notInRange: "Not in range",
 };
+
+export type ScenarioCategory = "vsOpen" | "vs3bet" | "openRaise";
+
+/** A hand can either map to a pure action, or to a mix of actions w/ pct */
+export type HandMix = { mix: { action: ScenarioAction; pct: number }[] };
+export type HandEntry = ScenarioAction | HandMix;
+export const isMix = (e: HandEntry): e is HandMix =>
+  typeof e === "object" && e !== null && "mix" in e;
 
 export interface ScenarioStat {
   action: ScenarioAction;
