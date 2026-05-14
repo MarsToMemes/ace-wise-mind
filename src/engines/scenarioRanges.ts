@@ -121,9 +121,9 @@ function expandPairs(token: string): string[] {
 }
 
 function assign(
-  acc: Record<string, ScenarioAction>,
+  acc: Record<string, HandEntry>,
   tokens: string[],
-  action: ScenarioAction,
+  action: HandEntry,
 ) {
   for (const t of tokens) {
     let parts: string[];
