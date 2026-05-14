@@ -469,6 +469,118 @@ function scenarioBTNvsCO50(): ScenarioRange {
   };
 }
 
+// =====================================================================
+// SCENARIO 10 — BTN vs MP · 25bb (5 actions, small pairs shove)
+// =====================================================================
+function scenarioBTNvsMP25(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  assign(h, ["AA","AK","AQ","AJ","KK","QQ","JJ","TT","KTs","QJs"], "3bet");
+  assign(h, ["99","88","77","66","55","44","33"], "allin");
+  assign(h, ["A2s","Q9s"], "3betLight");
+  h["A9o"] = { mix: [{ action: "3betLight", pct: 50 }, { action: "fold", pct: 50 }] };
+  assign(h, [
+    "ATs","A9s","A8s","A7s","A6s","A5s","A4s","A3s",
+    "KQs","KJs","K9s","K8s",
+    "QJs","QTs",
+    "JTs","J9s",
+    "T9s","T8s",
+    "98s","87s",
+  ], "call");
+  return {
+    id: "btn_vs_mp_25",
+    label: "BTN vs MP · 25bb",
+    hero: "BTN", villain: "MP", stackBB: 25,
+    action: "MP raise 2.5bb",
+    category: "vsOpen",
+    stackBadgeColor: "bg-destructive text-destructive-foreground",
+    stats: [
+      { action: "fold",      pct: 78.9 },
+      { action: "call",      pct: 11.0 },
+      { action: "3betLight", pct: 2.4 },
+      { action: "3bet",      pct: 3.3 },
+      { action: "allin",     pct: 4.4, ev: "+0.55 bb" },
+    ],
+    notes: "Pairs 33-99: shove > 3bet at 25bb (too small to 3bet/fold, too strong to call).",
+    hands: h,
+  };
+}
+
+// =====================================================================
+// SCENARIO 11 — BTN vs MP · 20bb (mostly fold/shove, AA mixed)
+// =====================================================================
+function scenarioBTNvsMP20(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  // All-in: every Ax suited, AKo/AQo/AJo, KK + KJs/KTs, QQ + QJs, JJ-33
+  assign(h, [
+    "AKs","AQs","AJs","ATs","A9s","A8s","A7s","A6s","A5s","A4s","A3s","A2s",
+    "AKo","AQo","AJo",
+    "KK","KJs","KTs",
+    "QQ","QJs",
+    "JJ","TT","99","88","77","66","55","44","33",
+  ], "allin");
+  // AA mixed 50/50 3bet / call
+  h["AA"] = { mix: [{ action: "3bet", pct: 50 }, { action: "call", pct: 50 }] };
+  // Tiny calling range
+  h["KQs"] = "call";
+  return {
+    id: "btn_vs_mp_20",
+    label: "BTN vs MP · 20bb",
+    hero: "BTN", villain: "MP", stackBB: 20,
+    action: "MP raise 2.0bb",
+    category: "vsOpen",
+    stackBadgeColor: "bg-destructive text-destructive-foreground",
+    stats: [
+      { action: "fold",  pct: 82.4 },
+      { action: "call",  pct: 2.6 },
+      { action: "3bet",  pct: 0.6 },
+      { action: "allin", pct: 14.5, ev: "+0.71 bb" },
+    ],
+    notes: "20bb vs MP: strategy collapses to fold/shove. AA is the only hand mixing 3bet/call due to stack depth.",
+    hands: h,
+  };
+}
+
+// =====================================================================
+// SCENARIO 12 — CO Open RFI · 50bb
+// =====================================================================
+function scenarioCOOpen50(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  assign(h, [
+    // Pairs 77+
+    "AA","KK","QQ","JJ","TT","99","88","77",
+    // Suited Ax down to A6s, offsuit broadways
+    "AKs","AQs","AJs","ATs","A9s","A8s","A7s","A6s",
+    "AKo","AQo","AJo",
+    // Suited Kings + KQo/KJo
+    "KQs","KJs","KTs","K9s",
+    "KQo","KJo",
+    // Queens / Jacks / connectors
+    "QJs","QTs","Q9s","QJo",
+    "JTs","J9s","J8s",
+    "T9s","T8s",
+    "98s","97s","87s","86s","76s","65s",
+  ], "raise");
+  assign(h, ["A5s","A4s","A6o","A5o","J6s","85s"], "loosie");
+  h["T9o"] = { mix: [{ action: "loosie", pct: 50 }, { action: "fold", pct: 50 }] };
+  assign(h, ["K2s","Q4s","J5s","T6s","96s","22"], "tightfie");
+  return {
+    id: "co_open_50",
+    label: "CO opens · 50bb",
+    hero: "CO", villain: "—", stackBB: 50,
+    action: "CO RFI 2.5bb",
+    category: "openRaise",
+    stats: [
+      { action: "fold",     pct: 59.7 },
+      { action: "raise",    pct: 32.5, sizing: "2.5bb", ev: "+0.42 bb" },
+      { action: "loosie",   pct: 6.0 },
+      { action: "tightfie", pct: 1.7 },
+    ],
+    handEV: { AA: "+11.47 bb", KK: "+8.92 bb", QQ: "+6.71 bb", AKs: "+5.84 bb" },
+    notes: "Loosie = open at a looser threshold (borderline +EV). Tightfie = open at a tighter threshold (borderline -EV, exploitable spot).",
+    hands: h,
+  };
+}
+
 export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBBvsCO50(),
   scenarioBBvsCO10(),
@@ -478,7 +590,10 @@ export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBTNvsUTG20(),
   scenarioBTNvsUTG50(),
   scenarioBTNvsMP50(),
+  scenarioBTNvsMP25(),
+  scenarioBTNvsMP20(),
   scenarioBTNvsCO50(),
+  scenarioCOOpen50(),
 ];
 
 /** Group scenarios by matchup (hero+villain) for the stack toggle */
