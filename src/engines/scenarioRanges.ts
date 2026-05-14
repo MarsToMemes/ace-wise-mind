@@ -299,9 +299,9 @@ function scenarioCOvsBTN3bet20(): ScenarioRange {
 }
 
 // =====================================================================
-// SCENARIO 6 — BTN vs LJ · 20bb · LJ raise 2.0bb (push/fold)
+// SCENARIO 6 — BTN vs UTG · 20bb · UTG raise 2.0bb (push/fold)
 // =====================================================================
-function scenarioBTNvsLJ20(): ScenarioRange {
+function scenarioBTNvsUTG20(): ScenarioRange {
   const h: Record<string, ScenarioAction> = {};
   assign(h, [
     "AA","AK","AQ","AJ",
@@ -314,10 +314,10 @@ function scenarioBTNvsLJ20(): ScenarioRange {
     "KQs",
   ], "call");
   return {
-    id: "btn_vs_lj_20",
-    label: "BTN vs LJ · 20bb",
-    hero: "BTN", villain: "LJ", stackBB: 20,
-    action: "LJ raise 2.0bb",
+    id: "btn_vs_utg_20",
+    label: "BTN vs UTG · 20bb",
+    hero: "BTN", villain: "UTG", stackBB: 20,
+    action: "UTG raise 2.0bb",
     stackBadgeColor: "bg-destructive text-destructive-foreground",
     stats: [
       { action: "fold",  pct: 82.5 },
@@ -330,9 +330,9 @@ function scenarioBTNvsLJ20(): ScenarioRange {
 }
 
 // =====================================================================
-// SCENARIO 7 — BTN vs LJ · 50bb · LJ raise 2.5bb
+// SCENARIO 7 — BTN vs UTG · 50bb · UTG raise 2.5bb
 // =====================================================================
-function scenarioBTNvsLJ50(): ScenarioRange {
+function scenarioBTNvsUTG50(): ScenarioRange {
   const h: Record<string, ScenarioAction> = {};
   assign(h, ["AA","AK","AQ","AJ","KK","QQ","JJ","TT"], "3bet");
   assign(h, [
@@ -353,25 +353,25 @@ function scenarioBTNvsLJ50(): ScenarioRange {
     "66","55","44","33","22",
   ], "call");
   return {
-    id: "btn_vs_lj_50",
-    label: "BTN vs LJ · 50bb",
-    hero: "BTN", villain: "LJ", stackBB: 50,
-    action: "LJ raise 2.5bb",
+    id: "btn_vs_utg_50",
+    label: "BTN vs UTG · 50bb",
+    hero: "BTN", villain: "UTG", stackBB: 50,
+    action: "UTG raise 2.5bb",
     stats: [
       { action: "fold",      pct: 79.3 },
       { action: "call",      pct: 12.7 },
       { action: "3betLight", pct: 4.5 },
       { action: "3bet",      pct: 3.5, ev: "+0.68 bb" },
     ],
-    notes: "LJ is early position — BTN 3bet range tighter/more linear vs LJ than vs CO.",
+    notes: "UTG is early position — BTN 3bet range tighter/more linear vs UTG than vs CO.",
     hands: h,
   };
 }
 
 // =====================================================================
-// SCENARIO 8 — BTN vs HJ · 50bb · HJ raise 2.5bb
+// SCENARIO 8 — BTN vs MP · 50bb · MP raise 2.5bb
 // =====================================================================
-function scenarioBTNvsHJ50(): ScenarioRange {
+function scenarioBTNvsMP50(): ScenarioRange {
   const h: Record<string, ScenarioAction> = {};
   assign(h, ["AA","AK","AQ","KK","QQ","JJ","TT"], "3bet");
   assign(h, [
@@ -392,17 +392,17 @@ function scenarioBTNvsHJ50(): ScenarioRange {
     "88","77","66","55","44","33","22",
   ], "call");
   return {
-    id: "btn_vs_hj_50",
-    label: "BTN vs HJ · 50bb",
-    hero: "BTN", villain: "HJ", stackBB: 50,
-    action: "HJ raise 2.5bb",
+    id: "btn_vs_mp_50",
+    label: "BTN vs MP · 50bb",
+    hero: "BTN", villain: "MP", stackBB: 50,
+    action: "MP raise 2.5bb",
     stats: [
       { action: "fold",      pct: 78.4 },
       { action: "call",      pct: 12.1 },
       { action: "3betLight", pct: 5.7 },
       { action: "3bet",      pct: 3.8, ev: "+0.71 bb" },
     ],
-    notes: "HJ slightly looser than LJ — BTN 3bet% marginally higher.",
+    notes: "MP slightly looser than UTG — BTN 3bet% marginally higher.",
     hands: h,
   };
 }
@@ -455,9 +455,9 @@ export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBBvsSB50(),
   scenarioCOvsBTN3bet50(),
   scenarioCOvsBTN3bet20(),
-  scenarioBTNvsLJ20(),
-  scenarioBTNvsLJ50(),
-  scenarioBTNvsHJ50(),
+  scenarioBTNvsUTG20(),
+  scenarioBTNvsUTG50(),
+  scenarioBTNvsMP50(),
   scenarioBTNvsCO50(),
 ];
 
