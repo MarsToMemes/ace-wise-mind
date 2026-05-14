@@ -48,12 +48,24 @@ export function RangeExplorer() {
     () => scenariosAtStack.filter((s) => s.hero === position),
     [position, scenariosAtStack],
   );
+  const threeBetScenarios = useMemo(
+    () =>
+      scenariosAtStack.filter(
+        (s) => s.hero === position && /3bet/i.test(s.action),
+      ),
+    [position, scenariosAtStack],
+  );
+  const showScenarioInThreeBet =
+    rangeType === "3bet" && threeBetScenarios.length > 0;
   const visibleScenarios = positionScenarios.length
     ? positionScenarios
     : scenariosAtStack;
+  const activeScenarios = showScenarioInThreeBet
+    ? threeBetScenarios
+    : visibleScenarios;
   const scenario =
-    visibleScenarios.find((s) => s.id === scenarioId) ??
-    visibleScenarios[0] ??
+    activeScenarios.find((s) => s.id === scenarioId) ??
+    activeScenarios[0] ??
     SCENARIO_RANGES[0];
 
   useEffect(() => {
@@ -61,15 +73,15 @@ export function RangeExplorer() {
   }, [stackDepth]);
 
   useEffect(() => {
-    if (!visibleScenarios.length) {
+    if (!activeScenarios.length) {
       setScenarioId("");
       return;
     }
 
-    if (!visibleScenarios.some((s) => s.id === scenarioId)) {
-      setScenarioId(visibleScenarios[0].id);
+    if (!activeScenarios.some((s) => s.id === scenarioId)) {
+      setScenarioId(activeScenarios[0].id);
     }
-  }, [scenarioId, visibleScenarios]);
+  }, [activeScenarios, scenarioId]);
 
   const info = POSITION_RANGE_CATALOG[position];
   const has3bet = !!info.matrix3bet;
@@ -153,7 +165,7 @@ export function RangeExplorer() {
           </Tabs>
 
           {/* Filters */}
-          <div className={`grid gap-2 ${rangeType === "scenarios" ? "grid-cols-2" : "grid-cols-3"}`}>
+          <div className={`grid gap-2 ${rangeType === "scenarios" || showScenarioInThreeBet ? "grid-cols-2" : "grid-cols-3"}`}>
               <Select value={gameType} onValueChange={v => setGameType(v as GameType)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -172,7 +184,7 @@ export function RangeExplorer() {
                   <SelectItem value="200">200bb</SelectItem>
                 </SelectContent>
               </Select>
-              {rangeType !== "scenarios" && (
+              {rangeType !== "scenarios" && !showScenarioInThreeBet && (
                 <Select value={vsPosition} onValueChange={setVsPosition}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="vs" /></SelectTrigger>
                   <SelectContent>
@@ -185,20 +197,20 @@ export function RangeExplorer() {
               )}
             </div>
 
-          {rangeType === "scenarios" ? (
+          {rangeType === "scenarios" || showScenarioInThreeBet ? (
             /* ============== SCENARIO MODE ============== */
             <div className="space-y-3">
               {/* Matchup picker — filtered by stack */}
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                  Matchup ({visibleScenarios.length})
+                  Matchup ({activeScenarios.length})
                 </div>
                 <Select value={scenarioId} onValueChange={setScenarioId}>
                   <SelectTrigger className="h-8 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {visibleScenarios.map((s) => (
+                    {activeScenarios.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.hero} vs {s.villain} · {s.action}
                       </SelectItem>
@@ -207,7 +219,7 @@ export function RangeExplorer() {
                 </Select>
               </div>
 
-              {!visibleScenarios.length ? (
+              {!activeScenarios.length ? (
                 <div className="rounded-md border border-border bg-background/50 p-4 text-xs text-muted-foreground">
                   Aucun spot n&apos;est encore intégré pour {position} à {scenarioStack}bb.
                 </div>
