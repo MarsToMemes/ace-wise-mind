@@ -126,35 +126,37 @@ export function RangeExplorer() {
             </TabsList>
           </Tabs>
 
-          {/* Filters */}
-          <div className="grid grid-cols-3 gap-2">
-            <Select value={gameType} onValueChange={v => setGameType(v as GameType)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">Cash</SelectItem>
-                <SelectItem value="mtt">MTT</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={stackDepth} onValueChange={setStackDepth}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="20">20bb</SelectItem>
-                <SelectItem value="40">40bb</SelectItem>
-                <SelectItem value="60">60bb</SelectItem>
-                <SelectItem value="100">100bb</SelectItem>
-                <SelectItem value="200">200bb</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={vsPosition} onValueChange={setVsPosition}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="vs" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">vs —</SelectItem>
-                {POSITIONS.filter(p => p !== position).map(p => (
-                  <SelectItem key={p} value={p}>vs {p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Filters — hidden in scenarios mode */}
+          {rangeType !== "scenarios" && (
+            <div className="grid grid-cols-3 gap-2">
+              <Select value={gameType} onValueChange={v => setGameType(v as GameType)}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="mtt">MTT</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={stackDepth} onValueChange={setStackDepth}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20">20bb</SelectItem>
+                  <SelectItem value="40">40bb</SelectItem>
+                  <SelectItem value="60">60bb</SelectItem>
+                  <SelectItem value="100">100bb</SelectItem>
+                  <SelectItem value="200">200bb</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={vsPosition} onValueChange={setVsPosition}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="vs" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">vs —</SelectItem>
+                  {POSITIONS.filter(p => p !== position).map(p => (
+                    <SelectItem key={p} value={p}>vs {p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Matrix */}
           <div>
