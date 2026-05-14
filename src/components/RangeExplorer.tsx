@@ -171,53 +171,54 @@ export function RangeExplorer() {
           {rangeType === "scenarios" ? (
             /* ============== SCENARIO MODE ============== */
             <div className="space-y-3">
-              {/* Matchup picker */}
+              {/* Stack picker — primary filter */}
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                  Matchup
+                  Stack depth
                 </div>
-                <Select
-                  value={matchup}
-                  onValueChange={(v) => {
-                    setMatchup(v);
-                    const first = SCENARIO_GROUPS[v]?.[0];
-                    if (first) setScenarioStack(first.stackBB);
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <div className="flex gap-1 flex-wrap">
+                  {ALL_SCENARIO_STACKS.map((bb) => (
+                    <button
+                      key={bb}
+                      onClick={() => {
+                        setScenarioStack(bb);
+                        const first = SCENARIO_RANGES.find(
+                          (s) => s.stackBB === bb,
+                        );
+                        if (first) setScenarioId(first.id);
+                      }}
+                      className={`px-3 py-1 rounded-md text-[11px] font-mono font-bold transition-all ${
+                        scenarioStack === bb
+                          ? bb <= 15
+                            ? "bg-destructive text-destructive-foreground"
+                            : "bg-primary text-primary-foreground"
+                          : "bg-muted/40 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {bb}bb
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Matchup picker — filtered by stack */}
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  Matchup ({scenariosAtStack.length})
+                </div>
+                <Select value={scenarioId} onValueChange={setScenarioId}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {MATCHUP_KEYS.map((k) => (
-                      <SelectItem key={k} value={k}>
-                        {k.replace("_vs_", " vs ")}
+                    {scenariosAtStack.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.hero} vs {s.villain} · {s.action}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Stack toggle (only when matchup has multiple depths) */}
-              {matchupScenarios.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                    Stack
-                  </span>
-                  <div className="flex gap-1">
-                    {matchupScenarios.map((s) => (
-                      <button
-                        key={s.stackBB}
-                        onClick={() => setScenarioStack(s.stackBB)}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-bold transition-all ${
-                          scenarioStack === s.stackBB
-                            ? s.stackBadgeColor ?? "bg-primary text-primary-foreground"
-                            : "bg-muted/40 text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {s.stackBB}bb
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {scenario && (
                 <>
