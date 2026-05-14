@@ -219,7 +219,14 @@ export function RangeExplorer() {
                 </li>
               ))}
             </ul>
+            {info.calibration && (
+              <div className="mt-2 pt-2 border-t border-primary/20 text-[10px] text-muted-foreground italic leading-relaxed">
+                {info.calibration}
+              </div>
+            )}
           </div>
+
+          <TeachAccordion content={TEACH_RANGES} />
         </div>
 
         <div className="px-4 py-2 border-t border-border text-[10px] text-muted-foreground bg-background/40">
