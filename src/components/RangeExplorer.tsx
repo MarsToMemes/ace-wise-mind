@@ -45,24 +45,44 @@ export function RangeExplorer() {
     scenariosAtStack[0]?.id ?? SCENARIO_RANGES[0].id,
   );
   const positionScenarios = useMemo(
-    () => scenariosAtStack.filter((s) => s.hero === position),
-    [position, scenariosAtStack],
+    () =>
+      scenariosAtStack.filter(
+        (s) =>
+          s.hero === position && (vsPosition === "none" || s.villain === vsPosition),
+      ),
+    [position, scenariosAtStack, vsPosition],
   );
   const threeBetScenarios = useMemo(
     () =>
       scenariosAtStack.filter(
-        (s) => s.hero === position && /3bet/i.test(s.action),
+        (s) =>
+          positionScenarios.includes(s) &&
+          s.stats.some((stat) =>
+            ["3bet", "3betLight", "4bet", "4betLight"].includes(stat.action),
+          ),
       ),
-    [position, scenariosAtStack],
+    [positionScenarios, scenariosAtStack],
+  );
+  const jamScenarios = useMemo(
+    () =>
+      positionScenarios.filter((s) =>
+        s.stats.some((stat) => stat.action === "allin"),
+      ),
+    [positionScenarios],
   );
   const showScenarioInThreeBet =
     rangeType === "3bet" && threeBetScenarios.length > 0;
+  const showScenarioInJam = rangeType === "jam" && jamScenarios.length > 0;
+  const isScenarioMode =
+    rangeType === "scenarios" || showScenarioInThreeBet || showScenarioInJam;
   const visibleScenarios = positionScenarios.length
     ? positionScenarios
     : scenariosAtStack;
   const activeScenarios = showScenarioInThreeBet
     ? threeBetScenarios
-    : visibleScenarios;
+    : showScenarioInJam
+      ? jamScenarios
+      : visibleScenarios;
   const scenario =
     activeScenarios.find((s) => s.id === scenarioId) ??
     activeScenarios[0] ??
@@ -165,7 +185,7 @@ export function RangeExplorer() {
           </Tabs>
 
           {/* Filters */}
-          <div className={`grid gap-2 ${rangeType === "scenarios" || showScenarioInThreeBet ? "grid-cols-2" : "grid-cols-3"}`}>
+          <div className={`grid gap-2 ${isScenarioMode ? "grid-cols-2" : "grid-cols-3"}`}>
               <Select value={gameType} onValueChange={v => setGameType(v as GameType)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -184,7 +204,7 @@ export function RangeExplorer() {
                   <SelectItem value="200">200bb</SelectItem>
                 </SelectContent>
               </Select>
-              {rangeType !== "scenarios" && !showScenarioInThreeBet && (
+              {!isScenarioMode && (
                 <Select value={vsPosition} onValueChange={setVsPosition}>
                   <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="vs" /></SelectTrigger>
                   <SelectContent>
@@ -197,7 +217,7 @@ export function RangeExplorer() {
               )}
             </div>
 
-          {rangeType === "scenarios" || showScenarioInThreeBet ? (
+          {isScenarioMode ? (
             /* ============== SCENARIO MODE ============== */
             <div className="space-y-3">
               {/* Matchup picker — filtered by stack */}
