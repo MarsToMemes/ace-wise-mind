@@ -140,7 +140,7 @@ function assign(
 // SCENARIO 1 — BB vs CO · 50bb · CO open 2.5bb
 // =====================================================================
 function scenarioBBvsCO50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ","JJ"], "3bet");
   assign(h, ["J8s","T7s","T9s","A6s","A5s"], "3betLight");
   assign(h, [
@@ -179,7 +179,7 @@ function scenarioBBvsCO50(): ScenarioRange {
 // SCENARIO 2 — BB vs CO · 10bb · CO open 2.0bb (push/fold-ish)
 // =====================================================================
 function scenarioBBvsCO10(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   // All-in: every Ax (suited + offsuit), KK-22, KQ/KJ/KT suited, QQ/QJ suited
   assign(h, [
     "AA","AK","AQ","AJ","AT","A9","A8","A7","A6","A5","A4","A3","A2",
@@ -216,7 +216,7 @@ function scenarioBBvsCO10(): ScenarioRange {
 // SCENARIO 3 — BB vs SB · 50bb · SB open 3.5bb
 // =====================================================================
 function scenarioBBvsSB50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, [
     "AA","AK","AQ","AJ","KK","QQ","JJ","TT","99",
     "A4s","A3s","A2s","K6s","K5s","K4s","K3s",
@@ -266,7 +266,7 @@ const CO_OPEN_LIST = [
 ];
 
 function scenarioCOvsBTN3bet50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ"], "4bet");
   assign(h, ["ATs","76s","87s"], "4betLight");
   assign(h, [
@@ -296,7 +296,7 @@ function scenarioCOvsBTN3bet50(): ScenarioRange {
 // SCENARIO 5 — CO vs BTN 3bet shove · 20bb
 // =====================================================================
 function scenarioCOvsBTN3bet20(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, [
     "AA","AK","AQ","AJ","AT","A9s",
     "KK","QQ","JJ","TT","99","88","77","66","55","44",
@@ -322,7 +322,7 @@ function scenarioCOvsBTN3bet20(): ScenarioRange {
 // SCENARIO 6 — BTN vs UTG · 20bb · UTG raise 2.0bb (push/fold)
 // =====================================================================
 function scenarioBTNvsUTG20(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, [
     "AA","AK","AQ","AJ",
     "KK","KQ","KJ","KT",
@@ -353,7 +353,7 @@ function scenarioBTNvsUTG20(): ScenarioRange {
 // SCENARIO 7 — BTN vs UTG · 50bb · UTG raise 2.5bb
 // =====================================================================
 function scenarioBTNvsUTG50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","AJ","KK","QQ","JJ","TT"], "3bet");
   assign(h, [
     "ATs","A5s","A4s",
@@ -392,7 +392,7 @@ function scenarioBTNvsUTG50(): ScenarioRange {
 // SCENARIO 8 — BTN vs MP · 50bb · MP raise 2.5bb
 // =====================================================================
 function scenarioBTNvsMP50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ","JJ","TT"], "3bet");
   assign(h, [
     "AJs","ATs","A5s","A4s",
@@ -431,7 +431,7 @@ function scenarioBTNvsMP50(): ScenarioRange {
 // SCENARIO 9 — BTN vs CO · 50bb · CO raise 2.5bb
 // =====================================================================
 function scenarioBTNvsCO50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ","JJ","TT","99"], "3bet");
   assign(h, [
     "A9s","A8s","A5s","A4s",
