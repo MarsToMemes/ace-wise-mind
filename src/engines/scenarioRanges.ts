@@ -259,7 +259,7 @@ function scenarioCOvsBTN3bet50(): ScenarioRange {
     id: "co_vs_btn3b_50",
     label: "CO vs BTN 3bet · 50bb",
     hero: "CO", villain: "BTN", stackBB: 50,
-    action: "BTN 3bet to 7.5bb",
+    action: "CO x2,5 → BTN 3bet 7.5bb",
     stats: [
       { action: "notInRange", pct: 0 }, // legend hint
       { action: "fold",       pct: 40.4 },
@@ -287,7 +287,7 @@ function scenarioCOvsBTN3bet20(): ScenarioRange {
     id: "co_vs_btn3b_20",
     label: "CO vs BTN 3bet shove · 20bb",
     hero: "CO", villain: "BTN", stackBB: 20,
-    action: "BTN 3bet shove",
+    action: "CO x2,5 → BTN 3bet shove",
     stats: [
       { action: "notInRange", pct: 0 },
       { action: "fold", pct: 54.3 },
