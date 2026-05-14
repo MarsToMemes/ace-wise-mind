@@ -70,11 +70,20 @@ export function RangeExplorer() {
       ),
     [positionScenarios],
   );
+  const openRaiseScenarios = useMemo(
+    () => positionScenarios.filter((s) => s.category === "openRaise"),
+    [positionScenarios],
+  );
   const showScenarioInThreeBet =
     rangeType === "3bet" && threeBetScenarios.length > 0;
   const showScenarioInJam = rangeType === "jam" && jamScenarios.length > 0;
+  const showScenarioInOpen =
+    rangeType === "open" && openRaiseScenarios.length > 0;
   const isScenarioMode =
-    rangeType === "scenarios" || showScenarioInThreeBet || showScenarioInJam;
+    rangeType === "scenarios" ||
+    showScenarioInThreeBet ||
+    showScenarioInJam ||
+    showScenarioInOpen;
   const visibleScenarios = positionScenarios.length
     ? positionScenarios
     : scenariosAtStack;
@@ -82,7 +91,9 @@ export function RangeExplorer() {
     ? threeBetScenarios
     : showScenarioInJam
       ? jamScenarios
-      : visibleScenarios;
+      : showScenarioInOpen
+        ? openRaiseScenarios
+        : visibleScenarios;
   const scenario =
     activeScenarios.find((s) => s.id === scenarioId) ??
     activeScenarios[0] ??
@@ -198,6 +209,7 @@ export function RangeExplorer() {
                 <SelectContent>
                   <SelectItem value="10">10bb</SelectItem>
                   <SelectItem value="20">20bb</SelectItem>
+                  <SelectItem value="25">25bb</SelectItem>
                   <SelectItem value="40">40bb</SelectItem>
                   <SelectItem value="50">50bb</SelectItem>
                   <SelectItem value="100">100bb</SelectItem>

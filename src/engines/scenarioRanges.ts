@@ -10,6 +10,9 @@ export type ScenarioAction =
   | "4bet"
   | "4betLight"
   | "allin"
+  | "raise"
+  | "loosie"
+  | "tightfie"
   | "notInRange";
 
 export const SCENARIO_ACTION_COLORS: Record<ScenarioAction, string> = {
@@ -20,6 +23,9 @@ export const SCENARIO_ACTION_COLORS: Record<ScenarioAction, string> = {
   "4bet":     "hsl(28 90% 55%)",    // orange
   "4betLight":"hsl(275 70% 60%)",   // purple
   allin:      "hsl(0 65% 45%)",     // dark red (#C0392B-ish)
+  raise:      "hsl(28 90% 55%)",    // orange
+  loosie:     "hsl(140 65% 45%)",   // green
+  tightfie:   "hsl(204 70% 53%)",   // blue (#3498DB)
   notInRange: "hsl(0 0% 30%)",      // dim grey
 };
 
@@ -31,8 +37,19 @@ export const SCENARIO_ACTION_LABELS: Record<ScenarioAction, string> = {
   "4bet": "4bet (value)",
   "4betLight": "4bet light",
   allin: "All-in",
+  raise: "Raise (open)",
+  loosie: "Loosie (loose open)",
+  tightfie: "Tightfie (tight open)",
   notInRange: "Not in range",
 };
+
+export type ScenarioCategory = "vsOpen" | "vs3bet" | "openRaise";
+
+/** A hand can either map to a pure action, or to a mix of actions w/ pct */
+export type HandMix = { mix: { action: ScenarioAction; pct: number }[] };
+export type HandEntry = ScenarioAction | HandMix;
+export const isMix = (e: HandEntry): e is HandMix =>
+  typeof e === "object" && e !== null && "mix" in e;
 
 export interface ScenarioStat {
   action: ScenarioAction;
@@ -48,12 +65,15 @@ export interface ScenarioRange {
   villain: string;
   stackBB: number;
   action: string;         // e.g. "CO raise 2.5bb"
+  category?: ScenarioCategory; // default: vsOpen
   stackBadgeColor?: string; // tailwind classes for badge
   stats: ScenarioStat[];
-  /** action assigned per hand (canonical: "AKs", "AKo", "AA") */
-  hands: Record<string, ScenarioAction>;
-  /** Optional set of CO opening hands when scenario is BTN-3bet-vs-CO etc.
-   *  Hands NOT in this set get the "notInRange" action automatically. */
+  /** action assigned per hand — pure action OR mixed-frequency entry */
+  hands: Record<string, HandEntry>;
+  /** EV per hand (optional, displayed in popup) */
+  handEV?: Record<string, string>;
+  /** Optional set of opening hands (for vs-3bet scenarios). Hands NOT in
+   *  this set get the "notInRange" action automatically. */
   inRange?: string[];
   notes?: string;
 }
@@ -101,9 +121,9 @@ function expandPairs(token: string): string[] {
 }
 
 function assign(
-  acc: Record<string, ScenarioAction>,
+  acc: Record<string, HandEntry>,
   tokens: string[],
-  action: ScenarioAction,
+  action: HandEntry,
 ) {
   for (const t of tokens) {
     let parts: string[];
@@ -120,7 +140,7 @@ function assign(
 // SCENARIO 1 — BB vs CO · 50bb · CO open 2.5bb
 // =====================================================================
 function scenarioBBvsCO50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ","JJ"], "3bet");
   assign(h, ["J8s","T7s","T9s","A6s","A5s"], "3betLight");
   assign(h, [
@@ -159,7 +179,7 @@ function scenarioBBvsCO50(): ScenarioRange {
 // SCENARIO 2 — BB vs CO · 10bb · CO open 2.0bb (push/fold-ish)
 // =====================================================================
 function scenarioBBvsCO10(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   // All-in: every Ax (suited + offsuit), KK-22, KQ/KJ/KT suited, QQ/QJ suited
   assign(h, [
     "AA","AK","AQ","AJ","AT","A9","A8","A7","A6","A5","A4","A3","A2",
@@ -196,7 +216,7 @@ function scenarioBBvsCO10(): ScenarioRange {
 // SCENARIO 3 — BB vs SB · 50bb · SB open 3.5bb
 // =====================================================================
 function scenarioBBvsSB50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, [
     "AA","AK","AQ","AJ","KK","QQ","JJ","TT","99",
     "A4s","A3s","A2s","K6s","K5s","K4s","K3s",
@@ -246,7 +266,7 @@ const CO_OPEN_LIST = [
 ];
 
 function scenarioCOvsBTN3bet50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ"], "4bet");
   assign(h, ["ATs","76s","87s"], "4betLight");
   assign(h, [
@@ -276,7 +296,7 @@ function scenarioCOvsBTN3bet50(): ScenarioRange {
 // SCENARIO 5 — CO vs BTN 3bet shove · 20bb
 // =====================================================================
 function scenarioCOvsBTN3bet20(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, [
     "AA","AK","AQ","AJ","AT","A9s",
     "KK","QQ","JJ","TT","99","88","77","66","55","44",
@@ -302,7 +322,7 @@ function scenarioCOvsBTN3bet20(): ScenarioRange {
 // SCENARIO 6 — BTN vs UTG · 20bb · UTG raise 2.0bb (push/fold)
 // =====================================================================
 function scenarioBTNvsUTG20(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, [
     "AA","AK","AQ","AJ",
     "KK","KQ","KJ","KT",
@@ -333,7 +353,7 @@ function scenarioBTNvsUTG20(): ScenarioRange {
 // SCENARIO 7 — BTN vs UTG · 50bb · UTG raise 2.5bb
 // =====================================================================
 function scenarioBTNvsUTG50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","AJ","KK","QQ","JJ","TT"], "3bet");
   assign(h, [
     "ATs","A5s","A4s",
@@ -372,7 +392,7 @@ function scenarioBTNvsUTG50(): ScenarioRange {
 // SCENARIO 8 — BTN vs MP · 50bb · MP raise 2.5bb
 // =====================================================================
 function scenarioBTNvsMP50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ","JJ","TT"], "3bet");
   assign(h, [
     "AJs","ATs","A5s","A4s",
@@ -411,7 +431,7 @@ function scenarioBTNvsMP50(): ScenarioRange {
 // SCENARIO 9 — BTN vs CO · 50bb · CO raise 2.5bb
 // =====================================================================
 function scenarioBTNvsCO50(): ScenarioRange {
-  const h: Record<string, ScenarioAction> = {};
+  const h: Record<string, HandEntry> = {};
   assign(h, ["AA","AK","AQ","KK","QQ","JJ","TT","99"], "3bet");
   assign(h, [
     "A9s","A8s","A5s","A4s",
@@ -449,6 +469,118 @@ function scenarioBTNvsCO50(): ScenarioRange {
   };
 }
 
+// =====================================================================
+// SCENARIO 10 — BTN vs MP · 25bb (5 actions, small pairs shove)
+// =====================================================================
+function scenarioBTNvsMP25(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  assign(h, ["AA","AK","AQ","AJ","KK","QQ","JJ","TT","KTs","QJs"], "3bet");
+  assign(h, ["99","88","77","66","55","44","33"], "allin");
+  assign(h, ["A2s","Q9s"], "3betLight");
+  h["A9o"] = { mix: [{ action: "3betLight", pct: 50 }, { action: "fold", pct: 50 }] };
+  assign(h, [
+    "ATs","A9s","A8s","A7s","A6s","A5s","A4s","A3s",
+    "KQs","KJs","K9s","K8s",
+    "QJs","QTs",
+    "JTs","J9s",
+    "T9s","T8s",
+    "98s","87s",
+  ], "call");
+  return {
+    id: "btn_vs_mp_25",
+    label: "BTN vs MP · 25bb",
+    hero: "BTN", villain: "MP", stackBB: 25,
+    action: "MP raise 2.5bb",
+    category: "vsOpen",
+    stackBadgeColor: "bg-destructive text-destructive-foreground",
+    stats: [
+      { action: "fold",      pct: 78.9 },
+      { action: "call",      pct: 11.0 },
+      { action: "3betLight", pct: 2.4 },
+      { action: "3bet",      pct: 3.3 },
+      { action: "allin",     pct: 4.4, ev: "+0.55 bb" },
+    ],
+    notes: "Pairs 33-99: shove > 3bet at 25bb (too small to 3bet/fold, too strong to call).",
+    hands: h,
+  };
+}
+
+// =====================================================================
+// SCENARIO 11 — BTN vs MP · 20bb (mostly fold/shove, AA mixed)
+// =====================================================================
+function scenarioBTNvsMP20(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  // All-in: every Ax suited, AKo/AQo/AJo, KK + KJs/KTs, QQ + QJs, JJ-33
+  assign(h, [
+    "AKs","AQs","AJs","ATs","A9s","A8s","A7s","A6s","A5s","A4s","A3s","A2s",
+    "AKo","AQo","AJo",
+    "KK","KJs","KTs",
+    "QQ","QJs",
+    "JJ","TT","99","88","77","66","55","44","33",
+  ], "allin");
+  // AA mixed 50/50 3bet / call
+  h["AA"] = { mix: [{ action: "3bet", pct: 50 }, { action: "call", pct: 50 }] };
+  // Tiny calling range
+  h["KQs"] = "call";
+  return {
+    id: "btn_vs_mp_20",
+    label: "BTN vs MP · 20bb",
+    hero: "BTN", villain: "MP", stackBB: 20,
+    action: "MP raise 2.0bb",
+    category: "vsOpen",
+    stackBadgeColor: "bg-destructive text-destructive-foreground",
+    stats: [
+      { action: "fold",  pct: 82.4 },
+      { action: "call",  pct: 2.6 },
+      { action: "3bet",  pct: 0.6 },
+      { action: "allin", pct: 14.5, ev: "+0.71 bb" },
+    ],
+    notes: "20bb vs MP: strategy collapses to fold/shove. AA is the only hand mixing 3bet/call due to stack depth.",
+    hands: h,
+  };
+}
+
+// =====================================================================
+// SCENARIO 12 — CO Open RFI · 50bb
+// =====================================================================
+function scenarioCOOpen50(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  assign(h, [
+    // Pairs 77+
+    "AA","KK","QQ","JJ","TT","99","88","77",
+    // Suited Ax down to A6s, offsuit broadways
+    "AKs","AQs","AJs","ATs","A9s","A8s","A7s","A6s",
+    "AKo","AQo","AJo",
+    // Suited Kings + KQo/KJo
+    "KQs","KJs","KTs","K9s",
+    "KQo","KJo",
+    // Queens / Jacks / connectors
+    "QJs","QTs","Q9s","QJo",
+    "JTs","J9s","J8s",
+    "T9s","T8s",
+    "98s","97s","87s","86s","76s","65s",
+  ], "raise");
+  assign(h, ["A5s","A4s","A6o","A5o","J6s","85s"], "loosie");
+  h["T9o"] = { mix: [{ action: "loosie", pct: 50 }, { action: "fold", pct: 50 }] };
+  assign(h, ["K2s","Q4s","J5s","T6s","96s","22"], "tightfie");
+  return {
+    id: "co_open_50",
+    label: "CO opens · 50bb",
+    hero: "CO", villain: "—", stackBB: 50,
+    action: "CO RFI 2.5bb",
+    category: "openRaise",
+    stats: [
+      { action: "fold",     pct: 59.7 },
+      { action: "raise",    pct: 32.5, sizing: "2.5bb", ev: "+0.42 bb" },
+      { action: "loosie",   pct: 6.0 },
+      { action: "tightfie", pct: 1.7 },
+    ],
+    handEV: { AA: "+11.47 bb", KK: "+8.92 bb", QQ: "+6.71 bb", AKs: "+5.84 bb" },
+    notes: "Loosie = open at a looser threshold (borderline +EV). Tightfie = open at a tighter threshold (borderline -EV, exploitable spot).",
+    hands: h,
+  };
+}
+
 export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBBvsCO50(),
   scenarioBBvsCO10(),
@@ -458,7 +590,10 @@ export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBTNvsUTG20(),
   scenarioBTNvsUTG50(),
   scenarioBTNvsMP50(),
+  scenarioBTNvsMP25(),
+  scenarioBTNvsMP20(),
   scenarioBTNvsCO50(),
+  scenarioCOOpen50(),
 ];
 
 /** Group scenarios by matchup (hero+villain) for the stack toggle */
