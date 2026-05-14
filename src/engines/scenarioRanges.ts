@@ -65,12 +65,15 @@ export interface ScenarioRange {
   villain: string;
   stackBB: number;
   action: string;         // e.g. "CO raise 2.5bb"
+  category?: ScenarioCategory; // default: vsOpen
   stackBadgeColor?: string; // tailwind classes for badge
   stats: ScenarioStat[];
-  /** action assigned per hand (canonical: "AKs", "AKo", "AA") */
-  hands: Record<string, ScenarioAction>;
-  /** Optional set of CO opening hands when scenario is BTN-3bet-vs-CO etc.
-   *  Hands NOT in this set get the "notInRange" action automatically. */
+  /** action assigned per hand — pure action OR mixed-frequency entry */
+  hands: Record<string, HandEntry>;
+  /** EV per hand (optional, displayed in popup) */
+  handEV?: Record<string, string>;
+  /** Optional set of opening hands (for vs-3bet scenarios). Hands NOT in
+   *  this set get the "notInRange" action automatically. */
   inRange?: string[];
   notes?: string;
 }
