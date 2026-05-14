@@ -117,11 +117,12 @@ export function RangeExplorer() {
 
           {/* Range-type tabs */}
           <Tabs value={rangeType} onValueChange={v => setRangeType(v as RangeType)}>
-            <TabsList className="grid grid-cols-4 h-8">
-              <TabsTrigger value="open" className="text-[11px]">Open</TabsTrigger>
-              <TabsTrigger value="3bet" className="text-[11px]">3bet</TabsTrigger>
-              <TabsTrigger value="defense" className="text-[11px]">Defense</TabsTrigger>
-              <TabsTrigger value="jam" className="text-[11px]">Jam</TabsTrigger>
+            <TabsList className="grid grid-cols-5 h-8">
+              <TabsTrigger value="open" className="text-[10px]">Open</TabsTrigger>
+              <TabsTrigger value="3bet" className="text-[10px]">3bet</TabsTrigger>
+              <TabsTrigger value="defense" className="text-[10px]">Def</TabsTrigger>
+              <TabsTrigger value="jam" className="text-[10px]">Jam</TabsTrigger>
+              <TabsTrigger value="scenarios" className="text-[10px]">Spots</TabsTrigger>
             </TabsList>
           </Tabs>
 
