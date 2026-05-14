@@ -139,6 +139,7 @@ export function RangeExplorer() {
               <Select value={stackDepth} onValueChange={setStackDepth}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="10">10bb</SelectItem>
                   <SelectItem value="20">20bb</SelectItem>
                   <SelectItem value="40">40bb</SelectItem>
                   <SelectItem value="50">50bb</SelectItem>
