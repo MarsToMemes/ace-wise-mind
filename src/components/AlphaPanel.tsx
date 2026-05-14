@@ -6,6 +6,8 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Sigma, TrendingUp, TrendingDown, Scale } from "lucide-react";
 import { calculateAlpha, detectExploit, ALPHA_TABLE } from "@/engines/alphaEngine";
+import { TeachAccordion } from "@/components/TeachAccordion";
+import { TEACH_ALPHA } from "@/lib/teachContent";
 
 interface Props {
   defaultPot?: number;
@@ -149,6 +151,8 @@ export const AlphaPanel = ({ defaultPot = 10, defaultBet = 5, perspective = "her
           })}
         </div>
       </div>
+
+      <TeachAccordion content={TEACH_ALPHA} />
     </Card>
   );
 };

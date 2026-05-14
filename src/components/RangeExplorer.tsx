@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ACTION_COLORS, PreflopAction } from "@/engines/preflopRanges";
 import { POSITION_RANGE_CATALOG } from "@/engines/positionRangeCatalog";
 import { RangeMatrix, MatrixHandData } from "@/components/RangeMatrix";
+import { TeachAccordion } from "@/components/TeachAccordion";
+import { TEACH_RANGES } from "@/lib/teachContent";
 
 type RangeType = "open" | "3bet" | "defense" | "jam";
 type GameType = "cash" | "mtt";
