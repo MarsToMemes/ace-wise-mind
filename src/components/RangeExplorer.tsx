@@ -23,6 +23,9 @@ type Pos = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 
 const POSITIONS: Pos[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
 
+const SCENARIO_GROUPS = groupedScenarios();
+const MATCHUP_KEYS = Object.keys(SCENARIO_GROUPS);
+
 export function RangeExplorer() {
   const [open, setOpen] = useState(true);
   const [position, setPosition] = useState<Pos>("UTG");
@@ -31,6 +34,16 @@ export function RangeExplorer() {
   const [stackDepth, setStackDepth] = useState("100");
   const [vsPosition, setVsPosition] = useState<string>("none");
   const [hovered, setHovered] = useState<MatrixHandData | null>(null);
+
+  // Scenario state
+  const [matchup, setMatchup] = useState<string>(MATCHUP_KEYS[0]);
+  const matchupScenarios = SCENARIO_GROUPS[matchup] ?? [];
+  const [scenarioStack, setScenarioStack] = useState<number>(
+    matchupScenarios[0]?.stackBB ?? 50,
+  );
+  const scenario =
+    matchupScenarios.find((s) => s.stackBB === scenarioStack) ??
+    matchupScenarios[0];
 
   const info = POSITION_RANGE_CATALOG[position];
   const has3bet = !!info.matrix3bet;
