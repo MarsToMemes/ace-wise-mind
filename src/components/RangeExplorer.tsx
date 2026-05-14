@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, LayoutGrid, Filter, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,9 @@ import { POSITION_RANGE_CATALOG } from "@/engines/positionRangeCatalog";
 import { RangeMatrix, MatrixHandData } from "@/components/RangeMatrix";
 import { ScenarioMatrix } from "@/components/ScenarioMatrix";
 import {
-  groupedScenarios,
   SCENARIO_ACTION_COLORS,
   SCENARIO_ACTION_LABELS,
-  ScenarioAction,
+  SCENARIO_RANGES,
 } from "@/engines/scenarioRanges";
 import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_RANGES } from "@/lib/teachContent";
@@ -23,9 +22,6 @@ type Pos = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 
 const POSITIONS: Pos[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
 
-const SCENARIO_GROUPS = groupedScenarios();
-const MATCHUP_KEYS = Object.keys(SCENARIO_GROUPS);
-import { SCENARIO_RANGES } from "@/engines/scenarioRanges";
 const ALL_SCENARIO_STACKS = Array.from(
   new Set(SCENARIO_RANGES.map((s) => s.stackBB))
 ).sort((a, b) => a - b);
