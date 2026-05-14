@@ -7,10 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ACTION_COLORS, PreflopAction } from "@/engines/preflopRanges";
 import { POSITION_RANGE_CATALOG } from "@/engines/positionRangeCatalog";
 import { RangeMatrix, MatrixHandData } from "@/components/RangeMatrix";
+import { ScenarioMatrix } from "@/components/ScenarioMatrix";
+import {
+  groupedScenarios,
+  SCENARIO_ACTION_COLORS,
+  SCENARIO_ACTION_LABELS,
+  ScenarioAction,
+} from "@/engines/scenarioRanges";
 import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_RANGES } from "@/lib/teachContent";
 
-type RangeType = "open" | "3bet" | "defense" | "jam";
+type RangeType = "open" | "3bet" | "defense" | "jam" | "scenarios";
 type GameType = "cash" | "mtt";
 type Pos = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 
