@@ -141,7 +141,7 @@ export function RangeExplorer() {
                 <SelectContent>
                   <SelectItem value="20">20bb</SelectItem>
                   <SelectItem value="40">40bb</SelectItem>
-                  <SelectItem value="60">60bb</SelectItem>
+                  <SelectItem value="50">50bb</SelectItem>
                   <SelectItem value="100">100bb</SelectItem>
                   <SelectItem value="200">200bb</SelectItem>
                 </SelectContent>
