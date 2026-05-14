@@ -25,6 +25,10 @@ const POSITIONS: Pos[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
 
 const SCENARIO_GROUPS = groupedScenarios();
 const MATCHUP_KEYS = Object.keys(SCENARIO_GROUPS);
+import { SCENARIO_RANGES } from "@/engines/scenarioRanges";
+const ALL_SCENARIO_STACKS = Array.from(
+  new Set(SCENARIO_RANGES.map((s) => s.stackBB))
+).sort((a, b) => a - b);
 
 export function RangeExplorer() {
   const [open, setOpen] = useState(true);
@@ -35,15 +39,20 @@ export function RangeExplorer() {
   const [vsPosition, setVsPosition] = useState<string>("none");
   const [hovered, setHovered] = useState<MatrixHandData | null>(null);
 
-  // Scenario state
-  const [matchup, setMatchup] = useState<string>(MATCHUP_KEYS[0]);
-  const matchupScenarios = SCENARIO_GROUPS[matchup] ?? [];
+  // Scenario state — driven by stack first, then matchup
   const [scenarioStack, setScenarioStack] = useState<number>(
-    matchupScenarios[0]?.stackBB ?? 50,
+    ALL_SCENARIO_STACKS[0] ?? 50,
+  );
+  const scenariosAtStack = SCENARIO_RANGES.filter(
+    (s) => s.stackBB === scenarioStack,
+  );
+  const [scenarioId, setScenarioId] = useState<string>(
+    scenariosAtStack[0]?.id ?? SCENARIO_RANGES[0].id,
   );
   const scenario =
-    matchupScenarios.find((s) => s.stackBB === scenarioStack) ??
-    matchupScenarios[0];
+    scenariosAtStack.find((s) => s.id === scenarioId) ??
+    scenariosAtStack[0] ??
+    SCENARIO_RANGES[0];
 
   const info = POSITION_RANGE_CATALOG[position];
   const has3bet = !!info.matrix3bet;
