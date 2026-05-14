@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, LayoutGrid, Filter, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,9 @@ import { POSITION_RANGE_CATALOG } from "@/engines/positionRangeCatalog";
 import { RangeMatrix, MatrixHandData } from "@/components/RangeMatrix";
 import { ScenarioMatrix } from "@/components/ScenarioMatrix";
 import {
-  groupedScenarios,
   SCENARIO_ACTION_COLORS,
   SCENARIO_ACTION_LABELS,
-  ScenarioAction,
+  SCENARIO_RANGES,
 } from "@/engines/scenarioRanges";
 import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_RANGES } from "@/lib/teachContent";
@@ -23,9 +22,6 @@ type Pos = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 
 const POSITIONS: Pos[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
 
-const SCENARIO_GROUPS = groupedScenarios();
-const MATCHUP_KEYS = Object.keys(SCENARIO_GROUPS);
-import { SCENARIO_RANGES } from "@/engines/scenarioRanges";
 const ALL_SCENARIO_STACKS = Array.from(
   new Set(SCENARIO_RANGES.map((s) => s.stackBB))
 ).sort((a, b) => a - b);
@@ -40,11 +36,10 @@ export function RangeExplorer() {
   const [hovered, setHovered] = useState<MatrixHandData | null>(null);
 
   // Scenario state — driven by stack first, then matchup
-  const [scenarioStack, setScenarioStack] = useState<number>(
-    ALL_SCENARIO_STACKS[0] ?? 50,
-  );
-  const scenariosAtStack = SCENARIO_RANGES.filter(
-    (s) => s.stackBB === scenarioStack,
+  const [scenarioStack, setScenarioStack] = useState<number>(Number(stackDepth));
+  const scenariosAtStack = useMemo(
+    () => SCENARIO_RANGES.filter((s) => s.stackBB === scenarioStack),
+    [scenarioStack],
   );
   const [scenarioId, setScenarioId] = useState<string>(
     scenariosAtStack[0]?.id ?? SCENARIO_RANGES[0].id,
@@ -53,6 +48,21 @@ export function RangeExplorer() {
     scenariosAtStack.find((s) => s.id === scenarioId) ??
     scenariosAtStack[0] ??
     SCENARIO_RANGES[0];
+
+  useEffect(() => {
+    setScenarioStack(Number(stackDepth));
+  }, [stackDepth]);
+
+  useEffect(() => {
+    if (!scenariosAtStack.length) {
+      setScenarioId("");
+      return;
+    }
+
+    if (!scenariosAtStack.some((s) => s.id === scenarioId)) {
+      setScenarioId(scenariosAtStack[0].id);
+    }
+  }, [scenarioId, scenariosAtStack]);
 
   const info = POSITION_RANGE_CATALOG[position];
   const has3bet = !!info.matrix3bet;
@@ -135,9 +145,8 @@ export function RangeExplorer() {
             </TabsList>
           </Tabs>
 
-          {/* Filters — hidden in scenarios mode */}
-          {rangeType !== "scenarios" && (
-            <div className="grid grid-cols-3 gap-2">
+          {/* Filters */}
+          <div className={`grid gap-2 ${rangeType === "scenarios" ? "grid-cols-2" : "grid-cols-3"}`}>
               <Select value={gameType} onValueChange={v => setGameType(v as GameType)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -156,51 +165,22 @@ export function RangeExplorer() {
                   <SelectItem value="200">200bb</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={vsPosition} onValueChange={setVsPosition}>
-                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="vs" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">vs —</SelectItem>
-                  {POSITIONS.filter(p => p !== position).map(p => (
-                    <SelectItem key={p} value={p}>vs {p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {rangeType !== "scenarios" && (
+                <Select value={vsPosition} onValueChange={setVsPosition}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="vs" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">vs —</SelectItem>
+                    {POSITIONS.filter(p => p !== position).map(p => (
+                      <SelectItem key={p} value={p}>vs {p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-          )}
 
           {rangeType === "scenarios" ? (
             /* ============== SCENARIO MODE ============== */
             <div className="space-y-3">
-              {/* Stack picker — primary filter */}
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                  Stack depth
-                </div>
-                <div className="flex gap-1 flex-wrap">
-                  {ALL_SCENARIO_STACKS.map((bb) => (
-                    <button
-                      key={bb}
-                      onClick={() => {
-                        setScenarioStack(bb);
-                        const first = SCENARIO_RANGES.find(
-                          (s) => s.stackBB === bb,
-                        );
-                        if (first) setScenarioId(first.id);
-                      }}
-                      className={`px-3 py-1 rounded-md text-[11px] font-mono font-bold transition-all ${
-                        scenarioStack === bb
-                          ? bb <= 15
-                            ? "bg-destructive text-destructive-foreground"
-                            : "bg-primary text-primary-foreground"
-                          : "bg-muted/40 text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {bb}bb
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Matchup picker — filtered by stack */}
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
@@ -220,7 +200,11 @@ export function RangeExplorer() {
                 </Select>
               </div>
 
-              {scenario && (
+              {!scenariosAtStack.length ? (
+                <div className="rounded-md border border-border bg-background/50 p-4 text-xs text-muted-foreground">
+                  Aucun spot n&apos;est encore intégré pour {scenarioStack}bb.
+                </div>
+              ) : scenario && (
                 <>
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
