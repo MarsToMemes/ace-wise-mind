@@ -257,9 +257,9 @@ function scenarioCOvsBTN3bet50(): ScenarioRange {
   for (const hand of CO_OPEN_LIST) if (!h[hand]) h[hand] = "fold";
   return {
     id: "co_vs_btn3b_50",
-    label: "CO vs BTN 3bet · 50bb",
+    label: "CO open x2,5 vs BTN 3bet · 50bb",
     hero: "CO", villain: "BTN", stackBB: 50,
-    action: "CO x2,5 → BTN 3bet 7.5bb",
+    action: "CO open x2,5 → BTN 3bet 7.5bb",
     stats: [
       { action: "notInRange", pct: 0 }, // legend hint
       { action: "fold",       pct: 40.4 },
@@ -285,9 +285,9 @@ function scenarioCOvsBTN3bet20(): ScenarioRange {
   for (const hand of CO_OPEN_LIST) if (!h[hand]) h[hand] = "fold";
   return {
     id: "co_vs_btn3b_20",
-    label: "CO vs BTN 3bet shove · 20bb",
+    label: "CO open x2,5 vs BTN 3bet shove · 20bb",
     hero: "CO", villain: "BTN", stackBB: 20,
-    action: "CO x2,5 → BTN 3bet shove",
+    action: "CO open x2,5 → BTN 3bet shove",
     stats: [
       { action: "notInRange", pct: 0 },
       { action: "fold", pct: 54.3 },
