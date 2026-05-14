@@ -4,6 +4,8 @@ import {
   ScenarioRange,
   SCENARIO_ACTION_COLORS,
   SCENARIO_ACTION_LABELS,
+  HandEntry,
+  isMix,
 } from "@/engines/scenarioRanges";
 import {
   Dialog,
@@ -26,6 +28,20 @@ function combos(h: string) {
   return h.length === 2 ? 6 : h.endsWith("s") ? 4 : 12;
 }
 
+/** Build a CSS background for a cell — solid color or gradient for mixed */
+function cellBackground(entry: HandEntry): string {
+  if (!isMix(entry)) return SCENARIO_ACTION_COLORS[entry];
+  const stops: string[] = [];
+  let acc = 0;
+  for (const m of entry.mix) {
+    const c = SCENARIO_ACTION_COLORS[m.action];
+    stops.push(`${c} ${acc}%`);
+    acc += m.pct;
+    stops.push(`${c} ${acc}%`);
+  }
+  return `linear-gradient(90deg, ${stops.join(", ")})`;
+}
+
 interface Props {
   scenario: ScenarioRange;
 }
@@ -33,7 +49,7 @@ interface Props {
 export function ScenarioMatrix({ scenario }: Props) {
   const [picked, setPicked] = useState<{
     hand: string;
-    action: ScenarioAction;
+    entry: HandEntry;
   } | null>(null);
 
   const inRangeSet = scenario.inRange ? new Set(scenario.inRange) : null;
@@ -42,9 +58,17 @@ export function ScenarioMatrix({ scenario }: Props) {
   const handsList = Object.entries(scenario.hands);
   const totalCombosByAction: Record<string, number> = {};
   let totalCombos = 0;
-  for (const [hand, act] of handsList) {
-    totalCombosByAction[act] = (totalCombosByAction[act] ?? 0) + combos(hand);
-    totalCombos += combos(hand);
+  for (const [hand, entry] of handsList) {
+    const c = combos(hand);
+    totalCombos += c;
+    if (isMix(entry)) {
+      for (const m of entry.mix) {
+        totalCombosByAction[m.action] =
+          (totalCombosByAction[m.action] ?? 0) + c * (m.pct / 100);
+      }
+    } else {
+      totalCombosByAction[entry] = (totalCombosByAction[entry] ?? 0) + c;
+    }
   }
 
   return (
@@ -56,22 +80,26 @@ export function ScenarioMatrix({ scenario }: Props) {
         {RANKS.map((_, r) =>
           RANKS.map((__, c) => {
             const label = handLabel(r, c);
-            let action: ScenarioAction | undefined = scenario.hands[label];
-            if (!action) {
-              if (inRangeSet && !inRangeSet.has(label)) action = "notInRange";
-              else action = "fold";
+            let entry: HandEntry | undefined = scenario.hands[label];
+            if (!entry) {
+              if (inRangeSet && !inRangeSet.has(label)) entry = "notInRange";
+              else entry = "fold";
             }
-            const isDim = action === "notInRange";
+            const isDim = entry === "notInRange";
             return (
               <button
                 key={label}
-                onClick={() => setPicked({ hand: label, action: action! })}
+                onClick={() => setPicked({ hand: label, entry: entry! })}
                 className="relative aspect-square rounded-sm cursor-pointer transition-transform duration-150 hover:scale-110 hover:z-10 hover:ring-2 hover:ring-primary"
                 style={{
-                  background: SCENARIO_ACTION_COLORS[action],
+                  background: cellBackground(entry),
                   opacity: isDim ? 0.35 : 1,
                 }}
-                title={`${label} → ${SCENARIO_ACTION_LABELS[action]}`}
+                title={
+                  isMix(entry)
+                    ? `${label} → ${entry.mix.map((m) => `${SCENARIO_ACTION_LABELS[m.action]} ${m.pct}%`).join(" / ")}`
+                    : `${label} → ${SCENARIO_ACTION_LABELS[entry]}`
+                }
               >
                 <span className="absolute inset-0 flex items-center justify-center text-[9px] font-mono font-bold text-foreground mix-blend-difference">
                   {label}
@@ -82,29 +110,28 @@ export function ScenarioMatrix({ scenario }: Props) {
         )}
       </div>
 
-      {/* Popup */}
       <Dialog open={!!picked} onOpenChange={(o) => !o && setPicked(null)}>
         <DialogContent className="max-w-xs">
           {picked && (() => {
-            const stat = scenario.stats.find((s) => s.action === picked.action);
-            const actionCombos = totalCombosByAction[picked.action] ?? 0;
-            const sharePct = totalCombos
-              ? (actionCombos / totalCombos) * 100
-              : 0;
+            const entry = picked.entry;
+            const mix = isMix(entry)
+              ? entry.mix
+              : [{ action: entry as ScenarioAction, pct: 100 }];
+            const handEv = scenario.handEV?.[picked.hand];
             return (
               <>
                 <DialogHeader>
-                  <DialogTitle className="font-mono text-2xl flex items-center gap-3">
+                  <DialogTitle className="font-mono text-2xl flex items-center gap-2 flex-wrap">
                     {picked.hand}
-                    <span
-                      className="text-xs font-sans px-2 py-0.5 rounded-md"
-                      style={{
-                        background: SCENARIO_ACTION_COLORS[picked.action],
-                        color: "white",
-                      }}
-                    >
-                      {SCENARIO_ACTION_LABELS[picked.action]}
-                    </span>
+                    {mix.map((m) => (
+                      <span
+                        key={m.action}
+                        className="text-xs font-sans px-2 py-0.5 rounded-md text-white"
+                        style={{ background: SCENARIO_ACTION_COLORS[m.action] }}
+                      >
+                        {SCENARIO_ACTION_LABELS[m.action]} {mix.length > 1 ? `${m.pct}%` : ""}
+                      </span>
+                    ))}
                   </DialogTitle>
                   <DialogDescription className="text-xs">
                     {scenario.label} · {scenario.action}
@@ -112,27 +139,38 @@ export function ScenarioMatrix({ scenario }: Props) {
                 </DialogHeader>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between border-b border-border/50 pb-2">
-                    <span className="text-muted-foreground">Action share</span>
-                    <span className="font-mono">
-                      {sharePct.toFixed(1)}% ({combos(picked.hand)} combos)
-                    </span>
+                    <span className="text-muted-foreground">Combos</span>
+                    <span className="font-mono">{combos(picked.hand)}</span>
                   </div>
-                  {stat && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Scenario freq</span>
-                      <span className="font-mono">{stat.pct}%</span>
-                    </div>
-                  )}
-                  {stat?.sizing && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Sizing</span>
-                      <span className="font-mono">{stat.sizing}</span>
-                    </div>
-                  )}
-                  {stat?.ev && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">EV</span>
-                      <span className="font-mono text-primary">{stat.ev}</span>
+                  {mix.map((m) => {
+                    const stat = scenario.stats.find((s) => s.action === m.action);
+                    return (
+                      <div key={m.action} className="space-y-1 border-b border-border/30 pb-2 last:border-0">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">
+                            {SCENARIO_ACTION_LABELS[m.action]} freq
+                          </span>
+                          <span className="font-mono">{m.pct}%</span>
+                        </div>
+                        {stat?.sizing && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Sizing</span>
+                            <span className="font-mono">{stat.sizing}</span>
+                          </div>
+                        )}
+                        {stat?.ev && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-muted-foreground">Scenario EV</span>
+                            <span className="font-mono text-primary">{stat.ev}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {handEv && (
+                    <div className="flex justify-between pt-1">
+                      <span className="text-muted-foreground">Hand EV</span>
+                      <span className="font-mono text-primary">{handEv}</span>
                     </div>
                   )}
                 </div>
