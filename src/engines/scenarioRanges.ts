@@ -643,6 +643,60 @@ function scenarioSBOpen20(): ScenarioRange {
   };
 }
 
+// =====================================================================
+// SCENARIO 14 — BTN Opens · 100bb (deep, wide opening range)
+// =====================================================================
+function scenarioBTNOpen100(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  // Raise (orange) — very wide
+  assign(h, [
+    // All pairs
+    "AA","KK","QQ","JJ","TT","99","88","77","66","55","44","33","22",
+    // All suited aces + AKo/AQo/AJo
+    "AKs","AQs","AJs","ATs","A9s","A8s","A7s","A6s","A5s","A4s","A3s","A2s",
+    "AKo","AQo","AJo",
+    // Suited Kings down to K6s + KQo/KJo
+    "KQs","KJs","KTs","K9s","K8s","K7s","K6s",
+    "KQo","KJo",
+    // Queens / Jacks
+    "QJs","QTs","Q9s","Q8s","Q7s","QJo",
+    "JTs","J9s","J8s","J7s","JTo",
+    // Tens / connectors
+    "T9s","T8s","T7s",
+    "98s","97s","87s","86s","76s","75s","65s","64s","63s","54s",
+    // Borderline low suited jacks/tens
+    "J2s","T2s",
+  ], "raise");
+  // Loosie (green) — borderline +EV opens
+  assign(h, ["K5s","Q7s","J7s","T7s","84s"], "loosie");
+  h["A2s"] = { mix: [{ action: "raise", pct: 50 }, { action: "loosie", pct: 50 }] };
+  h["76s"] = { mix: [{ action: "raise", pct: 50 }, { action: "loosie", pct: 50 }] };
+  h["63s"] = { mix: [{ action: "raise", pct: 50 }, { action: "loosie", pct: 50 }] };
+  // Tightfie (blue) — borderline -EV opens
+  assign(h, ["43s","T3s","J3s"], "tightfie");
+  h["87s"] = { mix: [{ action: "raise", pct: 50 }, { action: "tightfie", pct: 50 }] };
+  h["K6s"] = { mix: [{ action: "raise", pct: 50 }, { action: "tightfie", pct: 50 }] };
+  return {
+    id: "btn_open_100",
+    label: "BTN opens · 100bb",
+    hero: "BTN", villain: "—", stackBB: 100,
+    action: "BTN RFI 2.5bb",
+    category: "openRaise",
+    stats: [
+      { action: "fold",     pct: 41.3 },
+      { action: "raise",    pct: 50.5, sizing: "2.5bb", ev: "+0.50 bb" },
+      { action: "loosie",   pct: 6.3 },
+      { action: "tightfie", pct: 1.8 },
+    ],
+    handEV: {
+      AA: "+13.20 bb", KK: "+10.10 bb", QQ: "+7.65 bb", AKs: "+6.40 bb",
+      "64s": "+0.24 bb",
+    },
+    notes: "BTN opens widen dramatically with depth: 33.6% at 19bb → 50.5% at 100bb. Sizing also increases (2.0bb → 2.5bb) as post-flop playability gains value. Marginal opens like 64s (EV +0.24bb) — raise at full frequency only vs weak opposition.",
+    hands: h,
+  };
+}
+
 export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBBvsCO50(),
   scenarioBBvsCO10(),
