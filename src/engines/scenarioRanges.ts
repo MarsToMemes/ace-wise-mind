@@ -11,6 +11,7 @@ export type ScenarioAction =
   | "4betLight"
   | "allin"
   | "raise"
+  | "limp"
   | "loosie"
   | "tightfie"
   | "notInRange";
@@ -24,6 +25,7 @@ export const SCENARIO_ACTION_COLORS: Record<ScenarioAction, string> = {
   "4betLight":"hsl(275 70% 60%)",   // purple
   allin:      "hsl(0 65% 45%)",     // dark red (#C0392B-ish)
   raise:      "hsl(28 90% 55%)",    // orange
+  limp:       "hsl(115 40% 65%)",   // light green (#82C785-ish)
   loosie:     "hsl(140 65% 45%)",   // green
   tightfie:   "hsl(204 70% 53%)",   // blue (#3498DB)
   notInRange: "hsl(0 0% 30%)",      // dim grey
@@ -38,9 +40,17 @@ export const SCENARIO_ACTION_LABELS: Record<ScenarioAction, string> = {
   "4betLight": "4bet light",
   allin: "All-in",
   raise: "Raise (open)",
+  limp: "Limp",
   loosie: "Loosie (loose open)",
   tightfie: "Tightfie (tight open)",
   notInRange: "Not in range",
+};
+
+/** Tooltip help text for actions (optional, shown in legends/UI) */
+export const SCENARIO_ACTION_TOOLTIPS: Partial<Record<ScenarioAction, string>> = {
+  limp: "SB can limp because it acts last preflop vs BB only.",
+  loosie: "Loosie = open raise at a looser threshold (borderline +EV).",
+  tightfie: "Tightfie = open raise at a tighter threshold (borderline -EV, exploitable spot).",
 };
 
 export type ScenarioCategory = "vsOpen" | "vs3bet" | "openRaise";
