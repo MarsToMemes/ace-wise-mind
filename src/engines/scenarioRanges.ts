@@ -711,6 +711,7 @@ export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBTNvsCO50(),
   scenarioCOOpen50(),
   scenarioSBOpen20(),
+  scenarioBTNOpen100(),
 ];
 
 /** Group scenarios by matchup (hero+villain) for the stack toggle */
