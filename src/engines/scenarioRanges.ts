@@ -591,6 +591,58 @@ function scenarioCOOpen50(): ScenarioRange {
   };
 }
 
+// =====================================================================
+// SCENARIO 13 — SB Opens · 20bb (limp-heavy short-stack strategy)
+// =====================================================================
+function scenarioSBOpen20(): ScenarioRange {
+  const h: Record<string, HandEntry> = {};
+  // Raise (orange)
+  assign(h, [
+    "AA","AK","AQ","AJo",
+    "AJs","ATs","A9s","A8s","A7s","A6s",
+    "KK","KQ","KJs",
+    "QQ","QJs",
+    "JJ","TT",
+  ], "raise");
+  // All-in (dark red)
+  assign(h, ["55","44","33","22","A2s","A3s","A4s","A5s"], "allin");
+  // Limp (light green) — wide
+  assign(h, [
+    "99","88","77","66",
+    "K9s-K2s","Q9s-Q2s","J9s-J2s",
+    "T9s-T2s","98s","97s","96s","95s","94s","93s","92s",
+    "87s","86s","85s","84s","83s","82s",
+    "76s","75s","74s","73s","72s",
+    "65s","64s","63s","62s",
+    "54s","53s","52s","43s","42s","32s",
+    "A5o","A4o","A3o","A2o",
+    "K8o","K7o","K6o","K5o","K4o","K3o","K2o",
+    "Q8o","Q7o","Q6o","Q5o","Q4o","Q3o","Q2o",
+    "KQo","KJo","KTo","K9o",
+    "QJo","QTo","Q9o",
+    "JTo","J9o","J8o","J7o","J6o","J5o",
+    "T9o","T8o","T7o","T6o",
+    "98o","97o","87o","76o","65o",
+    "ATo","A9o","A8o","A7o","A6o",
+  ], "limp");
+  return {
+    id: "sb_open_20",
+    label: "SB opens · 20bb",
+    hero: "SB", villain: "—", stackBB: 20,
+    action: "SB opens (limp-heavy)",
+    category: "openRaise",
+    stackBadgeColor: "bg-destructive text-destructive-foreground",
+    stats: [
+      { action: "fold",  pct: 28.1 },
+      { action: "limp",  pct: 45.1, sizing: "1bb", ev: "+0.18 bb" },
+      { action: "raise", pct: 16.9, sizing: "3.0bb", ev: "+0.62 bb" },
+      { action: "allin", pct: 10.0, ev: "+0.85 bb" },
+    ],
+    notes: "Short-stack SB: limp-heavy strategy to see cheap flops and preserve stack. SB is the only position that can limp (acts last preflop vs BB only).",
+    hands: h,
+  };
+}
+
 export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBBvsCO50(),
   scenarioBBvsCO10(),
@@ -604,6 +656,7 @@ export const SCENARIO_RANGES: ScenarioRange[] = [
   scenarioBTNvsMP20(),
   scenarioBTNvsCO50(),
   scenarioCOOpen50(),
+  scenarioSBOpen20(),
 ];
 
 /** Group scenarios by matchup (hero+villain) for the stack toggle */
