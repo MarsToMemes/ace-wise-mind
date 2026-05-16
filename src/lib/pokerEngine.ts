@@ -179,6 +179,65 @@ export function potOdds(call: number, pot: number) {
   return { odds, reqEquity: odds * 100 };
 }
 
+/**
+ * Alpha (bet-to-pot ratio after both players invest)
+ * Alpha = Bet / (Pot before + Bet + Call) = Bet / (Pot + 2*Bet)
+ */
+export function calculateAlpha(bet: number, pot: number): number {
+  const finalPot = pot + bet + bet;
+  if (finalPot <= 0) return 0;
+  return bet / finalPot;
+}
+
+/**
+ * Optimal bluff-to-value ratio based on alpha.
+ * ratio = alpha / (1 - alpha)
+ */
+export function optimalBluffToValueRatio(alpha: number): {
+  bluffs: number;
+  value: number;
+  ratio: string;
+  explanation: string;
+} {
+  const safeAlpha = Math.min(Math.max(alpha, 0), 0.999);
+  const ratioDecimal = safeAlpha / (1 - safeAlpha);
+  const value = 10;
+  const bluffs = Math.round(ratioDecimal * value);
+  return {
+    bluffs,
+    value,
+    ratio: `${bluffs}:${value}`,
+    explanation: `For every ${value} value bets, you need ${bluffs} bluffs to stay balanced.`,
+  };
+}
+
+/**
+ * Minimum Defense Frequency vs a bet.
+ * MDF = Pot / (Pot + Bet)
+ */
+export function calculateMDF(bet: number, pot: number): number {
+  const denom = pot + bet;
+  if (denom <= 0) return 0;
+  return pot / denom;
+}
+
+/**
+ * Max fold % allowed before becoming exploitable (1 - MDF).
+ */
+export function maxFoldPercentage(mdf: number): {
+  mdf: number;
+  maxFold: number;
+  explanation: string;
+} {
+  const mdfPercent = mdf * 100;
+  const maxFoldPercent = (1 - mdf) * 100;
+  return {
+    mdf: Math.round(mdfPercent * 10) / 10,
+    maxFold: Math.round(maxFoldPercent * 10) / 10,
+    explanation: `You must defend at least ${mdfPercent.toFixed(1)}% of your range. You can fold up to ${maxFoldPercent.toFixed(1)}%.`,
+  };
+}
+
 // Equity estimation — Rule of 4 (flop→river) and Rule of 2 (turn→river / per street).
 export function estimateEquity(outs: number, boardLen: number, backdoorOuts = 0): number {
   if (outs <= 0 && backdoorOuts <= 0) return 0;
