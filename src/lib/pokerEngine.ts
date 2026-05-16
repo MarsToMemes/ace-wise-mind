@@ -245,8 +245,138 @@ export function estimateEquity(outs: number, boardLen: number, backdoorOuts = 0)
   if (boardLen <= 3) pct = outs * 4;       // flop → river
   else if (boardLen === 4) pct = outs * 2; // turn → river
   else pct = 0;                             // river — no draws
-  if (boardLen === 3 && backdoorOuts > 0) pct += backdoorOuts * 0.5; // backdoor ~ half an out
+  // Acevedo (Modern Poker Theory): BDFD/BDSTD ≈ 4% equity ≈ 1 full out.
+  // BDFD completes ~4.16% (9/47 * 8/46); BDSTD ~4.26%.
+  if (boardLen === 3 && backdoorOuts > 0) pct += backdoorOuts * 1.0;
   return Math.max(0, Math.min(100, pct));
+}
+
+/**
+ * Equity Buckets (Acevedo, Modern Poker Theory Ch.10).
+ * Classifies a hand relative to villain's range equity.
+ */
+export function classifyByEquityBucket(handEquity: number): {
+  bucket: "Strong" | "Good" | "Weak" | "Trash";
+  threshold: string;
+  playingAdvice: string;
+} {
+  if (handEquity >= 75) return {
+    bucket: "Strong", threshold: "≥75% equity",
+    playingAdvice: "Bet for value, build the pot. Can bet multiple streets.",
+  };
+  if (handEquity >= 50) return {
+    bucket: "Good", threshold: "50-74% equity",
+    playingAdvice: "Bet for value + protection, or pot control if OOP/multiway.",
+  };
+  if (handEquity >= 33) return {
+    bucket: "Weak", threshold: "33-49% equity",
+    playingAdvice: "Semi-bluff with fold equity, or give up if no outs/FE.",
+  };
+  return {
+    bucket: "Trash", threshold: "<33% equity",
+    playingAdvice: "Pure bluff if high fold equity, otherwise fold.",
+  };
+}
+
+/**
+ * Detect "dead outs" — outs that complete our hand but give villain a better one.
+ */
+export function detectDeadOuts(
+  holeCards: string[],
+  boardCards: string[],
+  outs: number,
+): { liveOuts: number; deadOuts: number; reason: string } {
+  if (outs === 0) return { liveOuts: 0, deadOuts: 0, reason: "No draw" };
+
+  const allCards = [...holeCards, ...boardCards];
+  const suitCounts = allCards.reduce((acc, c) => {
+    acc[c[1]] = (acc[c[1]] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  const maxSuit = Math.max(...Object.values(suitCounts));
+  const flushDrawOnBoard = maxSuit >= 3;
+  const ourSuits = holeCards.map(c => c[1]);
+  const haveFlushDraw = ourSuits[0] === ourSuits[1];
+
+  let deadOuts = 0;
+  let reason = "";
+
+  if (outs >= 4 && outs <= 8 && flushDrawOnBoard && !haveFlushDraw) {
+    const boardSuit = Object.keys(suitCounts).find(s => suitCounts[s] >= 3);
+    if (boardSuit) {
+      deadOuts = Math.round(outs * 0.25);
+      reason = `Board has flush draw (${maxSuit} ${SUIT_SYMBOLS[boardSuit] ?? boardSuit}). ~${deadOuts} of your straight outs complete villain's flush.`;
+    }
+  }
+
+  if (haveFlushDraw && outs >= 9) {
+    const rankCounts = allCards.reduce((acc, c) => {
+      acc[c[0]] = (acc[c[0]] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    if (Object.values(rankCounts).some(v => v >= 2)) {
+      deadOuts = 1;
+      reason = "Board is paired. Some flush outs may complete opponent's full house.";
+    }
+  }
+
+  return {
+    liveOuts: Math.max(0, outs - deadOuts),
+    deadOuts,
+    reason: deadOuts > 0 ? reason : "All outs are live",
+  };
+}
+
+/**
+ * C-bet frequency recommendation by board texture (Acevedo Ch.12).
+ */
+export function recommendCbetFrequency(
+  texture: "Dry" | "Semi-wet" | "Wet",
+  boardCards: string[],
+): {
+  frequency: "Very High" | "High" | "Medium" | "Low";
+  percentage: string;
+  reasoning: string;
+} {
+  const ranks = boardCards.map(c => c[0]);
+  const rankCounts = ranks.reduce((acc, r) => {
+    acc[r] = (acc[r] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  const isPaired = Object.values(rankCounts).some(c => c >= 2);
+  const isTrips = Object.values(rankCounts).some(c => c === 3);
+  const isAceHigh = ranks.includes("A");
+  const rankValues = ranks.map(r => rankVal(r));
+  const avgRank = rankValues.reduce((a, b) => a + b, 0) / Math.max(1, rankValues.length);
+
+  if (isTrips) return {
+    frequency: "Very High", percentage: "85-95%",
+    reasoning: "Trips board strongly favors PFI. Villain has very few trips combos.",
+  };
+  if (isPaired && isAceHigh && texture === "Dry") return {
+    frequency: "Very High", percentage: "80-90%",
+    reasoning: "Paired A-high dry board. PFI has many overpairs and premium overcards.",
+  };
+  if (texture === "Dry" && avgRank >= 11) return {
+    frequency: "High", percentage: "70-80%",
+    reasoning: "High dry board (K/Q/J-high). PFI range advantage with overpairs.",
+  };
+  if (isPaired && !isAceHigh) return {
+    frequency: "High", percentage: "65-75%",
+    reasoning: "Paired board. PFI has more overpairs, but villain connects decently.",
+  };
+  if (texture === "Semi-wet" || (texture === "Dry" && avgRank < 10)) return {
+    frequency: "Medium", percentage: "50-65%",
+    reasoning: "Middle or semi-wet texture. Ranges run closer. Mix checks and bets.",
+  };
+  if (texture === "Wet" && avgRank < 10) return {
+    frequency: "Low", percentage: "40-50%",
+    reasoning: "Low connected wet board (876, 765, 654). Strongly favors calling range.",
+  };
+  return {
+    frequency: "Medium", percentage: "55-65%",
+    reasoning: "Neutral texture. Standard c-bet frequency.",
+  };
 }
 
 // Score modifiers based on draw, texture, position
