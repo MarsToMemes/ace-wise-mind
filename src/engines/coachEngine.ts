@@ -109,7 +109,35 @@ export function generateCoachAnalysis(inp: CoachEngineInput): AIAnalysis {
     ? `Texture: ${inp.texture ?? "?"}. Position: ${ip ? "IP" : "OOP"} (${inp.position}). ${inp.opponents >= 2 ? "Multiway." : "Heads-up."}`
     : `Texture: ${inp.texture ?? "?"}. Position: ${ip ? "IP" : "OOP"} (${inp.position}). ${inp.opponents >= 2 ? "Multiway." : "Heads-up."}`;
 
-  const reasoning = `${handLine} ${equityLine} ${textureLine}${tournamentNote} ${sizingLine}`.replace(/\s+/g, " ").trim();
+  // GTO overlay: Alpha (when hero bets/raises) and MDF (when hero faces a bet)
+  let gtoLine = "";
+  const sz = inp.sizing;
+  if (sz && sz.amountBB > 0 && (sz.heroAction === "Bet" || sz.heroAction === "Raise") && inp.street !== "Preflop") {
+    const pctTarget = (sz.pctMin + sz.pctMax) / 200; // midpoint, % → decimal
+    if (pctTarget > 0) {
+      const potEstimate = sz.amountBB / pctTarget;
+      const alpha = calculateAlpha(sz.amountBB, potEstimate);
+      const ratio = optimalBluffToValueRatio(alpha);
+      const interp = alpha < 0.25
+        ? (FR ? " Petit bet → range peut contenir beaucoup de bluffs." : " Small bet → range can include many bluffs.")
+        : alpha > 0.4
+        ? (FR ? " Gros bet → range fortement orientée value." : " Large bet → range heavily weighted to value.")
+        : (FR ? " Bet médian → mix équilibré value/bluff." : " Medium bet → balanced value/bluff mix.");
+      gtoLine += FR
+        ? ` Alpha = ${(alpha * 100).toFixed(1)}%. Pour 10 value bets, ${ratio.bluffs} bluffs pour rester équilibré.${interp}`
+        : ` Alpha = ${(alpha * 100).toFixed(1)}%. For every 10 value bets, ${ratio.bluffs} bluffs to stay balanced.${interp}`;
+    }
+  }
+  if (sz?.facingBet && reqEq != null && reqEq > 0 && reqEq < 100) {
+    // potOdds = call/(pot+call) = reqEq/100 → MDF = 1 - potOdds
+    const mdf = 1 - reqEq / 100;
+    const fl = maxFoldPercentage(mdf);
+    gtoLine += FR
+      ? ` MDF: défends ≥ ${fl.mdf.toFixed(1)}% de ta range (fold max ${fl.maxFold.toFixed(1)}%).`
+      : ` MDF: defend ≥ ${fl.mdf.toFixed(1)}% of your range (max fold ${fl.maxFold.toFixed(1)}%).`;
+  }
+
+  const reasoning = `${handLine} ${equityLine} ${textureLine}${tournamentNote} ${sizingLine}${gtoLine}`.replace(/\s+/g, " ").trim();
 
   // Push/fold override note
   const pfNote = t?.pushFold
