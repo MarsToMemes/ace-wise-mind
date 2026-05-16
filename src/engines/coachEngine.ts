@@ -42,6 +42,8 @@ export interface CoachEngineInput {
     aggregateBluffFreq: number;
     opponents: Array<{ position?: string; estimatedStrength: number; rangeType: string }>;
   } | null;
+  holeCards?: string[];
+  boardCards?: string[];
   // Context
   street: "Preflop" | "Flop" | "Turn" | "River";
   position: string;
