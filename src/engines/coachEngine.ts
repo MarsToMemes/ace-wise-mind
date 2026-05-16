@@ -6,6 +6,9 @@ import {
   optimalBluffToValueRatio,
   calculateMDF,
   maxFoldPercentage,
+  classifyByEquityBucket,
+  detectDeadOuts,
+  recommendCbetFrequency,
 } from "@/lib/pokerEngine";
 
 export interface CoachEngineInput {
