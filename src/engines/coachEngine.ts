@@ -6,6 +6,9 @@ import {
   optimalBluffToValueRatio,
   calculateMDF,
   maxFoldPercentage,
+  classifyByEquityBucket,
+  detectDeadOuts,
+  recommendCbetFrequency,
 } from "@/lib/pokerEngine";
 
 export interface CoachEngineInput {
@@ -39,6 +42,8 @@ export interface CoachEngineInput {
     aggregateBluffFreq: number;
     opponents: Array<{ position?: string; estimatedStrength: number; rangeType: string }>;
   } | null;
+  holeCards?: string[];
+  boardCards?: string[];
   // Context
   street: "Preflop" | "Flop" | "Turn" | "River";
   position: string;
@@ -135,6 +140,39 @@ export function generateCoachAnalysis(inp: CoachEngineInput): AIAnalysis {
     gtoLine += FR
       ? ` MDF: défends ≥ ${fl.mdf.toFixed(1)}% de ta range (fold max ${fl.maxFold.toFixed(1)}%).`
       : ` MDF: defend ≥ ${fl.mdf.toFixed(1)}% of your range (max fold ${fl.maxFold.toFixed(1)}%).`;
+  }
+
+  // Equity Bucket classification (Acevedo)
+  if (eq > 0) {
+    const b = classifyByEquityBucket(eq);
+    gtoLine += FR
+      ? ` Equity Bucket: ${b.bucket} (${b.threshold}) — ${b.playingAdvice}`
+      : ` Equity Bucket: ${b.bucket} (${b.threshold}) — ${b.playingAdvice}`;
+  }
+
+  // Dead outs warning (when we have a draw and board cards)
+  if (outs > 0 && inp.holeCards && inp.boardCards && inp.boardCards.length >= 3) {
+    const dead = detectDeadOuts(inp.holeCards, inp.boardCards, outs);
+    if (dead.deadOuts > 0) {
+      gtoLine += FR
+        ? ` ⚠️ Dead outs: ${dead.reason} Outs vivants: ${dead.liveOuts} (${dead.deadOuts} morts).`
+        : ` ⚠️ Dead outs: ${dead.reason} Live outs: ${dead.liveOuts} (${dead.deadOuts} dead).`;
+    }
+  }
+
+  // C-bet frequency by texture (flop only)
+  if (inp.street === "Flop" && inp.texture && inp.boardCards && inp.boardCards.length >= 3) {
+    const cb = recommendCbetFrequency(inp.texture as "Dry" | "Semi-wet" | "Wet", inp.boardCards);
+    gtoLine += FR
+      ? ` C-bet: ${cb.frequency} (${cb.percentage}) — ${cb.reasoning}`
+      : ` C-bet frequency: ${cb.frequency} (${cb.percentage}) — ${cb.reasoning}`;
+  }
+
+  // ICM limitations note (bubble / final table)
+  if (t && (t.isNearBubble || t.isFinalTable)) {
+    gtoLine += FR
+      ? " ⚠️ Limites ICM: calculs en vacuum (ignore blinds futures), suppose skill égal, ignore valeur de position et image de table. À utiliser comme guide, pas comme vérité absolue."
+      : " ⚠️ ICM limitations: vacuum calculation (ignores future blinds), assumes equal skill, ignores positional value and table image. Use as guideline, not absolute truth.";
   }
 
   const reasoning = `${handLine} ${equityLine} ${textureLine}${tournamentNote} ${sizingLine}${gtoLine}`.replace(/\s+/g, " ").trim();
