@@ -1,6 +1,12 @@
 // Local deterministic coach — zero API calls.
 // Translates engine outputs into a human-readable AIAnalysis.
 import type { AIAnalysis } from "@/components/AIPanel";
+import {
+  calculateAlpha,
+  optimalBluffToValueRatio,
+  calculateMDF,
+  maxFoldPercentage,
+} from "@/lib/pokerEngine";
 
 export interface CoachEngineInput {
   // Engine outputs (already computed client-side)
