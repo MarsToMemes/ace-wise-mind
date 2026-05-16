@@ -709,9 +709,17 @@ export function recommendSizing(s: SizingInput): SizingOutput {
   const adjText = adjustments.length ? ` Adjustments: ${adjustments.join(", ")}.` : "";
   const verb = heroAction === "Raise" ? "Raise to" : "Bet";
   const tableCtx = headsUp ? "HU" : `${opponents + 1}-way`;
+
+  let gtoText = "";
+  if (street !== "Preflop" && amountBB > 0 && (intent === "Value" || intent === "Bluff" || intent === "Semi-Bluff")) {
+    const alpha = calculateAlpha(amountBB, pot);
+    const ratio = optimalBluffToValueRatio(alpha);
+    gtoText = ` Alpha = ${(alpha * 100).toFixed(1)}%. ${ratio.explanation}`;
+  }
+
   const explanation = street === "Preflop"
     ? `${verb} ${amountBB}x BB (${position}, ${tableCtx}). ${reason}${adjText}`
-    : `${verb} ${amountBB} BB (~${pctTarget}% pot, ${tableCtx}). Intent: ${intent}. ${reason}${adjText}`;
+    : `${verb} ${amountBB} BB (~${pctTarget}% pot, ${tableCtx}). Intent: ${intent}. ${reason}${adjText}${gtoText}`;
 
   return {
     intent, heroAction, facingBet, inPosition,
