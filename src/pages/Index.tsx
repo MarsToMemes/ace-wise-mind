@@ -37,6 +37,7 @@ import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { RangeExplorer } from "@/components/RangeExplorer";
+import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
@@ -632,6 +633,13 @@ const Index = () => {
                 <BankrollPanel />
 
                 <PolarizationPanel result={polarization} />
+
+                <RangeTrackerPanel
+                  hole={hole}
+                  board={board}
+                  potBB={dynamicPot}
+                  texture={(engine?.texture as "Dry" | "Semi-wet" | "Wet") ?? "Semi-wet"}
+                />
 
                 <JamFoldPanel
                   defaultPotBB={dynamicPot}
