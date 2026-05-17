@@ -634,6 +634,13 @@ const Index = () => {
 
                 <PolarizationPanel result={polarization} />
 
+                <RangeTrackerPanel
+                  hole={hole}
+                  board={board}
+                  potBB={dynamicPot}
+                  texture={(engine?.texture as "Dry" | "Semi-wet" | "Wet") ?? "Semi-wet"}
+                />
+
                 <JamFoldPanel
                   defaultPotBB={dynamicPot}
                   defaultStackBB={stack}
