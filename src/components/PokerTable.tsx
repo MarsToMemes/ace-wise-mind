@@ -56,12 +56,14 @@ interface Props {
   seatStacksBB?: number[];
   levelTimerSec?: number;
   flashMRatio?: boolean;
+  /** Pseudo et profil du joueur associé à chaque siège (fiches joueurs). */
+  seatNames?: ({ name: string; profile: string; tone: string } | undefined)[];
 }
 
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
   currentBet, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
-  tournamentState, seatStacksBB, levelTimerSec, flashMRatio,
+  tournamentState, seatStacksBB, levelTimerSec, flashMRatio, seatNames,
 }: Props) => {
   const { t } = useI18n();
   const [actionSeat, setActionSeat] = useState<number | null>(null);
@@ -193,6 +195,21 @@ export const PokerTable = ({
                 {isUser && !isFolded && <span className="text-[8px] opacity-80 leading-none">{t("table.you2")}</span>}
                 {isFolded && <span className="text-[8px] leading-none">{t("table.foldedBadge")}</span>}
               </button>
+
+              {/* Pseudo du joueur associé (fiche) */}
+              {seatNames?.[i] && (
+                <div
+                  className="absolute -translate-x-1/2 pointer-events-none flex flex-col items-center gap-0.5"
+                  style={{ left: `${x}%`, top: `calc(${y}% - 54px)` }}
+                >
+                  <span className="max-w-[84px] truncate px-1.5 py-0.5 rounded bg-card/95 border border-border text-[10px] font-semibold text-foreground shadow">
+                    {seatNames[i]!.name}
+                  </span>
+                  <span className={cn("px-1 rounded text-[8px] font-semibold border bg-card/90 leading-tight", seatNames[i]!.tone)}>
+                    {seatNames[i]!.profile}
+                  </span>
+                </div>
+              )}
 
               {/* Chips in front of player */}
               {contrib > 0 && !isFolded && (
