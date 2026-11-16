@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { usePlayers } from "@/hooks/use-players";
+import { classify, Profile } from "@/engines/playerStats";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -58,6 +60,17 @@ export function RangeTrackerPanel({ hole, board, potBB = 20, texture = "Semi-wet
 
   // New bluff-detection inputs
   const [villainType, setVillainType] = useState<VillainType>("Unknown");
+  // Fiche joueur : le type d'adversaire se règle tout seul depuis son profil calculé.
+  const { players, table } = usePlayers();
+  const [villainId, setVillainId] = useState("");
+  const PROFILE_TO_TYPE: Record<Profile, VillainType> = {
+    Nit: "Nit", TAG: "TAG", LAG: "LAG", Maniac: "Maniac", Station: "Station", FishLimper: "Whale", Unknown: "Unknown",
+  };
+  useEffect(() => {
+    const p = villainId ? players[villainId] : undefined;
+    if (p) setVillainType(PROFILE_TO_TYPE[classify(p.counters).profile]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [villainId, players]);
   const [relPosition, setRelPosition] = useState<PositionRel>("IP");
   const [villainStackBB, setVillainStackBB] = useState(100);
   const [isLive, setIsLive] = useState(false);
@@ -141,6 +154,16 @@ export function RangeTrackerPanel({ hole, board, potBB = 20, texture = "Semi-wet
       <div className="rounded-lg border p-3 space-y-3 bg-muted/20">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bluff Detection Context</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="space-y-1 col-span-2 md:col-span-4">
+            <Label className="text-xs">Adversaire (fiche joueur)</Label>
+            <select value={villainId} onChange={e => setVillainId(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
+              <option value="">— choisir à la main ci-dessous —</option>
+              {(table.length ? table : Object.keys(players)).map(id => players[id] && (
+                <option key={id} value={id}>{players[id].name} · {classify(players[id].counters).profile} · {players[id].counters.hands} mains</option>
+              ))}
+            </select>
+          </div>
           <FieldSelect label="Villain Type" value={villainType} onChange={(v) => setVillainType(v as VillainType)}
             options={["Unknown","Nit","TAG","LAG","Maniac","Station","Whale"]} />
           <FieldSelect label="Villain vs Hero" value={relPosition} onChange={(v) => setRelPosition(v as PositionRel)}

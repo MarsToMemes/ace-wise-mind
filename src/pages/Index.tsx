@@ -39,6 +39,9 @@ import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
+import { MyTablePanel } from "@/components/MyTablePanel";
+import { countAnalyzedHand } from "@/engines/playerStats";
+import { getSeatPlayers, addStatsMany, loadPlayers } from "@/lib/playersStore";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 
@@ -320,7 +323,32 @@ const Index = () => {
     }
   };
 
+  // Compte la main saisie dans les fiches des joueurs associés aux sièges.
+  const recordHandForPlayers = () => {
+    const seatMap = getSeatPlayers();
+    if (!actionHistory.length || !Object.keys(seatMap).length || dealerIdx < 0) return;
+    const positions: Record<number, string> = {};
+    for (let i = 0; i < tableSize; i++) positions[i] = seatLabel(i, dealerIdx, tableSize);
+    const perSeat = countAnalyzedHand({
+      actions: actionHistory,
+      positions,
+      boardCards: flop.length + (turn ? 1 : 0) + (river ? 1 : 0),
+    });
+    const players = loadPlayers();
+    const deltas: Record<string, typeof perSeat[number]> = {};
+    for (const [seat, d] of Object.entries(perSeat)) {
+      const pid = seatMap[+seat];
+      if (pid && players[pid] && +seat !== userIdx) deltas[pid] = d;
+    }
+    const n = Object.keys(deltas).length;
+    if (n) {
+      addStatsMany(deltas);
+      toast.success(`Main comptée dans ${n} fiche${n > 1 ? "s" : ""} joueur.`);
+    }
+  };
+
   const reset = () => {
+    recordHandForPlayers();
     setHole([]); setFlop([]); setTurn(null); setRiver(null);
     setAiResult(null); setAiError(null);
     setPickMode("hole");
@@ -523,6 +551,7 @@ const Index = () => {
             {analyzerMode === "tournament" ? (
               <main className="py-6 space-y-6">
                 <TournamentPanel key={tournamentResetKey} />
+                <MyTablePanel />
                 <BountyKoPanel />
               </main>
             ) : (
@@ -534,6 +563,10 @@ const Index = () => {
                 pot={dynamicPot}
                 toCall={userToCall}
                 stack={stack}
+              />
+              <MyTablePanel
+                seatLabels={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : ""))}
+                heroSeat={userIdx}
               />
               <div className="grid lg:grid-cols-2 gap-8">
               <div className="space-y-6">
