@@ -1,3 +1,7 @@
+import { analyzeBoard } from "@/engines/boardTexture";
+import { boardAdvantage } from "@/engines/rangeVsRange";
+import { adviseCbet } from "@/engines/cbetAdvisor";
+import { POSITIONS, slotsFor, getRange, actsFirstPostflop } from "@/engines/matchupRanges";
 // Local deterministic coach — zero API calls.
 // Translates engine outputs into a human-readable AIAnalysis.
 import type { AIAnalysis } from "@/components/AIPanel";
@@ -8,7 +12,6 @@ import {
   maxFoldPercentage,
   classifyByEquityBucket,
   detectDeadOuts,
-  recommendCbetFrequency,
 } from "@/lib/pokerEngine";
 
 export interface CoachEngineInput {
@@ -160,12 +163,18 @@ export function generateCoachAnalysis(inp: CoachEngineInput): AIAnalysis {
     }
   }
 
-  // C-bet frequency by texture (flop only)
-  if (inp.street === "Flop" && inp.texture && inp.boardCards && inp.boardCards.length >= 3) {
-    const cb = recommendCbetFrequency(inp.texture as "Dry" | "Semi-wet" | "Wet", inp.boardCards);
+  // C-bet par avantage range contre range (flop only)
+  if (inp.street === "Flop" && inp.boardCards && inp.boardCards.length >= 3) {
+    const heroPos = (POSITIONS as string[]).includes(inp.position) ? inp.position : "BTN";
+    const pfr = heroPos === "BB" ? "BTN" : heroPos;
+    const caller = "BB";
+    const slots = slotsFor(pfr, caller, "srp");
+    const board3 = inp.boardCards.slice(0, 3);
+    const adv = boardAdvantage(getRange(slots.pfr).weights, getRange(slots.caller).weights, board3, { samples: 1500, seed: 11 });
+    const cb = adviseCbet({ texture: analyzeBoard(board3), adv, pfrInPosition: !actsFirstPostflop(pfr, caller), potType: "srp" });
     gtoLine += FR
-      ? ` C-bet: ${cb.frequency} (${cb.percentage}) — ${cb.reasoning}`
-      : ` C-bet frequency: ${cb.frequency} (${cb.percentage}) — ${cb.reasoning}`;
+      ? ` C-bet ${pfr} vs ${caller}: ~${cb.frequencyPct}% taille ${cb.size} du pot (équité ${(adv.pfrEquity * 100).toFixed(0)}%, mains fortes ${adv.pfrStrongPct}% vs ${adv.callerStrongPct}%).`
+      : ` C-bet ${pfr} vs ${caller}: ~${cb.frequencyPct}% at ${cb.size} pot (equity ${(adv.pfrEquity * 100).toFixed(0)}%, strong hands ${adv.pfrStrongPct}% vs ${adv.callerStrongPct}%).`;
   }
 
   // ICM limitations note (bubble / final table)

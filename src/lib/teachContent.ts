@@ -117,3 +117,23 @@ export const TEACH_RANGES: TeachContent = {
     "Rake structure différente : un rake élevé serre les ranges aux limites basses.",
   ],
 };
+
+export const TEACH_CBET: TeachContent = {
+  concept:
+    "Au flop, la décision de c-bet dépend de qui a l'avantage sur ce board précis : l'avantage d'équité (qui gagne le plus souvent en moyenne) et l'avantage de nuts (qui a le plus de très grosses mains).",
+  formula: h(Fragment, null,
+    h("div", null, "Équité : simulation de milliers de mains entre les deux ranges (turn + river tirées)."),
+    h("div", { className: "mt-1" }, "Main forte : au moins deux catégories au-dessus du board seul (deux paires sur board non pairé, brelan sur board pairé…)."),
+    h("div", { className: "mt-1 text-muted-foreground" }, "Fréquence ≈ 50 + 2,2 × avantage d'équité ± position ± texture ; taille selon avantage de nuts et texture."),
+  ),
+  whenToUse: [
+    "Avantage d'équité + board statique → petite mise (25-33 %) très fréquente.",
+    "Avantage de nuts + board dynamique → mise grosse (66-75 %) et polarisée, moins fréquente.",
+    "Pas d'avantage → checker beaucoup, surtout hors position.",
+  ],
+  whenToAvoid: [
+    "Ce sont des principes, pas un solveur : les fréquences exactes d'un solveur peuvent différer de 10-15 points.",
+    "Les ranges marquées « estimée » sont approximatives : saisis tes propres ranges dans « Mes ranges » pour un calcul fidèle.",
+    "Contre un joueur qui ne se couche jamais, mise moins de bluffs et plus de value, quelle que soit la recommandation.",
+  ],
+};

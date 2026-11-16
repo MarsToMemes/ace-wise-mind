@@ -149,10 +149,10 @@ export function classifyTexture(board: Card[]): "Dry" | "Semi-wet" | "Wet" {
   const vals = [...new Set(parsed.map(p => p.val))].sort((a, b) => a - b);
   let connectivity = 0;
   for (let i = 1; i < vals.length; i++) if (vals[i] - vals[i - 1] <= 2) connectivity++;
-  const flushDraw = flushPotential >= 3;
+  const flushDraw = flushPotential >= 2; // bicolore : tirage couleur possible
   const monotone = flushPotential >= 3;
   const connected = connectivity >= 2;
-  if (monotone && connected) return "Wet";
+  if (monotone || (flushDraw && connected)) return "Wet";
   if (flushDraw || connected) return "Semi-wet";
   return "Dry";
 }

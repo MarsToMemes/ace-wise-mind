@@ -35,7 +35,8 @@ function expandToken(raw: string): { hands: string[]; weight: number } | null {
   const norm = t.toUpperCase().replace(/([AKQJT2-9]{2})([SO])/g, (_, r, x) => r + x.toLowerCase());
   const m = norm.match(TOKEN);
   if (!m) return null;
-  let [, a, b, suit, plus, ea, eb, , wRaw] = m;
+  const [, a0, b0, suit, plus, ea, eb, , wRaw] = m;
+  let a = a0, b = b0;
   if (idx(a) > idx(b)) [a, b] = [b, a]; // high card first
   let weight = wRaw ? parseFloat(wRaw) : 1;
   if (weight > 1) weight /= 100;
@@ -57,7 +58,7 @@ function expandToken(raw: string): { hands: string[]; weight: number } | null {
   let from = idx(b), to = idx(b); // kicker indexes
   if (plus) to = idx(a) + 1;
   if (ea && eb) {
-    let [x, y] = idx(ea) > idx(eb) ? [eb, ea] : [ea, eb];
+    const [x, y] = idx(ea) > idx(eb) ? [eb, ea] : [ea, eb];
     if (x !== a) return null;
     const k = idx(y);
     from = Math.max(idx(b), k); to = Math.min(idx(b), k);

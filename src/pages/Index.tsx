@@ -37,6 +37,7 @@ import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { RangeExplorer } from "@/components/RangeExplorer";
+import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 
@@ -610,6 +611,8 @@ const Index = () => {
                   defaultBet={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
                   perspective={userToCall > 0 ? "hero-facing" : "hero-betting"}
                 />
+
+                <BoardCbetPanel flop={flop} heroPosition={position} />
 
                 <GeometricSizingPanel
                   defaultPot={dynamicPot}
