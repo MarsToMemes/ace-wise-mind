@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePlayers } from "@/hooks/use-players";
+import { runExploits } from "@/engines/exploitEngine";
+import { useExploitSettings } from "@/lib/exploitSettings";
 import { classify, Profile, PROFILE_LABEL } from "@/engines/playerStats";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -114,6 +116,33 @@ export function RangeTrackerPanel({ hole, board, potBB = 20, texture = "Semi-wet
       })
     : null;
 
+  // Mode exploit : bluffs adverses et seuil de call ajustés selon sa fiche et sa ligne.
+  const exploitSettings = useExploitSettings();
+  const exploit = useMemo(() => {
+    if (!analysis || !exploitSettings.mode) return null;
+    const vf = villainId ? players[villainId] : undefined;
+    const riverPct = potBB > 0 ? Math.round((riverSizeBB / potBB) * 100) : 0;
+    const ex = runExploits({
+      street: "River", board, heroIsPfr: false, heroInPosition: relPosition === "OOP", opponentsInHand: 1,
+      heroStrength: "medium", checkedToHero: false,
+      villain: vf ? { name: vf.name, counters: vf.counters } : undefined,
+      line: {
+        isPfr: isDelayedCbet || flopAction === "Bet", limped: false, limpers: 0,
+        checkedFlopAsPfr: isDelayedCbet, cbetFlop: flopAction === "Bet", calledHeroCbet: false,
+        bets: {
+          ...(turnAction === "Bet" ? { Turn: [isBlockBet ? 25 : 60] } : {}),
+          River: [riverPct],
+        },
+      },
+    });
+    const items = ex.items.filter(i => (i.adjust.villainBluffDelta ?? 0) !== 0 || (i.adjust.callThresholdDelta ?? 0) !== 0);
+    if (!items.length) return null;
+    const bluff = Math.max(0, Math.min(100, analysis.bluffFrequency + ex.adjust.villainBluffDelta));
+    const need = analysis.potOddsPct != null ? Math.max(0, analysis.potOddsPct + ex.adjust.callThresholdDelta) : null;
+    return { bluff, need, items, call: need != null ? bluff >= need : null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis?.bluffFrequency, analysis?.potOddsPct, exploitSettings.mode, villainId, players, riverSizeBB, potBB, isDelayedCbet, flopAction, turnAction, isBlockBet, relPosition, board]);
+
   return (
     <Card className="p-4 space-y-4">
       <div>
@@ -224,6 +253,19 @@ export function RangeTrackerPanel({ hole, board, potBB = 20, texture = "Semi-wet
           }`}>
             💡 {analysis.recommendation.toUpperCase()}: {analysis.recommendationReasoning}
           </div>
+
+          {exploit && (
+            <div className="rounded border border-primary/40 p-2 space-y-1 text-xs">
+              <p className="font-semibold text-sm text-primary">
+                Exploit : bluffs estimés {Math.round(analysis.bluffFrequency)} % → {Math.round(exploit.bluff)} %
+                {exploit.need != null && <> · équité requise {analysis.potOddsPct!.toFixed(1)} % → {exploit.need.toFixed(1)} %</>}
+                {exploit.call != null && <> · {exploit.call ? "CALL" : "FOLD"} avec un bluff-catcher</>}
+              </p>
+              <ul className="space-y-0.5 text-muted-foreground">
+                {exploit.items.map(i => <li key={i.id}>· {i.title} ({i.source})</li>)}
+              </ul>
+            </div>
+          )}
         </Card>
       )}
     </Card>

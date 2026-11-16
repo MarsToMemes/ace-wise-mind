@@ -10,10 +10,16 @@ import { POSITIONS, Pos, PotType, actsFirstPostflop, getRange, slotsFor, RangeSo
 import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_CBET } from "@/lib/teachContent";
 import { MyRangesDialog } from "@/components/MyRangesDialog";
+import { runExploits } from "@/engines/exploitEngine";
+import { SIZE_TIERS } from "@/engines/cbetAdvisor";
+import { useExploitSettings } from "@/lib/exploitSettings";
+import { usePlayers } from "@/hooks/use-players";
 
 interface Props {
   flop: string[];
   heroPosition: string;
+  /** Adversaire de la main (fiche joueur) pour le mode exploit. */
+  villainId?: string;
 }
 
 const SUIT: Record<string, string> = { s: "♠", h: "♥", d: "♦", c: "♣" };
@@ -57,12 +63,14 @@ function Bar({ left, right, leftLabel, rightLabel }: { left: number; right: numb
   );
 }
 
-export const BoardCbetPanel = ({ flop, heroPosition }: Props) => {
+export const BoardCbetPanel = ({ flop, heroPosition, villainId }: Props) => {
   const hero = (POSITIONS.includes(heroPosition as Pos) ? heroPosition : "BTN") as Pos;
   const [pfr, setPfr] = useState<Pos>(hero === "BB" ? "BTN" : hero);
   const [caller, setCaller] = useState<Pos>("BB");
   const [potType, setPotType] = useState<PotType>("srp");
   const [version, setVersion] = useState(0);
+  const exploitSettings = useExploitSettings();
+  const { players } = usePlayers();
 
   useEffect(() => {
     const on = () => setVersion(v => v + 1);
@@ -89,9 +97,31 @@ export const BoardCbetPanel = ({ flop, heroPosition }: Props) => {
     const adv = boardAdvantage(rp.weights, rc.weights, flop, { samples: 4000, seed: 11 });
     const pfrIP = !actsFirstPostflop(pfr, caller);
     const advice = adviseCbet({ texture, adv, pfrInPosition: pfrIP, potType });
-    return { slots, rp, rc, texture, adv, advice, pfrIP };
+    // Mode exploit : ajustement selon la fiche de l'adversaire de la main
+    const vid = villainId || exploitSettings.villainId;
+    const vf = exploitSettings.mode && vid ? players[vid] : undefined;
+    let exploit: { freq: number; size: string; titles: string[]; name: string } | null = null;
+    if (vf) {
+      const ex = runExploits({
+        street: "Flop", board: flop, heroIsPfr: true, heroInPosition: pfrIP, opponentsInHand: 1,
+        heroStrength: "medium", checkedToHero: false, staticBoard: !texture.dynamic, nutEdgePts: advice.nutEdgePts,
+        villain: { name: vf.name, counters: vf.counters },
+        line: { isPfr: false, limped: false, limpers: 0, checkedFlopAsPfr: false, bets: {}, cbetFlop: false, calledHeroCbet: false },
+      });
+      const items = ex.items.filter(i => (i.adjust.cbetFreqDelta ?? 0) !== 0 || (i.adjust.cbetSizeTierDelta ?? 0) !== 0);
+      if (items.length) {
+        const idx = SIZE_TIERS.indexOf(advice.size);
+        exploit = {
+          freq: Math.max(0, Math.min(100, Math.round((advice.frequencyPct + ex.adjust.cbetFreqDelta) / 5) * 5)),
+          size: SIZE_TIERS[Math.max(0, Math.min(SIZE_TIERS.length - 1, idx + ex.adjust.cbetSizeTierDelta))],
+          titles: items.map(i => `${i.title} (${i.source})`),
+          name: vf.name,
+        };
+      }
+    }
+    return { slots, rp, rc, texture, adv, advice, pfrIP, exploit };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, pfr, caller, potType, flop.join(""), version]);
+  }, [ready, pfr, caller, potType, flop.join(""), version, exploitSettings.mode, exploitSettings.villainId, villainId, players]);
 
   return (
     <Card className="glass-panel p-6 space-y-5 border-primary/30">
@@ -167,13 +197,15 @@ export const BoardCbetPanel = ({ flop, heroPosition }: Props) => {
               {pfr} {data.pfrIP ? "en position (IP)" : "hors position (OOP)"} · {potType === "srp" ? "pot simple" : "pot 3-betté"}
             </div>
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <span className="display text-3xl gold-text">{data.advice.frequencyPct} %</span>
+              {data.exploit && <span className="text-sm text-muted-foreground line-through">{data.advice.frequencyPct} % · {data.advice.size}</span>}
+              <span className="display text-3xl gold-text">{data.exploit ? data.exploit.freq : data.advice.frequencyPct} %</span>
               <span className="text-sm">de c-bet</span>
-              <span className="text-sm">taille <strong className="text-primary">{data.advice.size}</strong> du pot</span>
+              <span className="text-sm">taille <strong className="text-primary">{data.exploit ? data.exploit.size : data.advice.size}</strong> du pot</span>
             </div>
             {data.advice.checkMostly && <p className="text-sm text-sky-300">Check majoritaire sur ce board.</p>}
             <ul className="space-y-1 text-sm text-muted-foreground">
               {data.advice.reasons.map(r => <li key={r}>→ {r}</li>)}
+              {data.exploit && data.exploit.titles.map(t => <li key={t} className="text-primary">→ Exploit contre {data.exploit!.name} : {t}</li>)}
             </ul>
           </div>
 

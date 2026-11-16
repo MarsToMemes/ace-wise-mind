@@ -40,6 +40,12 @@ import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
 import { MyTablePanel } from "@/components/MyTablePanel";
+import { ExploitPanel } from "@/components/ExploitPanel";
+import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
+import { analyzeBoard } from "@/engines/boardTexture";
+import { actsFirstPostflop } from "@/engines/matchupRanges";
+import { usePlayers } from "@/hooks/use-players";
+import { useExploitSettings } from "@/lib/exploitSettings";
 import { countAnalyzedHand } from "@/engines/playerStats";
 import { getSeatPlayers, addStatsMany, loadPlayers } from "@/lib/playersStore";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
@@ -260,6 +266,48 @@ const Index = () => {
       handClass,
     } as EngineResult;
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
+
+  // === Moteur d'exploits : adversaire de la main + ligne jouée ===
+  const exploitSettings = useExploitSettings();
+  const { players: playerFiles, seats: seatPlayers, table: tablePlayers } = usePlayers();
+  const exploit = useMemo(() => {
+    // adversaire auto : joueur associé au dernier siège qui a misé ou relancé
+    let autoSeat = -1;
+    for (let i = actionHistory.length - 1; i >= 0; i--) {
+      const a = actionHistory[i];
+      if (a.seatIdx !== userIdx && (a.type === "Bet" || a.type === "Raise") && seatPlayers[a.seatIdx]) { autoSeat = a.seatIdx; break; }
+    }
+    if (autoSeat < 0) {
+      const s = Object.keys(seatPlayers).map(Number).find(i => i !== userIdx && !folded[i]);
+      if (s !== undefined) autoSeat = s;
+    }
+    const autoId = autoSeat >= 0 ? seatPlayers[autoSeat] : "";
+    const villainId = exploitSettings.villainId && playerFiles[exploitSettings.villainId] ? exploitSettings.villainId : autoId;
+    const villainFile = villainId ? playerFiles[villainId] : undefined;
+    const villainSeat = villainId ? Number(Object.keys(seatPlayers).find(k => seatPlayers[+k] === villainId) ?? -1) : -1;
+    const { line, heroIsPfr, checkedToHero } = deriveLine(actionHistory, villainSeat, userIdx, pot);
+    const heroPos = position;
+    const villainPos = villainSeat >= 0 && dealerIdx >= 0 ? labelToPosition(seatLabel(villainSeat, dealerIdx, tableSize)) : "";
+    const heroInPosition = villainPos ? !actsFirstPostflop(heroPos, villainPos) : ["BTN", "CO"].includes(heroPos);
+    const cat = engine?.handClass?.hand_category;
+    const score = engine?.score ?? 0;
+    const pairedBoard = new Set(board.map(c => c[0])).size < board.length;
+    const heroStrength: HeroStrength = score >= 130 || (score >= 90 && cat === "Strong" && !pairedBoard) ? "nuts"
+      : cat === "Strong" ? "strong" : cat === "Draw" ? "draw" : cat === "Medium" ? "medium" : "weak";
+    const res = runExploits({
+      street: currentStreet,
+      board,
+      heroIsPfr,
+      heroInPosition,
+      opponentsInHand: Math.max(1, opponents),
+      heroStrength,
+      checkedToHero: checkedToHero(currentStreet),
+      staticBoard: board.length >= 3 ? !analyzeBoard(board).dynamic : undefined,
+      villain: villainFile ? { name: villainFile.name, counters: villainFile.counters } : undefined,
+      line,
+    });
+    return { ...res, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
+  }, [actionHistory, userIdx, seatPlayers, playerFiles, exploitSettings.villainId, folded, pot, position, dealerIdx, tableSize, engine, board, currentStreet, opponents]);
 
   const polarization = useMemo(() => {
     if (!engine) return null;
@@ -563,6 +611,18 @@ const Index = () => {
                 pot={dynamicPot}
                 toCall={userToCall}
                 stack={stack}
+                exploitAction={exploitSettings.mode ? exploit.adjust.action ?? (currentStreet === "Preflop" && exploit.adjust.isoSizeBB ? `Iso-raise ~${exploit.adjust.isoSizeBB} bb` : undefined) : undefined}
+              />
+              <ExploitPanel
+                mode={exploitSettings.mode}
+                villainId={exploit.villainId}
+                villainOptions={(tablePlayers.length ? tablePlayers : Object.keys(playerFiles)).map(id => playerFiles[id]).filter(Boolean)}
+                autoVillainName={exploit.autoName}
+                profile={exploit.profile}
+                items={exploit.items}
+                adjust={exploit.adjust}
+                gtoAction={engine?.suggestedAction}
+                reqEquityPct={engine?.reqEquity ?? null}
               />
               <MyTablePanel
                 seatLabels={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : ""))}
@@ -647,7 +707,7 @@ const Index = () => {
                   perspective={userToCall > 0 ? "hero-facing" : "hero-betting"}
                 />
 
-                <BoardCbetPanel flop={flop} heroPosition={position} />
+                <BoardCbetPanel flop={flop} heroPosition={position} villainId={exploit.resolvedId} />
 
                 <GeometricSizingPanel
                   defaultPot={dynamicPot}

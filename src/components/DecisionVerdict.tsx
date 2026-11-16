@@ -11,6 +11,8 @@ interface Props {
   pot: number;
   toCall: number;
   stack: number;
+  /** Action conseillée par le moteur d'exploits (mode exploit activé). */
+  exploitAction?: string;
 }
 
 const ACTION_STYLES: Record<string, string> = {
@@ -22,7 +24,7 @@ const ACTION_STYLES: Record<string, string> = {
   Jam:   "bg-amber-500/15 text-amber-300 border-amber-500/40",
 };
 
-export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack }: Props) => {
+export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, exploitAction }: Props) => {
   if (!engine) {
     return (
       <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm">
@@ -102,6 +104,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack }: P
         <div className={`rounded-xl border px-5 py-4 ${style} text-center min-w-[140px]`}>
           <div className="text-[10px] uppercase tracking-widest opacity-70">Action</div>
           <div className="display text-3xl leading-none mt-1">{action.toUpperCase()}</div>
+          {exploitAction && <div className="text-[10px] uppercase tracking-widest mt-1 opacity-70">GTO</div>}
         </div>
 
         {/* Sizing + why */}
@@ -114,6 +117,12 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack }: P
             <ArrowRight className="w-3.5 h-3.5 mt-1 text-primary flex-shrink-0" />
             {why}
           </p>
+          {exploitAction && (
+            <p className="text-sm font-semibold text-primary flex items-start gap-1.5">
+              <ArrowRight className="w-3.5 h-3.5 mt-1 flex-shrink-0" />
+              Exploit : {exploitAction} (voir « Exploits actifs »)
+            </p>
+          )}
         </div>
 
         {/* Quick metrics */}
