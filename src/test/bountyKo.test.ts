@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { solveJamFold } from "@/engines/jamFoldSolver";
 import { bountyValue, requiredEquity, callChart } from "@/engines/bountyKo";
 import { equityVsRange, topPercentRange, estimatedJamPct, EQ_VS_RANDOM } from "@/engines/preflopEquity";
 
@@ -50,5 +51,14 @@ describe("callChart", () => {
     expect(Object.values(c.status).filter(s => s === "bounty").length).toBeGreaterThan(5);
     const none = callChart({ callBB: 10, potBB: 11.5, bountyBB: 0, jamRange: jam, quick: true });
     expect(Object.values(none.status).filter(s => s === "bounty").length).toBe(0);
+  });
+});
+
+describe("jam/fold with bounty", () => {
+  it("adds the bounty to the called-and-win branch", () => {
+    const base = { potBB: 1.5, heroStackBB: 10, villainFoldPct: 50, equityWhenCalledPct: 40 };
+    const a = solveJamFold(base), b = solveJamFold({ ...base, bountyBB: 5 });
+    expect(b.evJam - a.evJam).toBeCloseTo(0.5 * 0.4 * 5, 6);
+    expect(b.minEquityWhenCalledNeeded).toBeCloseTo((10 / (1.5 + 20 + 5)) * 100, 6);
   });
 });

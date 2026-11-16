@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Zap, TrendingUp, TrendingDown, Scale, AlertTriangle } from "lucide-react";
 import { solveJamFold } from "@/engines/jamFoldSolver";
+import { loadBounty } from "@/lib/bountySettings";
 import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_JAMFOLD } from "@/lib/teachContent";
 
@@ -36,6 +37,12 @@ export const JamFoldPanel = ({
   const [stack, setStack] = useState(defaultStackBB);
   const [equity, setEquity] = useState(defaultEquityPct);
   const [fold, setFold] = useState(defaultFoldPct);
+  const [bounty, setBounty] = useState(() => loadBounty().lastBountyBB);
+  useEffect(() => {
+    const on = () => setBounty(loadBounty().lastBountyBB);
+    window.addEventListener("ace:bounty", on);
+    return () => window.removeEventListener("ace:bounty", on);
+  }, []);
 
   useEffect(() => { setPot(defaultPotBB); }, [defaultPotBB]);
   useEffect(() => { setStack(defaultStackBB); }, [defaultStackBB]);
@@ -47,8 +54,9 @@ export const JamFoldPanel = ({
       heroStackBB: stack,
       villainFoldPct: fold,
       equityWhenCalledPct: equity,
+      bountyBB: bounty,
     }),
-    [pot, stack, equity, fold],
+    [pot, stack, equity, fold, bounty],
   );
 
   const stackTooDeep = stack > 25;
@@ -67,7 +75,7 @@ export const JamFoldPanel = ({
           <h3 className="display text-lg gold-text">Jam-or-Fold Solver</h3>
         </div>
         <Badge variant="outline" className="gold-border text-primary text-[10px] uppercase tracking-widest">
-          EV = f·P + (1−f)·[eq·(P+2S) − S]
+          {bounty > 0 ? "EV = f·P + (1−f)·[eq·(P+2S+B) − S]" : "EV = f·P + (1−f)·[eq·(P+2S) − S]"}
         </Badge>
       </div>
 
@@ -100,6 +108,7 @@ export const JamFoldPanel = ({
       <div className="grid grid-cols-2 gap-3">
         <NumField label="Pot / dead money (BB)" value={pot} step={0.5} min={0} onChange={setPot} />
         <NumField label="Jam size S (BB)" value={stack} step={0.5} min={0} onChange={setStack} />
+        <NumField label="Bounty adverse B (BB) — KO, si tu le couvres" value={bounty} step={0.5} min={0} onChange={setBounty} />
       </div>
 
       <div className="space-y-3">

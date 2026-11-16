@@ -13,6 +13,8 @@ export interface JamFoldInput {
   heroStackBB: number;    // hero effective stack to jam
   villainFoldPct: number; // 0..100 — assumed villain fold frequency
   equityWhenCalledPct: number; // 0..100 — hero equity vs villain's calling range
+  /** Tournoi KO : valeur (BB) de la tête adverse gagnée si on est payé et qu'on gagne (0 si on ne le couvre pas). */
+  bountyBB?: number;
 }
 
 export interface JamFoldResult {
@@ -41,9 +43,10 @@ export function solveJamFold(inp: JamFoldInput): JamFoldResult {
   const S = Math.max(0, inp.heroStackBB);
   const f = clamp01(inp.villainFoldPct / 100);
   const eq = clamp01(inp.equityWhenCalledPct / 100);
+  const B = Math.max(0, inp.bountyBB ?? 0);
 
   // Core EV
-  const evCalled = eq * (P + 2 * S) - S; // eq*(P+S) - (1-eq)*S simplified
+  const evCalled = eq * (P + 2 * S + B) - S; // eq*(P+S) - (1-eq)*S simplified
   const evJam = f * P + (1 - f) * evCalled;
   const evFold = 0;
   const evDelta = evJam - evFold;
@@ -55,7 +58,7 @@ export function solveJamFold(inp: JamFoldInput): JamFoldResult {
 
   // Break-even equity if villain never folds (f=0)
   // EV = eq*(P+2S) - S = 0 → eq = S / (P + 2S)
-  const minEquityWhenCalledNeeded = (S / Math.max(1e-9, P + 2 * S)) * 100;
+  const minEquityWhenCalledNeeded = (S / Math.max(1e-9, P + 2 * S + B)) * 100;
 
   const decision: JamFoldResult["decision"] =
     Math.abs(evDelta) < 0.05 ? "INDIFFERENT" : evDelta > 0 ? "JAM" : "FOLD";
@@ -63,12 +66,13 @@ export function solveJamFold(inp: JamFoldInput): JamFoldResult {
   const confidence: JamFoldResult["confidence"] =
     Math.abs(evDelta) > 1.5 ? "high" : Math.abs(evDelta) > 0.4 ? "medium" : "low";
 
+  const bTxt = B > 0 ? " + B" : "";
   const reasoning: string[] = [
-    `EV(jam) = f·P + (1−f)·[eq·(P+2S) − S]`,
-    `      = ${f.toFixed(2)}·${P.toFixed(1)} + ${(1 - f).toFixed(2)}·[${eq.toFixed(2)}·${(P + 2 * S).toFixed(1)} − ${S.toFixed(1)}]`,
+    `EV(jam) = f·P + (1−f)·[eq·(P+2S${bTxt}) − S]${B > 0 ? `   (B = bounty ${B.toFixed(1)} BB)` : ""}`,
+    `      = ${f.toFixed(2)}·${P.toFixed(1)} + ${(1 - f).toFixed(2)}·[${eq.toFixed(2)}·${(P + 2 * S + B).toFixed(1)} − ${S.toFixed(1)}]`,
     `      = ${(f * P).toFixed(2)} + ${((1 - f) * evCalled).toFixed(2)} = ${evJam.toFixed(2)} BB`,
     `Break-even fold% (if eq=0): S/(P+S) = ${minFoldEquityNeeded.toFixed(1)}%`,
-    `Break-even eq when called (if f=0): S/(P+2S) = ${minEquityWhenCalledNeeded.toFixed(1)}%`,
+    `Break-even eq when called (if f=0): S/(P+2S${bTxt}) = ${minEquityWhenCalledNeeded.toFixed(1)}%`,
   ];
 
   if (decision === "JAM") {
@@ -97,11 +101,11 @@ export function solveJamFold(inp: JamFoldInput): JamFoldResult {
     minFoldEquityNeeded,
     minEquityWhenCalledNeeded,
     ifFolds: { prob: f, winBB: P },
-    ifCalledWins: { prob: (1 - f) * eq, winBB: P + S },
+    ifCalledWins: { prob: (1 - f) * eq, winBB: P + S + B },
     ifCalledLoses: { prob: (1 - f) * (1 - eq), loseBB: S },
     riskBB: S,
     rewardIfFoldBB: P,
-    rewardIfShowdownBB: P + S,
+    rewardIfShowdownBB: P + S + B,
     reasoning,
   };
 }

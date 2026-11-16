@@ -137,3 +137,25 @@ export const TEACH_CBET: TeachContent = {
     "Contre un joueur qui ne se couche jamais, mise moins de bluffs et plus de value, quelle que soit la recommandation.",
   ],
 };
+
+export const TEACH_BOUNTY: TeachContent = {
+  concept:
+    "En tournoi KO, éliminer un joueur que tu couvres rapporte sa tête en plus du pot. Cette prime vaut des jetons : elle baisse l'équité dont tu as besoin pour payer ou pousser, donc elle élargit tes ranges.",
+  formula: h(Fragment, null,
+    h("div", null, "1 jeton = (buy-in − part bounty) / tapis de départ (en €)"),
+    h("div", { className: "mt-1" }, "Bounty (BB) = valeur de la tête en € / valeur d'un jeton / big blind"),
+    h("div", { className: "mt-1" }, "Équité requise = à payer / (pot + à payer + bounty)"),
+    h("div", { className: "mt-1 text-muted-foreground" }, "KO progressif : moitié en cash + moitié ajoutée à ta tête, comptée à 40 %."),
+  ),
+  whenToUse: [
+    "Tu couvres l'adversaire qui pousse : la prime s'ajoute à ton gain si tu gagnes le coup.",
+    "Tu pousses sur un joueur que tu couvres : le solveur Jam/Fold ajoute la prime à la branche « payé et gagné ».",
+    "Têtes grosses par rapport aux blinds (début de tournoi, joueur qui a déjà sorti du monde).",
+  ],
+  whenToAvoid: [
+    "Tu ne couvres pas l'adversaire : tu ne peux pas gagner sa tête, la prime ne compte pas.",
+    "Près des places payées ou en table finale, l'ICM (la valeur des places) pèse souvent plus que la prime.",
+    "KO mystère : la valeur saisie est une moyenne, le résultat réel varie beaucoup.",
+    "La range de tapis adverse est estimée selon son tapis : ajuste-la au joueur (un nit pousse plus serré).",
+  ],
+};

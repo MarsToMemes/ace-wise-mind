@@ -38,6 +38,7 @@ import { JamFoldPanel } from "@/components/JamFoldPanel";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
+import { BountyKoPanel } from "@/components/BountyKoPanel";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 
@@ -520,8 +521,9 @@ const Index = () => {
               </Button>
             </div>
             {analyzerMode === "tournament" ? (
-              <main className="py-6">
+              <main className="py-6 space-y-6">
                 <TournamentPanel key={tournamentResetKey} />
+                <BountyKoPanel />
               </main>
             ) : (
             <main className="py-6 space-y-6">
