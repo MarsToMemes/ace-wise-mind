@@ -50,7 +50,7 @@ export const GeometricSizingPanel = ({
           <h3 className="display text-lg gold-text">Geometric Stack-Off</h3>
         </div>
         <Badge variant="outline" className="gold-border text-primary text-[10px] uppercase tracking-widest">
-          R = (Pf/Pi)^(1/n) − 1
+          R = ((Pf/Pi)^(1/n) − 1) / 2
         </Badge>
       </div>
 
@@ -90,7 +90,7 @@ export const GeometricSizingPanel = ({
 
       {/* Headline */}
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Growth rate R" value={`${result.growthPct.toFixed(0)}%`} hint="bet/pot each street" />
+        <Stat label="Bet size R" value={`${result.growthPct.toFixed(0)}%`} hint="bet/pot each street" />
         <Stat label="Effective stack" value={`${result.effectiveStackBB} BB`} hint="min(hero, villain)" />
         <Stat label="SPR" value={result.spr.toFixed(2)} hint="stack ÷ pot" />
       </div>

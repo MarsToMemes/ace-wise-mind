@@ -26,8 +26,8 @@ export const TEACH_GEOMETRIC: TeachContent = {
   concept:
     "Le sizing géométrique permet de mettre tout le stack à la river en gardant la même pression (même bet/pot ratio) à chaque street, ce qui maintient l'indifférence de l'adversaire street to street.",
   formula: h(Fragment, null,
-    h("div", null, "R = (PF / PI)^(1/N) − 1"),
-    h("div", { className: "mt-1 text-muted-foreground" }, "PF = pot final ciblé, PI = pot initial, N = streets restantes, R = ratio bet/pot à chaque street."),
+    h("div", null, "R = ((PF / PI)^(1/N) − 1) / 2"),
+    h("div", { className: "mt-1 text-muted-foreground" }, "PF = pot final ciblé, PI = pot initial, N = streets restantes, R = ratio bet/pot à chaque street (chaque bet payé multiplie le pot par 1 + 2R)."),
   ),
   whenToUse: [
     "Mains de value fortes (équité > 75%) avec SPR 2-10.",
@@ -65,8 +65,8 @@ export const TEACH_EV: TeachContent = {
   concept:
     "L'EV (espérance de gain) compare combien on gagne en moyenne en suivant vs en se couchant. Décision rationnelle : suivre si EV > 0.",
   formula: h(Fragment, null,
-    h("div", null, "EV(call) = EQ·(pot + bet) − (1−EQ)·bet"),
-    h("div", { className: "mt-1 text-muted-foreground" }, "Pot odds requis : équité minimale = bet / (pot + 2·bet)"),
+    h("div", null, "EV(call) = EQ·pot − (1−EQ)·à payer   (pot = pot avant call, mise adverse incluse)"),
+    h("div", { className: "mt-1 text-muted-foreground" }, "Pot odds requis : équité minimale = à payer / (pot + à payer)"),
   ),
   whenToUse: [
     "Décision call/fold quand on peut estimer son équité face à la range adverse.",

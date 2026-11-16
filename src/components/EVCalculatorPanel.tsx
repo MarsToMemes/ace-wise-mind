@@ -60,7 +60,7 @@ export const EVCalculatorPanel = ({
           <h3 className="display text-lg gold-text">EV Calculator</h3>
         </div>
         <Badge variant="outline" className="gold-border text-primary text-[10px] uppercase tracking-widest">
-          EV = EQ·(P+B) − (1−EQ)·B
+          EV = EQ·P − (1−EQ)·B
         </Badge>
       </div>
 
@@ -94,7 +94,7 @@ export const EVCalculatorPanel = ({
       <div className="space-y-1">
         <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Décomposition</div>
         <ul className="space-y-0.5 text-xs font-mono text-foreground/75">
-          <li><span className="text-primary">→</span> EV(call) = {(equity / 100).toFixed(2)}·{(pot + risk).toFixed(1)} − {(1 - equity / 100).toFixed(2)}·{risk.toFixed(1)} = {calc.ev.toFixed(2)} BB</li>
+          <li><span className="text-primary">→</span> EV(call) = {(equity / 100).toFixed(2)}·{pot.toFixed(1)} − {(1 - equity / 100).toFixed(2)}·{risk.toFixed(1)} = {calc.ev.toFixed(2)} BB</li>
           <li><span className="text-primary">→</span> Pot odds requis : {risk.toFixed(1)} / ({pot.toFixed(1)} + {risk.toFixed(1)}) = {calc.requiredEquityPct.toFixed(1)}%</li>
         </ul>
       </div>

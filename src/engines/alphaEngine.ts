@@ -7,7 +7,7 @@ export interface AlphaResult {
   mdf: number;                // 1 - alpha  — minimum defense frequency
   alphaPct: number;
   mdfPct: number;
-  bluffsPerValueBet: number;  // alpha / (1 - alpha)
+  bluffsPerValueBet: number;  // alpha = s/(1+s) (bluffs / value bets in the betting range)
   bluffToValueRatio: string;  // "1 bluff per X value bets"
   breakEvenFoldPct: number;   // alpha * 100
   betSizeInPots: number;
@@ -28,7 +28,9 @@ export function calculateAlpha(betSize: number, potSize: number): AlphaResult {
   const s = Math.max(0, betSize) / safePot;
   const alpha = s / (1 + s);
   const mdf = 1 - alpha;
-  const bluffsPerValue = alpha / Math.max(1 - alpha, 1e-9);
+  // Optimal river betting range: bluffs / value = s/(1+s) = alpha
+  // (so bluffs are s/(1+2s) of the whole betting range).
+  const bluffsPerValue = alpha;
   const valuePerBluff = bluffsPerValue > 0 ? 1 / bluffsPerValue : Infinity;
 
   return {

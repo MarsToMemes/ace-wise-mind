@@ -1,6 +1,7 @@
 // Geometric Sizing Calculator — Chen & Ankenman stack-off math.
-// Solve R such that betting R*pot each street puts both players all-in on the
-// final street. Pure functions.
+// Solve R (bet/pot) such that betting R*pot each street — and being called —
+// puts both players all-in on the final street. A called bet of R*pot grows the
+// pot by (1+2R), so (1+2R)^N = Pf/Pi  →  R = ((Pf/Pi)^(1/N) − 1) / 2. Pure functions.
 
 export interface StreetSizing {
   street: number;          // 1, 2, 3
@@ -13,7 +14,7 @@ export interface StreetSizing {
 }
 
 export interface GeometricResult {
-  growthRate: number;      // R as decimal
+  growthRate: number;      // R = bet/pot each street, as decimal
   growthPct: number;       // R * 100
   streets: StreetSizing[];
   finalPotBB: number;
@@ -42,7 +43,7 @@ export function calculateGeometricSizing(inp: GeometricInput): GeometricResult {
   if (effective <= 0 || pot <= 0) {
     R = 0;
   } else {
-    R = Math.pow(finalPot / pot, 1 / streets) - 1;
+    R = (Math.pow(finalPot / pot, 1 / streets) - 1) / 2;
   }
 
   const sizings: StreetSizing[] = [];
@@ -50,7 +51,8 @@ export function calculateGeometricSizing(inp: GeometricInput): GeometricResult {
   let runningStack = effective;
   for (let i = 0; i < streets; i++) {
     const ideal = R * runningPot;
-    const bet = Math.min(ideal, runningStack);
+    // last street: put in exactly what is left (removes rounding drift)
+    const bet = i === streets - 1 ? runningStack : Math.min(ideal, runningStack);
     const isAllIn = i === streets - 1 || bet >= runningStack - 1e-6;
     const potAfter = runningPot + bet * 2;
     sizings.push({

@@ -200,7 +200,8 @@ export function optimalBluffToValueRatio(alpha: number): {
   explanation: string;
 } {
   const safeAlpha = Math.min(Math.max(alpha, 0), 0.999);
-  const ratioDecimal = safeAlpha / (1 - safeAlpha);
+  // bluffs / value bets = alpha = s/(1+s)
+  const ratioDecimal = safeAlpha;
   const value = 10;
   const bluffs = Math.round(ratioDecimal * value);
   return {

@@ -27,7 +27,7 @@ const ALL_SCENARIO_STACKS = Array.from(
 ).sort((a, b) => a - b);
 
 export function RangeExplorer() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<Pos>("UTG");
   const [rangeType, setRangeType] = useState<RangeType>("open");
   const [gameType, setGameType] = useState<GameType>("cash");
