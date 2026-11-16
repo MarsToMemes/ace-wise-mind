@@ -9,7 +9,8 @@ import {
   RANGE_BTN_VS_CO_OPEN_100BB,
   PreflopRange,
 } from "@/engines/preflopRanges";
-import { loadMyRanges, RangeWeights, handCombos, RANK_ORDER } from "@/engines/myRanges";
+import { loadMyRanges, RangeWeights, handCombos } from "@/engines/myRanges";
+import { EQ_VS_RANDOM } from "@/engines/preflopEquity";
 
 export type Pos = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 export const POSITIONS: Pos[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
@@ -82,13 +83,9 @@ function exactFacingOpen(pos: string, opener: string): boolean {
   return false;
 }
 
-/** Score simple de force préflop (plus haut = plus fort), pour les ranges estimées. */
+/** Force préflop (équité contre une main au hasard, calculée par le site). */
 export function preflopStrength(hand: string): number {
-  const hi = 14 - RANK_ORDER.indexOf(hand[0]);
-  const lo = 14 - RANK_ORDER.indexOf(hand[1]);
-  if (hand.length === 2) return 40 + hi * 3;
-  const gap = hi - lo - 1;
-  return hi * 2 + lo + (hand.endsWith("s") ? 4 : 0) - Math.min(gap, 4) * 1.5;
+  return EQ_VS_RANDOM[hand] ?? 0;
 }
 
 function baseRange(slot: string): { weights: RangeWeights; source: RangeSource } {
