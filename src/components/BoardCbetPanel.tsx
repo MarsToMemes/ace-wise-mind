@@ -28,7 +28,7 @@ function SourceBadge({ source }: { source: RangeSource }) {
 
 function PosSelect({ label, value, onChange }: { label: string; value: Pos; onChange: (p: Pos) => void }) {
   return (
-    <label className="space-y-1 block">
+    <label className="space-y-1 block min-w-0">
       <span className="text-xs uppercase tracking-wider text-muted-foreground">{label}</span>
       <select
         value={value}
@@ -107,10 +107,10 @@ export const BoardCbetPanel = ({ flop, heroPosition }: Props) => {
         </MyRangesDialog>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <PosSelect label={potType === "srp" ? "Relanceur" : "3-bettor"} value={pfr} onChange={setPfr} />
         <PosSelect label={potType === "srp" ? "Payeur" : "Ouvreur"} value={caller} onChange={setCaller} />
-        <label className="space-y-1 block">
+        <label className="space-y-1 block min-w-0">
           <span className="text-xs uppercase tracking-wider text-muted-foreground">Pot</span>
           <select
             value={potType}

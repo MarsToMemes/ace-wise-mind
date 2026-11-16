@@ -15,6 +15,8 @@ import {
 } from "@/engines/scenarioRanges";
 import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_RANGES } from "@/lib/teachContent";
+import { loadMyRanges } from "@/engines/myRanges";
+import { MyRangesDialog } from "@/components/MyRangesDialog";
 
 type RangeType = "open" | "3bet" | "defense" | "jam" | "scenarios";
 type GameType = "cash" | "mtt";
@@ -79,11 +81,24 @@ export function RangeExplorer() {
   const showScenarioInJam = rangeType === "jam" && jamScenarios.length > 0;
   const showScenarioInOpen =
     rangeType === "open" && openRaiseScenarios.length > 0;
-  const isScenarioMode =
+  // « Mes ranges » : la range d'ouverture saisie par l'utilisateur remplace la grille de base.
+  const [myVersion, setMyVersion] = useState(0);
+  useEffect(() => {
+    const on = () => setMyVersion(v => v + 1);
+    window.addEventListener("ace:myRanges", on);
+    return () => window.removeEventListener("ace:myRanges", on);
+  }, []);
+  const userOpen = useMemo(
+    () => (rangeType === "open" && position !== "BB" ? loadMyRanges()[`open:${position}`] : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rangeType, position, myVersion],
+  );
+  const hasUserOpen = !!userOpen && Object.keys(userOpen).length > 0;
+  const isScenarioMode = !hasUserOpen && (
     rangeType === "scenarios" ||
     showScenarioInThreeBet ||
     showScenarioInJam ||
-    showScenarioInOpen;
+    showScenarioInOpen);
   const visibleScenarios = positionScenarios.length
     ? positionScenarios
     : scenariosAtStack;
@@ -116,8 +131,13 @@ export function RangeExplorer() {
 
   const info = POSITION_RANGE_CATALOG[position];
   const has3bet = !!info.matrix3bet;
-  const matrix =
-    rangeType === "3bet" && info.matrix3bet ? info.matrix3bet : info.matrix;
+  const matrix: Record<string, MatrixHandData> = hasUserOpen
+    ? Object.fromEntries(Object.entries(userOpen!).map(([hand, w]) => [hand, {
+        hand,
+        combos: hand.length === 2 ? 6 : hand.endsWith("s") ? 4 : 12,
+        frequencies: w >= 1 ? { raise: 100 } : { raise: Math.round(w * 100), fold: 100 - Math.round(w * 100) },
+      }]))
+    : rangeType === "3bet" && info.matrix3bet ? info.matrix3bet : info.matrix;
 
   // Derived metrics
   const totalCombos = Object.values(matrix).reduce(
@@ -156,6 +176,9 @@ export function RangeExplorer() {
               GTO baseline
             </Badge>
           </div>
+          <MyRangesDialog initialSlot={`open:${position === "BB" ? "SB" : position}`}>
+            <Button variant="outline" size="sm" className="h-7 text-[11px] gold-border text-primary ml-auto mr-1">Mes ranges</Button>
+          </MyRangesDialog>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(false)}>
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -322,6 +345,7 @@ export function RangeExplorer() {
                     {rangeType === "3bet" && info.threeBetContext
                       ? info.threeBetContext
                       : `${position} · ${rangeType}`}
+                    {hasUserOpen && <Badge variant="outline" className="ml-2 text-[9px] text-primary gold-border">Ma range</Badge>}
                   </div>
                   <div className="text-[10px] font-mono text-muted-foreground">
                     {continuePct.toFixed(1)}% combos

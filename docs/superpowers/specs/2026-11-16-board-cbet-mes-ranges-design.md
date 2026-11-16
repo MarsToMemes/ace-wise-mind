@@ -12,7 +12,7 @@ Entrées : flop (3 cartes du sélecteur), relanceur préflop (PFR), payeur, type
    - part de « mains fortes » de chaque range sur le flop, calculée exactement : brelan ou mieux, ou deux paires si le board n'est pas pairé.
 3. **Conseil** (`cbetAdvisor.ts`), règles de principe :
    - fréquence = 50 + 2,2 × avantage d'équité, +10 en position, −8 hors position, +8 board statique / −8 dynamique, +5 en pot 3-betté ; bornée entre 20 et 90, arrondie à 5 ;
-   - taille : avantage de nuts ≥ 4 pts et board dynamique → 66-75 % ; avantage d'équité ≥ 4 pts et board statique → 25-33 % ; avantage de nuts ≥ 4 → 50-66 % ; sinon 33-50 %. En pot 3-betté, un cran plus petit ;
+   - taille : avantage de nuts ≥ 4 pts et board dynamique → 66-75 % ; avantage d'équité ≥ 0 et board statique → 25-33 % ; avantage de nuts ≥ 4 → 50-66 % ; sinon 33-50 %. En pot 3-betté, un cran plus petit ;
    - fréquence ≤ 35 % → « check majoritaire » ;
    - donk bet proposé seulement si le payeur joue avant, a l'avantage de nuts (≤ −2 pts) et que le board est médian ou bas.
 4. **UI** (`BoardCbetPanel.tsx`) : étiquettes de texture, barres d'équité et de nuts, conseil pour la position réelle du PFR (IP ou OOP), donk, « Comprendre ce calcul », badge « estimée » ou « Ma range » sur chaque range.

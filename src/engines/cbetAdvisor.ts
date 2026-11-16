@@ -53,9 +53,9 @@ export function adviseCbet(inp: {
   if (nutEdge >= 4 && t.dynamic) {
     tier = 4;
     reasons.push(`Avantage de nuts (+${nutEdge} pts) sur board dynamique : mise grosse et polarisée (fortes mains + bluffs avec tirages).`);
-  } else if (eqEdge >= 4 && !t.dynamic) {
+  } else if (eqEdge >= 0 && !t.dynamic) {
     tier = 1;
-    reasons.push("Avantage d'équité sans gros avantage de nuts sur board statique : petite mise avec une grande partie de la range.");
+    reasons.push("Board statique sans gros avantage de nuts : petite mise avec une grande partie de la range.");
   } else if (nutEdge >= 4) {
     tier = 3;
     reasons.push(`Avantage de nuts (+${nutEdge} pts) : taille moyenne à grosse.`);

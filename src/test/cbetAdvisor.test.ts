@@ -14,6 +14,10 @@ describe("adviseCbet", () => {
     expect(a.checkMostly).toBe(false);
   });
 
+  it("static board with a slight equity edge still uses the small size", () => {
+    expect(adviseCbet({ texture: analyzeBoard(["Ks", "8d", "3c"]), adv: adv(0.52, 3, 3.5), pfrInPosition: true, potType: "srp" }).size).toBe("25-33%");
+  });
+
   it("nut edge on a dynamic board → bigger polar c-bet", () => {
     const a = adviseCbet({ texture: analyzeBoard(["Qh", "Jh", "Ts"]), adv: adv(0.6, 30, 15), pfrInPosition: true, potType: "srp" });
     expect(a.size).toBe("66-75%");
