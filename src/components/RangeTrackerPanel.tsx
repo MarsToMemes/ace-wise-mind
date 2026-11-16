@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePlayers } from "@/hooks/use-players";
-import { classify, Profile } from "@/engines/playerStats";
+import { classify, Profile, PROFILE_LABEL } from "@/engines/playerStats";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -160,7 +160,7 @@ export function RangeTrackerPanel({ hole, board, potBB = 20, texture = "Semi-wet
               className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm">
               <option value="">— choisir à la main ci-dessous —</option>
               {(table.length ? table : Object.keys(players)).map(id => players[id] && (
-                <option key={id} value={id}>{players[id].name} · {classify(players[id].counters).profile} · {players[id].counters.hands} mains</option>
+                <option key={id} value={id}>{players[id].name} · {PROFILE_LABEL[classify(players[id].counters).profile]} · {players[id].counters.hands} mains</option>
               ))}
             </select>
           </div>

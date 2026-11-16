@@ -44,11 +44,11 @@ export function PlayerCard({ p, compact = false }: { p: PlayerFile; compact?: bo
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      {!compact && <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold">{p.name}</span>
         <span className="text-[11px] text-muted-foreground">{p.room} · {c.hands} mains</span>
         <ProfileBadge p={p} />
-      </div>
+      </div>}
 
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
         {stats.map(([label, v, n]) => (
