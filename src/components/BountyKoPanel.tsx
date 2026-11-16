@@ -151,7 +151,7 @@ export const BountyKoPanel = () => {
       )}
 
       {/* Grille */}
-      <div className={`transition-opacity ${busy ? "opacity-50" : ""}`}>
+      <div className={`max-w-md mx-auto w-full transition-opacity ${busy ? "opacity-50" : ""}`}>
         <div className="grid gap-[2px]" style={{ gridTemplateColumns: "repeat(13, minmax(0, 1fr))" }}>
           {ALL_HANDS.map(h => {
             const st = chart?.status[h];
