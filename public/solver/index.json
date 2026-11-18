@@ -68,5 +68,12 @@
   "label": "Blinde contre blinde · 40 bb",
   "stack": 40,
   "spots": 11
+ },
+ {
+  "id": "cash100",
+  "kind": "cash",
+  "label": "Cash · 100 bb",
+  "stack": 100,
+  "spots": 1738
  }
 ]
