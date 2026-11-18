@@ -8,6 +8,15 @@ import { upsertPlayer, setMyTable, addStats, addShownHand, setSeatPlayers, remov
 import { applyQuickEvent, HandFlags, QuickEvent, QUICK_LABEL, PREFLOP_EVENTS, POSTFLOP_EVENTS } from "@/engines/playerStats";
 import { PlayerCard, ProfileBadge } from "@/components/PlayerCard";
 import { PlayersDialog } from "@/components/PlayersDialog";
+import { analyzeTable, TableGrade, SeatInfo } from "@/engines/tableAnalyzer";
+
+const GRADE_STYLE: Record<TableGrade, { icon: string; cls: string }> = {
+  excellente: { icon: "⭐", cls: "border-primary/60 bg-primary/10" },
+  bonne: { icon: "✅", cls: "border-emerald-500/50 bg-emerald-500/10" },
+  moyenne: { icon: "⚠️", cls: "border-amber-500/50 bg-amber-500/10" },
+  quitter: { icon: "❌", cls: "border-red-500/50 bg-red-500/10" },
+  inconnue: { icon: "🔍", cls: "border-border/60 bg-secondary/20" },
+};
 
 interface Props {
   /** Libellé de position de chaque siège de l'analyseur ("" si le bouton n'est pas placé). */
@@ -41,6 +50,9 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
 
   const seatCount = seatLabels.length;
   const hasSeats = seatLabels.some(Boolean);
+  const seatInfos: Record<number, SeatInfo | undefined> = {};
+  for (const [k, pid] of Object.entries(seats)) if (players[pid]) seatInfos[+k] = { name: players[pid].name, counters: players[pid].counters };
+  const tableNote = seatCount > 0 && table.length > 0 ? analyzeTable(seatCount, heroSeat, seatInfos) : null;
 
   return (
     <Card className="glass-panel p-6 space-y-4 border-primary/30">
@@ -59,6 +71,15 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
         <datalist id="ace-players">{Object.values(players).map(p => <option key={p.id} value={p.name} />)}</datalist>
         <Button type="submit" size="sm">Ajouter</Button>
       </form>
+
+      {tableNote && (
+        <div className={`rounded-lg border p-3 space-y-1 ${GRADE_STYLE[tableNote.grade].cls}`}>
+          <div className="font-semibold text-sm">{GRADE_STYLE[tableNote.grade].icon} {tableNote.title}</div>
+          <ul className="space-y-0.5 text-xs text-muted-foreground">
+            {tableNote.reasons.map(r => <li key={r}>{r}</li>)}
+          </ul>
+        </div>
+      )}
 
       {table.length === 0 && (
         <p className="text-sm text-muted-foreground">

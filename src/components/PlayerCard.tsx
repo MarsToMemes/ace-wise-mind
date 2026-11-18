@@ -1,24 +1,25 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { classify, tendencies, PROFILE_LABEL, PROFILE_TIP, Profile } from "@/engines/playerStats";
+import { classify, tendencies, PROFILE_LABEL, PROFILE_TIP, Profile, familyOf, FAMILY_LABEL, FAMILY_TIP, Family, referenceGaps } from "@/engines/playerStats";
 import { PlayerFile, updatePlayer } from "@/lib/playersStore";
 
-const PROFILE_TONE: Record<Profile, string> = {
-  Nit: "text-sky-300 border-sky-500/40",
-  TAG: "text-emerald-300 border-emerald-500/40",
-  LAG: "text-orange-300 border-orange-500/40",
-  Maniac: "text-red-400 border-red-500/50",
-  Station: "text-amber-300 border-amber-500/50",
-  FishLimper: "text-primary gold-border",
-  Unknown: "text-muted-foreground",
+
+const FAMILY_TONE: Record<Family, string> = {
+  recPassif: "text-primary gold-border",
+  recAgressif: "text-red-400 border-red-500/50",
+  regCompetent: "text-emerald-300 border-emerald-500/40",
+  regSerre: "text-sky-300 border-sky-500/40",
+  regAgressif: "text-orange-300 border-orange-500/40",
+  inconnu: "text-muted-foreground",
 };
 
 export function ProfileBadge({ p }: { p: PlayerFile }) {
-  const { profile, provisional, confidence } = classify(p.counters);
+  const { provisional, confidence } = classify(p.counters);
+  const fam = familyOf(p.counters);
   return (
-    <Badge variant="outline" className={`text-[10px] ${PROFILE_TONE[profile]}`}>
-      {PROFILE_LABEL[profile]}{provisional && profile !== "Unknown" ? " · provisoire" : ""} · confiance {confidence}
+    <Badge variant="outline" className={`text-[10px] ${FAMILY_TONE[fam]}`}>
+      {FAMILY_LABEL[fam]}{provisional && fam !== "inconnu" ? " · provisoire" : ""} · confiance {confidence}
     </Badge>
   );
 }
@@ -59,7 +60,23 @@ export function PlayerCard({ p, compact = false }: { p: PlayerFile; compact?: bo
         ))}
       </div>
 
-      <p className="text-sm"><span className="text-primary font-medium">Contre lui : </span>{PROFILE_TIP[profile]}</p>
+      <p className="text-sm"><span className="text-primary font-medium">Contre lui : </span>{FAMILY_TIP[familyOf(p.counters)]}</p>
+      {profile !== "Unknown" && (
+        <p className="text-xs text-muted-foreground">Style détaillé : {PROFILE_LABEL[profile]} — {PROFILE_TIP[profile]}</p>
+      )}
+      {referenceGaps(p.counters).length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Écarts à un joueur correct</div>
+          <ul className="space-y-0.5 text-sm">
+            {referenceGaps(p.counters).map(g => (
+              <li key={g.stat}>
+                <span className={g.dir === "low" ? "text-sky-300" : "text-amber-300"}>{g.label} {pct(g.value)}</span>
+                <span className="text-muted-foreground"> (réf. ~{pct(g.ref)}) → </span>{g.advice}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {tips.length > 0 && (
         <ul className="space-y-1 text-sm text-amber-200/90">

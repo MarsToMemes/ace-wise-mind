@@ -45,7 +45,7 @@ import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
 import { SolverAdviceBox } from "@/components/SolverAdviceBox";
 import { useSolverBase } from "@/hooks/use-solver-base";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
-import { classify, Profile } from "@/engines/playerStats";
+import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
 import { analyzeBoard } from "@/engines/boardTexture";
 import { actsFirstPostflop } from "@/engines/matchupRanges";
 import { usePlayers } from "@/hooks/use-players";
@@ -317,18 +317,17 @@ const Index = () => {
 
   // Pseudo + profil court affichés au-dessus de chaque siège associé à une fiche
   const seatNames = useMemo(() => {
-    const SHORT: Record<Profile, [string, string]> = {
-      Nit: ["Nit", "text-sky-300 border-sky-500/40"], TAG: ["TAG", "text-emerald-300 border-emerald-500/40"],
-      LAG: ["LAG", "text-orange-300 border-orange-500/40"], Maniac: ["Maniac", "text-red-400 border-red-500/50"],
-      Station: ["Station", "text-amber-300 border-amber-500/50"], FishLimper: ["Fish", "text-primary border-primary/50"],
-      Unknown: ["?", "text-muted-foreground border-border"],
+    const TONE: Record<Family, string> = {
+      recPassif: "text-primary border-primary/50", recAgressif: "text-red-400 border-red-500/50",
+      regCompetent: "text-emerald-300 border-emerald-500/40", regSerre: "text-sky-300 border-sky-500/40",
+      regAgressif: "text-orange-300 border-orange-500/40", inconnu: "text-muted-foreground border-border",
     };
     return Array.from({ length: tableSize }, (_, i) => {
       const p = seatPlayers[i] ? playerFiles[seatPlayers[i]] : undefined;
       if (!p || i === userIdx) return undefined;
-      const { profile, provisional } = classify(p.counters);
-      const [label, tone] = SHORT[profile];
-      return { name: p.name, profile: `${label}${provisional && profile !== "Unknown" ? "?" : ""} · ${p.counters.hands}`, tone };
+      const { provisional } = classify(p.counters);
+      const fam = familyOf(p.counters);
+      return { name: p.name, profile: `${FAMILY_SHORT[fam]}${provisional && fam !== "inconnu" ? "?" : ""} · ${p.counters.hands}`, tone: TONE[fam] };
     });
   }, [tableSize, seatPlayers, playerFiles, userIdx]);
 
