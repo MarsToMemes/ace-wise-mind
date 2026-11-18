@@ -41,6 +41,7 @@ import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
 import { MyTablePanel } from "@/components/MyTablePanel";
 import { ExploitPanel } from "@/components/ExploitPanel";
+import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, Profile } from "@/engines/playerStats";
 import { analyzeBoard } from "@/engines/boardTexture";
@@ -619,6 +620,7 @@ const Index = () => {
                 <TournamentPanel key={tournamentResetKey} />
                 <MyTablePanel />
                 <BountyKoPanel />
+                <SolverSpotsPanel prefer="mtt" />
               </main>
             ) : (
             <main className="py-6 space-y-6">
@@ -773,6 +775,8 @@ const Index = () => {
                   defaultStackBB={stack}
                   defaultEquityPct={Math.round(engine?.equityPct ?? 35)}
                 />
+
+                <SolverSpotsPanel prefer="cash" />
 
                 <Button
                   onClick={runAI}
