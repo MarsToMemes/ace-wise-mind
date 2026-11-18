@@ -252,3 +252,71 @@ export function applyQuickEvent(flags: HandFlags, ev: QuickEvent): { delta: Part
   }
   return { delta: d, flags: f };
 }
+
+// ---------------------------------------------------------------------------
+// Familles de profils (vision « récréatif / régulier ») et écarts aux références
+// ---------------------------------------------------------------------------
+export type Family = "recPassif" | "recAgressif" | "regCompetent" | "regSerre" | "regAgressif" | "inconnu";
+
+export const FAMILY_LABEL: Record<Family, string> = {
+  recPassif: "Récréatif passif", recAgressif: "Récréatif agressif", regCompetent: "Régulier compétent",
+  regSerre: "Régulier serré (nit)", regAgressif: "Régulier agressif", inconnu: "Inconnu",
+};
+export const FAMILY_SHORT: Record<Family, string> = {
+  recPassif: "Récré passif", recAgressif: "Récré agro", regCompetent: "Reg", regSerre: "Nit", regAgressif: "Reg agro", inconnu: "?",
+};
+export const FAMILY_TIP: Record<Family, string> = {
+  recPassif: "Mine d'or : joue plus large contre lui, invite-le dans le coup, beaucoup de value, peu de bluffs.",
+  recAgressif: "Resserre-toi : il t'empêche de réaliser ton équité. Prends des mains qui supportent ses 3-bets et laisse-le taper dedans.",
+  regCompetent: "Joue proche des ranges de base et couche tes mains marginales (le rake les rend perdantes).",
+  regSerre: "Vole ses blindes, c-bet ses checks ; couche-toi face à ses relances sans grosse main.",
+  regAgressif: "Paie un peu plus large ses mises, piège tes grosses mains, moins de bluffs.",
+  inconnu: "Pas assez de mains : joue tes ranges de base et observe.",
+};
+export const isRecreational = (f: Family) => f === "recPassif" || f === "recAgressif";
+
+export function familyOf(c: Counters): Family {
+  if (c.hands < 5) return "inconnu";
+  const e = estimate(c);
+  const ratio = e.vpip > 0 ? e.pfr / e.vpip : 0;
+  if (e.vpip >= 0.35) {
+    const aggressive = e.af >= 2.2 || e.threeBet >= 0.09 || (ratio >= 0.5 && e.vpip >= 0.45);
+    return aggressive ? "recAgressif" : "recPassif";
+  }
+  if (e.vpip < 0.18) return "regSerre";
+  if (e.threeBet >= 0.1 || e.pfr >= 0.24) return "regAgressif";
+  return "regCompetent";
+}
+
+/** Références d'un joueur correct (stats globales), et tolérance avant de signaler un écart. */
+export const REFERENCE = {
+  vpip: { ref: 0.25, tol: 0.07, low: "Joue peu de mains : vole ses blindes, respecte ses relances.", high: "Joue trop de mains : value plus large contre lui." },
+  pfr: { ref: 0.19, tol: 0.06, low: "Relance peu : ses relances sont fortes, ses calls larges.", high: "Relance beaucoup : paie et 3-bet plus large contre ses ouvertures." },
+  threeBet: { ref: 0.08, tol: 0.03, low: "Ne 3-bet pas assez : ouvre plus large devant lui.", high: "3-bet beaucoup : ouvre plus serré devant lui, 4-bet plus large." },
+  cbet: { ref: 0.6, tol: 0.12, low: "C-bet peu : ses c-bets sont souvent de la value.", high: "C-bet trop : flotte et relance ses c-bets." },
+  foldCbet: { ref: 0.45, tol: 0.12, low: "Lâche rarement au c-bet : moins de bluffs, plus de value.", high: "Se couche trop au c-bet : c-bet souvent." },
+  wtsd: { ref: 0.28, tol: 0.08, low: "Va peu à l'abattage : bluffe plus aux dernières streets.", high: "Va trop à l'abattage : value fine, pas de bluff river." },
+} as const;
+
+export interface ReferenceGap { stat: keyof typeof REFERENCE; label: string; value: number; ref: number; dir: "low" | "high"; advice: string }
+
+const GAP_LABEL: Record<keyof typeof REFERENCE, string> = {
+  vpip: "VPIP", pfr: "PFR", threeBet: "3-bet", cbet: "C-bet", foldCbet: "Fold au c-bet", wtsd: "Abattage",
+};
+
+/** Écarts nets aux références (seulement avec assez d'occasions pour la stat). */
+export function referenceGaps(c: Counters, minOpp = 8): ReferenceGap[] {
+  const e = estimate(c);
+  const opp: Record<keyof typeof REFERENCE, number> = {
+    vpip: c.vpipOpp, pfr: c.vpipOpp, threeBet: c.threeBetOpp, cbet: c.cbetOpp, foldCbet: c.foldCbetOpp, wtsd: c.wtsdOpp,
+  };
+  const out: ReferenceGap[] = [];
+  for (const k of Object.keys(REFERENCE) as (keyof typeof REFERENCE)[]) {
+    if (opp[k] < minOpp) continue;
+    const r = REFERENCE[k];
+    const v = e[k];
+    if (v < r.ref - r.tol) out.push({ stat: k, label: GAP_LABEL[k], value: v, ref: r.ref, dir: "low", advice: r.low });
+    else if (v > r.ref + r.tol) out.push({ stat: k, label: GAP_LABEL[k], value: v, ref: r.ref, dir: "high", advice: r.high });
+  }
+  return out;
+}

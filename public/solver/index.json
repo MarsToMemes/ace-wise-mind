@@ -35,6 +35,13 @@
   "spots": 492
  },
  {
+  "id": "mtt40",
+  "kind": "mtt",
+  "label": "MTT · 40 bb",
+  "stack": 40,
+  "spots": 571
+ },
+ {
   "id": "bvb15",
   "kind": "bvb",
   "label": "Blinde contre blinde · 15 bb",
