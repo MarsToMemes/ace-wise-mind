@@ -88,7 +88,7 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
       )}
 
       {table.length > 0 && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>Main n° {handNo}</span>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" type="button"
