@@ -18,6 +18,7 @@ export const SolverSpotsPanel = ({ prefer = "mtt" }: { prefer?: string }) => {
   const [game, setGame] = useState<SolverGame | null>(null);
   const [key, setKey] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [endNote, setEndNote] = useState<string | null>(null);
 
   useEffect(() => {
     loadSolverIndex().then(ix => {
@@ -60,7 +61,7 @@ export const SolverSpotsPanel = ({ prefer = "mtt" }: { prefer?: string }) => {
         <>
           {/* Ligne jouée */}
           <div className="flex flex-wrap items-center gap-1 text-xs">
-            <button type="button" className="px-2 py-1 rounded border border-border hover:border-primary" onClick={() => setKey("")}>Début</button>
+            <button type="button" className="px-2 py-1 rounded border border-border hover:border-primary" onClick={() => { setKey(""); setEndNote(null); }}>Début</button>
             {line.map(([pos, act], i) => (
               <button key={i} type="button"
                 className="px-2 py-1 rounded border border-border hover:border-primary"
@@ -79,9 +80,14 @@ export const SolverSpotsPanel = ({ prefer = "mtt" }: { prefer?: string }) => {
                 {spot.acts.map((a, i) => {
                   const next = childKey(spot, a);
                   const exists = !!findSpot(game, next);
+                  const closes = !exists && (a === "C" || a === "X" || a === "L");
                   return (
-                    <Button key={a} size="sm" type="button" variant="outline" disabled={!exists && a !== "F"}
-                      onClick={() => exists && setKey(next)}
+                    <Button key={a} size="sm" type="button" variant="outline" disabled={!exists && !closes && a !== "F"}
+                      onClick={() => {
+                        if (exists) { setKey(next); setEndNote(null); }
+                        else if (closes) setEndNote(`${spot.a} ${actLabel(a).toLowerCase()} : le préflop est terminé, la main part au flop.`);
+                        else if (a === "F") setEndNote(`${spot.a} se couche : la main est terminée.`);
+                      }}
                       className="h-8 gap-2" style={{ borderColor: ACT_COLOR(a) }}>
                       <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: ACT_COLOR(a) }} />
                       {actLabel(a)} · {spot.f[i]?.toFixed(1)} %
@@ -90,6 +96,7 @@ export const SolverSpotsPanel = ({ prefer = "mtt" }: { prefer?: string }) => {
                 })}
               </div>
 
+              {endNote && <p className="text-sm text-emerald-300">{endNote}</p>}
               <div className="max-w-md mx-auto w-full">
                 <div className="grid gap-[2px]" style={{ gridTemplateColumns: "repeat(13, minmax(0, 1fr))" }}>
                   {ALL_HANDS.map(h => {

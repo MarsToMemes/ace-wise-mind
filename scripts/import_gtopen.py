@@ -18,8 +18,18 @@ def short(label, kind):
         return "L" if kind == "limp" or label.lower().startswith("limp") else "C"
     m = re.search(r"([\d.]+)", label)
     amt = m.group(1) if m else ""
-    if kind == "jam" or "all" in label.lower(): return "A" + amt
+    if kind == "jam" or "all-in" in label.lower(): return "A" + amt
     return "R" + amt
+
+def kind_of(label):
+    """Type d'action d'après son libellé GTOpen ("Fold", "Call 2.5", "Limp", "Raise 2.5", "3-bet 7.5", "All-in 100"…)."""
+    l = label.lower()
+    if l == "fold": return "fold"
+    if l == "check": return "check"
+    if l.startswith("limp") or l.startswith("complete"): return "limp"
+    if l.startswith("call"): return "call"
+    if "all-in" in l: return "jam"
+    return "raise"
 
 LABELS = {"mtt": "MTT", "bvb": "Blinde contre blinde", "cash": "Cash"}
 
@@ -32,7 +42,7 @@ for path in sorted(glob.glob(os.path.join(SRC, "*.json"))):
     for s in d["spots"]:
         acts = [short(l, k) for l, k in zip(s["actions"], s["kinds"])]
         # clé de ligne : actions déjà jouées, au même format court
-        key = ",".join(f"{p}:{short(lbl, 'jam' if 'all' in lbl.lower() else ('fold' if lbl == 'Fold' else ('check' if lbl == 'Check' else ('limp' if lbl.lower().startswith('limp') else ('call' if lbl.lower().startswith('call') else 'raise')))))}" for p, lbl in s["line"])
+        key = ",".join(f"{p}:{short(lbl, kind_of(lbl))}" for p, lbl in s["line"])
         h = {hand: [round(x * 100) for x in probs] for hand, probs in s["hands"].items()}
         spots.append({"k": key, "a": s["actor"], "acts": acts, "f": [round(x * 100, 1) for x in s["freqs"]], "h": h})
     cfg = d["config"]

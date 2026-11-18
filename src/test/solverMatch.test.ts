@@ -49,3 +49,18 @@ describe("matchSpot", () => {
     expect(pickGame(ix, "mtt", 16)!.id).toBe("mtt20");
   });
 });
+
+describe("lines with calls", () => {
+  const g20 = load("mtt20");
+  it("a flat call leads to the next player's decision (squeeze spot)", () => {
+    const m = matchSpot(g20, SIX, 5, [A(2, "Raise", 2), A(3, "Call", 2)], 20);
+    expect(m.spot?.a).toBe("BB");
+    expect(m.spot?.k).toContain("BTN:C");
+  });
+  it("every call that does not close the action has a child spot", () => {
+    const keys = new Set(g20.spots.map(s => s.k));
+    const callChildren = g20.spots.filter(s => s.k.includes(":C"));
+    expect(callChildren.length).toBeGreaterThan(50);
+    expect([...keys].some(k => k.endsWith("BTN:C,SB:F"))).toBe(true);
+  });
+});
