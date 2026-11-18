@@ -155,3 +155,93 @@ export function solverRangeForSlot(slot: string, g: SolverGame | null = baseGame
   const r = rangeOf(spot, pick);
   return Object.keys(r).length ? r : null;
 }
+
+// ---------------------------------------------------------------------------
+// Retrouver le spot du solveur à partir de la table de l'analyseur
+// ---------------------------------------------------------------------------
+export interface TableAction { seatIdx: number; street: string; type: string; amountBB: number }
+
+export interface SpotMatch {
+  spot?: SolverSpot;
+  /** Phrase lisible : « BB face au tapis du BTN » */
+  title: string;
+  notes: string[];
+  reason?: string;
+}
+
+/** Choisit la partie calculée la plus adaptée (format + tapis le plus proche). */
+export function pickGame(index: SolverIndexEntry[], kind: string, stackBB: number): SolverIndexEntry | undefined {
+  const list = index.filter(e => e.kind === kind);
+  return [...list].sort((a, b) => Math.abs(a.stack - stackBB) - Math.abs(b.stack - stackBB))[0];
+}
+
+function toSolverAct(spot: SolverSpot, a: TableAction, stackBB: number): string | undefined {
+  const has = (x: string) => spot.acts.includes(x);
+  if (a.type === "Fold") return has("F") ? "F" : undefined;
+  if (a.type === "Check") return has("X") ? "X" : spot.acts.find(isCall);
+  if (a.type === "Call") return has("C") ? "C" : has("L") ? "L" : has("X") ? "X" : undefined;
+  // Bet / Raise : tapis si la mise engage l'essentiel du tapis, sinon la relance la plus proche
+  const jam = spot.acts.find(isJam);
+  const raises = spot.acts.filter(isRaise);
+  if (jam && (a.amountBB >= stackBB * 0.6 || !raises.length)) return jam;
+  if (!raises.length) return jam;
+  return raises.sort((x, y) => Math.abs(+x.slice(1) - a.amountBB) - Math.abs(+y.slice(1) - a.amountBB))[0];
+}
+
+function describe(spot: SolverSpot): string {
+  const acts = spot.k ? spot.k.split(",").map(s => s.split(":")) : [];
+  const aggressive = acts.filter(([, a]) => a !== "F" && a !== "X");
+  if (!aggressive.length) return `${spot.a} parle en premier (tout le monde s'est couché)`;
+  const words = aggressive.map(([p, a]) => `${isJam(a) ? "tapis" : isRaise(a) ? "relance" : a === "L" ? "limp" : "call"} ${p}`);
+  return `${spot.a} face à : ${words.join(", ")}`;
+}
+
+/**
+ * Suit les actions préflop saisies sur la table jusqu'à la décision du héros.
+ * `seatPos` donne la position 6-max de chaque siège (UTG+1 → UTG, LJ/HJ → MP…).
+ * Les joueurs sans action saisie avant le héros sont supposés s'être couchés.
+ */
+export function matchSpot(g: SolverGame, seatPos: string[], heroSeat: number, actions: TableAction[], stackBB: number): SpotMatch {
+  const heroPos = seatPos[heroSeat];
+  const notes: string[] = [];
+  if (!heroPos || !g.positions.includes(heroPos)) return { title: "", notes, reason: "Place le bouton et ton siège sur la table." };
+  const pre = actions.filter(a => a.street === "Preflop" && seatPos[a.seatIdx]);
+  const used = new Set<number>();
+  if (new Set(seatPos.filter(Boolean)).size < seatPos.filter(Boolean).length) notes.push("Table à plus de 6 joueurs : places en plus regroupées sur les positions du 6-max.");
+  let key = "";
+  for (let guard = 0; guard < 40; guard++) {
+    const spot = findSpot(g, key);
+    if (!spot) {
+      return {
+        title: "", notes,
+        reason: used.size === 0
+          ? "Tout le monde se serait couché avant toi : saisis sur la table l'action d'au moins un joueur."
+          : "Cette ligne n'a pas été calculée (trop rare dans la stratégie du solveur).",
+      };
+    }
+    const remainingOthers = pre.some((a, i) => !used.has(i) && seatPos[a.seatIdx] !== heroPos);
+    const nextIdx = pre.findIndex((a, i) => !used.has(i) && seatPos[a.seatIdx] === spot.a);
+    if (spot.a === heroPos) {
+      const heroIsLast = nextIdx === -1 || !pre.some((a, i) => i > nextIdx && !used.has(i) && seatPos[a.seatIdx] !== heroPos);
+      if (heroIsLast || !remainingOthers) return { spot, title: describe(spot), notes };
+    }
+    let act: string | undefined;
+    if (nextIdx >= 0) {
+      act = toSolverAct(spot, pre[nextIdx], stackBB);
+      used.add(nextIdx);
+      if (!act) return { title: "", notes, reason: `Action de ${spot.a} absente de l'arbre calculé.` };
+    } else {
+      act = spot.acts.includes("F") ? "F" : spot.acts.includes("X") ? "X" : undefined;
+      if (!act) return { title: "", notes, reason: "Ligne incomplète." };
+    }
+    key = childKey(spot, act);
+  }
+  return { title: "", notes, reason: "Ligne trop longue." };
+}
+
+/** Conseil pour une main : actions triées par fréquence. */
+export function adviceForHand(spot: SolverSpot, hand: string): { act: string; pct: number }[] | null {
+  const p = spot.h[hand];
+  if (!p) return null;
+  return spot.acts.map((act, i) => ({ act, pct: p[i] ?? 0 })).filter(x => x.pct > 0).sort((a, b) => b.pct - a.pct);
+}

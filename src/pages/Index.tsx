@@ -42,6 +42,7 @@ import { BountyKoPanel } from "@/components/BountyKoPanel";
 import { MyTablePanel } from "@/components/MyTablePanel";
 import { ExploitPanel } from "@/components/ExploitPanel";
 import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
+import { SolverAdviceBox } from "@/components/SolverAdviceBox";
 import { useSolverBase } from "@/hooks/use-solver-base";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, Profile } from "@/engines/playerStats";
@@ -272,6 +273,7 @@ const Index = () => {
 
   // === Moteur d'exploits : adversaire de la main + ligne jouée ===
   useSolverBase();
+  const [solverPreflop, setSolverPreflop] = useState<{ act: string; pct: number; label: string } | null>(null);
   const exploitSettings = useExploitSettings();
   const { players: playerFiles, seats: seatPlayers, table: tablePlayers } = usePlayers();
   const exploit = useMemo(() => {
@@ -626,6 +628,17 @@ const Index = () => {
               </main>
             ) : (
             <main className="py-6 space-y-6">
+              {currentStreet === "Preflop" && (
+                <SolverAdviceBox
+                  hole={hole}
+                  seatPos={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? labelToPosition(seatLabel(i, dealerIdx, tableSize)) : ""))}
+                  heroSeat={userIdx}
+                  actions={actionHistory}
+                  stackBB={stack}
+                  defaultFormat={stack >= 80 ? "cash" : "mtt"}
+                  onAdvice={setSolverPreflop}
+                />
+              )}
               <DecisionVerdict
                 street={currentStreet}
                 engine={engine}
@@ -633,6 +646,7 @@ const Index = () => {
                 pot={dynamicPot}
                 toCall={userToCall}
                 stack={stack}
+                solverAdvice={currentStreet === "Preflop" ? solverPreflop : null}
                 exploitAction={exploitSettings.mode ? exploit.adjust.action ?? (currentStreet === "Preflop" && exploit.adjust.isoSizeBB ? `Iso-raise ~${exploit.adjust.isoSizeBB} bb` : undefined) : undefined}
               />
               <ExploitPanel

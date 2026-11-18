@@ -14,6 +14,7 @@ import { StreetSlots } from "@/components/StreetSlots";
 import { PokerTable, TableSize, SeatMode, seatLabel, labelToPosition } from "@/components/PokerTable";
 import { PlayerAction, ActionType } from "@/components/ActionMenu";
 import { AIPanel, AIAnalysis } from "@/components/AIPanel";
+import { SolverAdviceBox } from "@/components/SolverAdviceBox";
 import { Trophy, Sparkles } from "lucide-react";
 import {
   evaluateBest, detectDraws, classifyTexture, estimateEquity,
@@ -462,6 +463,16 @@ export function TournamentPanel() {
       </div>
 
       <div className="space-y-6">
+      {currentStreet === "Preflop" && (
+        <SolverAdviceBox
+          hole={hole}
+          seatPos={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? labelToPosition(seatLabel(i, dealerIdx, tableSize)) : ""))}
+          heroSeat={userIdx}
+          actions={actionHistory}
+          stackBB={state.stackBB}
+          defaultFormat="mtt"
+        />
+      )}
       <Card className="glass-panel p-6">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="display text-xl">Tournament HUD</h2>

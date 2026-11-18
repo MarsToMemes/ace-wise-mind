@@ -13,6 +13,8 @@ interface Props {
   stack: number;
   /** Action conseillée par le moteur d'exploits (mode exploit activé). */
   exploitAction?: string;
+  /** Conseil du solveur préflop (prioritaire au préflop). */
+  solverAdvice?: { act: string; pct: number; label: string } | null;
 }
 
 const ACTION_STYLES: Record<string, string> = {
@@ -24,7 +26,7 @@ const ACTION_STYLES: Record<string, string> = {
   Jam:   "bg-amber-500/15 text-amber-300 border-amber-500/40",
 };
 
-export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, exploitAction }: Props) => {
+export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, exploitAction, solverAdvice }: Props) => {
   if (!engine) {
     return (
       <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm">
@@ -41,10 +43,16 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, exp
   // Action label
   let action: string = engAction;
   if (action === "Raise" && !facingBet) action = "Bet";
+  // Au préflop, le solveur GTOpen fait foi quand il a une réponse pour ce spot
+  const fromSolver = street === "Preflop" && !!solverAdvice;
+  if (fromSolver && solverAdvice) {
+    const a = solverAdvice.act;
+    action = a === "F" ? "Fold" : a === "X" ? "Check" : a === "C" || a === "L" ? "Call" : a.startsWith("A") ? "Jam" : "Raise";
+  }
 
   // Jam override: short stack & action is aggressive
   const spr = pot > 0 ? stack / pot : 99;
-  if ((action === "Bet" || action === "Raise") && stack <= 15 && spr < 2.5) {
+  if (!fromSolver && (action === "Bet" || action === "Raise") && stack <= 15 && spr < 2.5) {
     action = "Jam";
   }
 
@@ -52,7 +60,12 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, exp
   let amountBB = 0;
   let pctOfPot = 0;
   let sizingLabel = "";
-  if (action === "Jam") {
+  if (fromSolver && solverAdvice) {
+    const a = solverAdvice.act;
+    amountBB = a.startsWith("R") ? Number(a.slice(1)) : a.startsWith("A") ? stack : a === "C" ? toCall : 0;
+    pctOfPot = pot > 0 && amountBB ? Math.round((amountBB / pot) * 100) : 0;
+    sizingLabel = a.startsWith("R") ? `Relancer à ${a.slice(1)} BB` : a.startsWith("A") ? `All-in ${stack} BB` : a === "C" ? `Suivre ${toCall} BB` : a === "L" ? "Limp" : a === "X" ? "Checker" : "Coucher";
+  } else if (action === "Jam") {
     amountBB = stack;
     pctOfPot = pot > 0 ? Math.round((stack / pot) * 100) : 0;
     sizingLabel = `All-in ${stack} BB`;
@@ -75,7 +88,9 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, exp
   }
 
   // One-line "why"
-  const why =
+  const why = fromSolver && solverAdvice
+    ? `Solveur GTOpen (${solverAdvice.label}) : ${solverAdvice.pct} % ${solverAdvice.pct < 100 ? "(stratégie mixte)" : ""}`.trim()
+    :
     polar && (polar.heroRangeAdvantage >= 55 || polar.villainRangeAdvantage >= 55)
       ? polar.heroRangeAdvantage >= polar.villainRangeAdvantage
         ? `Avantage de range Hero ${polar.heroRangeAdvantage}% sur board ${engine.texture}.`
