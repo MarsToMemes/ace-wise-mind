@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, ChevronDown, ChevronUp, X } from "lucide-react";
 import { usePlayers } from "@/hooks/use-players";
-import { upsertPlayer, setMyTable, addStats, addShownHand, setSeatPlayers } from "@/lib/playersStore";
+import { upsertPlayer, setMyTable, addStats, addShownHand, setSeatPlayers, removeFromTable, clearTable } from "@/lib/playersStore";
 import { applyQuickEvent, HandFlags, QuickEvent, QUICK_LABEL, PREFLOP_EVENTS, POSTFLOP_EVENTS } from "@/engines/playerStats";
 import { PlayerCard, ProfileBadge } from "@/components/PlayerCard";
 import { PlayersDialog } from "@/components/PlayersDialog";
@@ -69,7 +69,15 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
       {table.length > 0 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>Main n° {handNo}</span>
-          <Button size="sm" variant="secondary" onClick={nextHand}>Main suivante</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" type="button"
+              onClick={() => {
+                if (window.confirm("Changer de table : retirer tous les joueurs de « Ma table » et effacer les pseudos des sièges ? Leurs fiches et leurs stats sont gardées.")) {
+                  clearTable(); setFlags({}); setHandNo(1); setOpen(null); setShown(null);
+                }
+              }}>Changer de table</Button>
+            <Button size="sm" variant="secondary" onClick={nextHand}>Main suivante</Button>
+          </div>
         </div>
       )}
 
@@ -88,7 +96,7 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
                 <ProfileBadge p={p} />
                 <span className="text-[11px] text-muted-foreground">{p.counters.hands} mains</span>
                 <button type="button" aria-label={`Retirer ${p.name} de la table`} className="ml-auto text-muted-foreground hover:text-foreground"
-                  onClick={() => setMyTable(table.filter(x => x !== id))}><X className="w-4 h-4" /></button>
+                  onClick={() => removeFromTable(id)}><X className="w-4 h-4" /></button>
               </div>
 
               <div className="flex flex-wrap gap-1">

@@ -48,7 +48,7 @@ import { actsFirstPostflop } from "@/engines/matchupRanges";
 import { usePlayers } from "@/hooks/use-players";
 import { useExploitSettings } from "@/lib/exploitSettings";
 import { countAnalyzedHand } from "@/engines/playerStats";
-import { getSeatPlayers, addStatsMany, loadPlayers } from "@/lib/playersStore";
+import { getSeatPlayers, addStatsMany, loadPlayers, clearTable } from "@/lib/playersStore";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 
@@ -683,6 +683,16 @@ const Index = () => {
                     onSizeChange={handleSizeChange}
                     seatNames={seatNames}
                   />
+                  {seatNames.some(Boolean) && (
+                    <div className="flex justify-end mt-2">
+                      <Button size="sm" variant="ghost" type="button" className="text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          if (window.confirm("Changer de table : effacer les pseudos des sièges et vider « Ma table » ? Les fiches et leurs stats sont gardées.")) clearTable();
+                        }}>
+                        Changer de table · effacer les pseudos
+                      </Button>
+                    </div>
+                  )}
                 </Card>
 
                 <Card className="glass-panel p-6">

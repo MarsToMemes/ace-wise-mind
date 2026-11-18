@@ -106,6 +106,20 @@ export const setMyTable = (ids: string[]) => write(TABLE_KEY, ids.slice(0, 9));
 export const getSeatPlayers = (): Record<number, string> => read<Record<number, string>>(SEATS_KEY, {});
 export const setSeatPlayers = (m: Record<number, string>) => write(SEATS_KEY, m);
 
+/** Retire un joueur de « Ma table » et de son siège (sa fiche reste). */
+export function removeFromTable(id: string) {
+  setMyTable(getMyTable().filter(x => x !== id));
+  const seats = getSeatPlayers();
+  for (const k of Object.keys(seats)) if (seats[+k] === id) delete seats[+k];
+  setSeatPlayers(seats);
+}
+
+/** Nouvelle table : vide « Ma table » et efface les pseudos des sièges. Les fiches et leurs stats restent. */
+export function clearTable() {
+  setMyTable([]);
+  setSeatPlayers({});
+}
+
 // --- export / import
 export function exportPlayers(): string {
   return JSON.stringify({ format: "ace-players", version: 1, players: loadPlayers() }, null, 2);
