@@ -11,11 +11,12 @@ import {
 } from "@/engines/preflopRanges";
 import { loadMyRanges, RangeWeights, handCombos } from "@/engines/myRanges";
 import { EQ_VS_RANDOM } from "@/engines/preflopEquity";
+import { solverRangeForSlot } from "@/engines/solverSpots";
 
 export type Pos = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 export const POSITIONS: Pos[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
 export type PotType = "srp" | "3bet";
-export type RangeSource = "user" | "base" | "estimated";
+export type RangeSource = "user" | "solver" | "base" | "estimated";
 
 export interface ResolvedRange {
   slot: string;
@@ -130,6 +131,8 @@ function baseOrUser(slot: string): RangeWeights {
 export function getRange(slot: string): ResolvedRange {
   const user = loadMyRanges()[slot];
   if (user && Object.keys(user).length) return { slot, weights: user, source: "user", label: slotLabel(slot) };
+  const solved = solverRangeForSlot(slot);
+  if (solved) return { slot, weights: solved, source: "solver", label: slotLabel(slot) };
   const b = baseRange(slot);
   return { slot, weights: b.weights, source: b.source, label: slotLabel(slot) };
 }

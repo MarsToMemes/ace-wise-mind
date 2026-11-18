@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import {
-  SolverGame, findSpot, childKey, rangeOf, isJam, isCall, isRaise, firstInSpot, facingSpot, foldsTo, actLabel,
+  SolverGame, spotAfter, solverRangeForSlot, findSpot, childKey, rangeOf, isJam, isCall, isRaise, firstInSpot, facingSpot, foldsTo, actLabel,
 } from "@/engines/solverSpots";
 
 const g: SolverGame = JSON.parse(readFileSync(resolve(__dirname, "../../public/solver/mtt10.json"), "utf8"));
@@ -47,5 +47,19 @@ describe("solver spots (MTT 10 bb computed by GTOpen)", () => {
     expect(childKey(root, "F")).toBe("UTG:F");
     expect(findSpot(g, childKey(root, "F"))!.a).toBe("MP");
     expect(actLabel("A10")).toBe("Tapis 10 bb");
+  });
+});
+
+describe("slots from the solver", () => {
+  it("follows a line with folds in between", () => {
+    const s = spotAfter(g, [["CO", isJam]], "BB");
+    expect(s?.a).toBe("BB");
+    expect(s?.k).toBe("UTG:F,MP:F,CO:A10,BTN:F,SB:F");
+  });
+  it("builds open and calling ranges for site slots", () => {
+    const open = solverRangeForSlot("open:BTN", g)!;
+    expect(open["AA"]).toBe(1);
+    expect(solverRangeForSlot("open:BB", g)).toBeNull();
+    expect(solverRangeForSlot("open:UTG", null)).toBeNull();
   });
 });

@@ -108,3 +108,50 @@ export function actLabel(a: string): string {
   if (isRaise(a)) return `Relance à ${a.slice(1)} bb`;
   return a;
 }
+
+/**
+ * Suit une suite d'actions ([position, choix]) depuis le début ; tous les autres joueurs
+ * se couchent. Renvoie le spot où `responder` doit ensuite agir.
+ */
+export function spotAfter(g: SolverGame, steps: [string, (a: string) => boolean][], responder: string): SolverSpot | undefined {
+  let key = "";
+  let i = 0;
+  for (let guard = 0; guard < 40; guard++) {
+    const s = findSpot(g, key);
+    if (!s) return undefined;
+    if (i >= steps.length && s.a === responder) return s;
+    let act: string | undefined;
+    if (i < steps.length && s.a === steps[i][0]) {
+      act = s.acts.find(steps[i][1]);
+      i++;
+    } else {
+      act = s.acts.find(a => a === "F");
+    }
+    if (!act) return undefined;
+    key = childKey(s, act);
+  }
+  return undefined;
+}
+
+// --- Partie de référence utilisée par les ranges du site (cash 100 bb) ---
+let baseGame: SolverGame | null = null;
+export const setSolverBaseGame = (g: SolverGame | null) => { baseGame = g; };
+export const getSolverBaseGame = () => baseGame;
+
+const raiseOrJam = (a: string) => isRaise(a) || isJam(a);
+
+/** Range d'une situation du site (open:POS, call:POS:vs:X, 3bet:POS:vs:X, call3bet:X:vs:Y) depuis le solveur. */
+export function solverRangeForSlot(slot: string, g: SolverGame | null = baseGame): RangeWeights | null {
+  if (!g) return null;
+  const [kind, pos, , vs] = slot.split(":");
+  let spot: SolverSpot | undefined;
+  let pick: (a: string) => boolean;
+  if (kind === "open") { spot = firstInSpot(g, pos); pick = raiseOrJam; }
+  else if (kind === "call") { spot = spotAfter(g, [[vs, isRaise]], pos); pick = isCall; }
+  else if (kind === "3bet") { spot = spotAfter(g, [[vs, isRaise]], pos); pick = raiseOrJam; }
+  else if (kind === "call3bet") { spot = spotAfter(g, [[pos, isRaise], [vs, raiseOrJam]], pos); pick = isCall; }
+  else return null;
+  if (!spot) return null;
+  const r = rangeOf(spot, pick);
+  return Object.keys(r).length ? r : null;
+}

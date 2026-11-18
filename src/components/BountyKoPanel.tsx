@@ -11,6 +11,8 @@ import { ALL_HANDS } from "@/engines/myRanges";
 import { loadBounty, saveBounty, BountySettings } from "@/lib/bountySettings";
 import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_BOUNTY } from "@/lib/teachContent";
+import { RangeWeights } from "@/engines/myRanges";
+import { loadSolverIndex, loadSolverGame, firstInSpot, rangeOf, isJam, SolverIndexEntry } from "@/engines/solverSpots";
 
 function Num({ label, value, onChange, step = 1, min = 0, suffix }: {
   label: string; value: number; onChange: (v: number) => void; step?: number; min?: number; suffix?: string;
@@ -36,6 +38,23 @@ export const BountyKoPanel = () => {
   const [postedBB, setPostedBB] = useState(1);
   const [jamPct, setJamPct] = useState(estimatedJamPct(12));
   const [jamPctTouched, setJamPctTouched] = useState(false);
+  // Range de tapis calculée par le solveur (MTT de profondeur la plus proche), selon la position adverse
+  const [villainPos, setVillainPos] = useState("");
+  const [mttIndex, setMttIndex] = useState<SolverIndexEntry[]>([]);
+  const [solverJam, setSolverJam] = useState<{ range: RangeWeights; label: string } | null>(null);
+  useEffect(() => { loadSolverIndex().then(ix => setMttIndex(ix.filter(e => e.kind === "mtt"))).catch(() => {}); }, []);
+  useEffect(() => {
+    setSolverJam(null);
+    if (!villainPos || !mttIndex.length) return;
+    const near = [...mttIndex].sort((a, b) => Math.abs(a.stack - jamBB) - Math.abs(b.stack - jamBB))[0];
+    let alive = true;
+    loadSolverGame(near.id).then(g => {
+      const spot = firstInSpot(g, villainPos);
+      const r = spot ? rangeOf(spot, isJam) : {};
+      if (alive && Object.keys(r).length) setSolverJam({ range: r, label: `${near.label}, ${villainPos} pousse en premier` });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [villainPos, jamBB, mttIndex]);
   useEffect(() => { if (!jamPctTouched) setJamPct(estimatedJamPct(jamBB)); }, [jamBB, jamPctTouched]);
 
   const value = useMemo(() => bountyValue(s), [s]);
@@ -52,11 +71,11 @@ export const BountyKoPanel = () => {
   useEffect(() => {
     setBusy(true);
     const id = setTimeout(() => {
-      setChart(callChart({ callBB, potBB, bountyBB: value.bountyBB, jamRange: topPercentRange(jamPct) }));
+      setChart(callChart({ callBB, potBB, bountyBB: value.bountyBB, jamRange: solverJam?.range ?? topPercentRange(jamPct) }));
       setBusy(false);
     }, 30);
     return () => clearTimeout(id);
-  }, [callBB, potBB, value.bountyBB, jamPct]);
+  }, [callBB, potBB, value.bountyBB, jamPct, solverJam]);
 
   const counts = useMemo(() => {
     const c = { call: 0, bounty: 0 };
@@ -124,7 +143,16 @@ export const BountyKoPanel = () => {
           <Num label="Pot avant" suffix="BB" value={deadBB} step={0.25} onChange={setDeadBB} />
           <Num label="Déjà mis" suffix="BB" value={postedBB} step={0.5} onChange={v => setPostedBB(Math.min(v, jamBB))} />
         </div>
-        <div className="space-y-1.5">
+        <label className="block space-y-1">
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground">Sa position (range de tapis du solveur)</span>
+          <select value={villainPos} onChange={e => setVillainPos(e.target.value)}
+            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">Estimation selon son tapis (curseur)</option>
+            {["UTG", "MP", "CO", "BTN", "SB"].map(p => <option key={p} value={p}>{p} pousse en premier</option>)}
+          </select>
+        </label>
+        {solverJam && <p className="text-xs text-emerald-300">Range de tapis calculée par GTOpen : {solverJam.label}.</p>}
+        {!solverJam && <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">Sa range de tapis : top {jamPct} % des mains</span>
             <button type="button" className="text-primary underline-offset-2 hover:underline"
@@ -134,7 +162,7 @@ export const BountyKoPanel = () => {
           </div>
           <Slider min={3} max={100} step={1} value={[jamPct]}
             onValueChange={v => { setJamPct(v[0]); setJamPctTouched(true); }} />
-        </div>
+        </div>}
       </div>
 
       {chart && (
@@ -178,7 +206,7 @@ export const BountyKoPanel = () => {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Équités calculées contre le top {jamPct} % des mains (classées par le site). Ne tient pas compte de l'ICM.
+        {solverJam ? "Équités calculées contre la range de tapis du solveur." : `Équités calculées contre le top ${jamPct} % des mains (classées par le site).`} Ne tient pas compte de l'ICM.
       </p>
 
       <TeachAccordion content={TEACH_BOUNTY} id="teach-bounty" />

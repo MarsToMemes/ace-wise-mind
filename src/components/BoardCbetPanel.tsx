@@ -25,10 +25,10 @@ interface Props {
 const SUIT: Record<string, string> = { s: "♠", h: "♥", d: "♦", c: "♣" };
 const red = (c: string) => c[1] === "h" || c[1] === "d";
 
-const SOURCE_LABEL: Record<RangeSource, string> = { user: "Ma range", base: "Range de base", estimated: "Estimée" };
+const SOURCE_LABEL: Record<RangeSource, string> = { user: "Ma range", solver: "Solveur", base: "Range de base", estimated: "Estimée" };
 
 function SourceBadge({ source }: { source: RangeSource }) {
-  const cls = source === "user" ? "text-primary gold-border" : source === "estimated" ? "text-amber-400 border-amber-500/40" : "";
+  const cls = source === "user" ? "text-primary gold-border" : source === "solver" ? "text-emerald-300 border-emerald-500/40" : source === "estimated" ? "text-amber-400 border-amber-500/40" : "";
   return <Badge variant="outline" className={`text-[10px] ${cls}`}>{SOURCE_LABEL[source]}</Badge>;
 }
 

@@ -42,6 +42,7 @@ import { BountyKoPanel } from "@/components/BountyKoPanel";
 import { MyTablePanel } from "@/components/MyTablePanel";
 import { ExploitPanel } from "@/components/ExploitPanel";
 import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
+import { useSolverBase } from "@/hooks/use-solver-base";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, Profile } from "@/engines/playerStats";
 import { analyzeBoard } from "@/engines/boardTexture";
@@ -270,6 +271,7 @@ const Index = () => {
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
 
   // === Moteur d'exploits : adversaire de la main + ligne jouée ===
+  useSolverBase();
   const exploitSettings = useExploitSettings();
   const { players: playerFiles, seats: seatPlayers, table: tablePlayers } = usePlayers();
   const exploit = useMemo(() => {

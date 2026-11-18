@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ALL_HANDS, RangeWeights, countCombos, parseRangeText, rangeToText,
   loadMyRanges, saveMyRange, clearMyRange, exportMyRanges, importMyRanges } from "@/engines/myRanges";
-import { allSlots, slotLabel, getRange, getBaseRange } from "@/engines/matchupRanges";
+import { allSlots, slotLabel, getRange } from "@/engines/matchupRanges";
 
 interface Props {
   /** Situation ouverte par défaut (ex. "open:BTN"). */
@@ -41,7 +41,7 @@ export function MyRangesDialog({ initialSlot = "open:UTG", children }: Props) {
 
   useEffect(() => { if (open) { setSlot(initialSlot); reload(initialSlot); } }, [open, initialSlot]);
 
-  const source = userSlots.includes(slot) ? "user" : getBaseRange(slot).source;
+  const source = userSlots.includes(slot) ? "user" : getRange(slot).source;
   const combos = countCombos(draft);
 
   const cycle = (h: string) => {
@@ -110,7 +110,7 @@ export function MyRangesDialog({ initialSlot = "open:UTG", children }: Props) {
               ))}
             </select>
             <Badge variant="outline" className={source === "user" ? "text-primary gold-border" : source === "base" ? "" : "text-amber-400 border-amber-500/40"}>
-              {source === "user" ? "Ma range" : source === "base" ? "Range de base" : "Range estimée"}
+              {source === "user" ? "Ma range" : source === "solver" ? "Solveur GTOpen" : source === "base" ? "Range de base" : "Range estimée"}
             </Badge>
           </div>
 
