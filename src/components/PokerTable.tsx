@@ -58,12 +58,16 @@ interface Props {
   flashMRatio?: boolean;
   /** Pseudo et profil du joueur associé à chaque siège (fiches joueurs). */
   seatNames?: ({ name: string; profile: string; tone: string } | undefined)[];
+  /** Contexte des tailles rapides du menu d'action. */
+  street?: "Preflop" | "Flop" | "Turn" | "River";
+  potBB?: number;
+  stackBB?: number;
 }
 
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
   currentBet, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
-  tournamentState, seatStacksBB, levelTimerSec, flashMRatio, seatNames,
+  tournamentState, seatStacksBB, levelTimerSec, flashMRatio, seatNames, street, potBB, stackBB,
 }: Props) => {
   const { t } = useI18n();
   const [actionSeat, setActionSeat] = useState<number | null>(null);
@@ -281,6 +285,10 @@ export const PokerTable = ({
             anchor={anchor}
             currentBet={Math.max(0, currentBet - (actionSeat != null ? (streetContribs[actionSeat] || 0) : 0))}
             defaultRaise={defaultRaise}
+            street={street}
+            potBB={potBB}
+            stackBB={actionSeat != null && seatStacksBB?.[actionSeat] ? seatStacksBB[actionSeat] : stackBB}
+            betLevel={currentBet}
             onAction={({ type, amountBB }) => {
               if (actionSeat != null) onPlayerAction(actionSeat, type, amountBB);
             }}

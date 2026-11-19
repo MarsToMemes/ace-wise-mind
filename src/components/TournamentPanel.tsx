@@ -428,6 +428,9 @@ export function TournamentPanel() {
           seatStacksBB={seatStacksBB}
           levelTimerSec={timerSec}
           flashMRatio={flashMRatio}
+          street={currentStreet}
+          potBB={1.5 + actionHistory.reduce((sum, a) => sum + (a.amountBB || 0), 0)}
+          stackBB={state.stackBB}
         />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-4">
           {seatStacksChips.slice(0, tableSize).map((s, i) => (

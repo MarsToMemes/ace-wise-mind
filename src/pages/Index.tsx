@@ -786,6 +786,9 @@ const Index = () => {
                     onModeChange={setSeatMode}
                     onSizeChange={handleSizeChange}
                     seatNames={seatNames}
+                    street={currentStreet}
+                    potBB={dynamicPot}
+                    stackBB={stack}
                   />
                   {(river || actionHistory.some(a => a.amountBB >= stack * 0.9)) && dealerIdx >= 0 && (
                     <ShowdownPanel
