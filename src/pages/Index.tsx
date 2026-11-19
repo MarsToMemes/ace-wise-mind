@@ -310,19 +310,23 @@ const Index = () => {
     const pairedBoard = new Set(board.map(c => c[0])).size < board.length;
     const heroStrength: HeroStrength = score >= 130 || (score >= 90 && cat === "Strong" && !pairedBoard) ? "nuts"
       : cat === "Strong" ? "strong" : cat === "Draw" ? "draw" : cat === "Medium" ? "medium" : "weak";
+    // adversaires réellement dans le coup : ceux qui ont mis de l'argent (ou checké) préflop sans se coucher
+    const inHand = new Set(actionHistory.filter(a => a.street === "Preflop" && a.type !== "Fold" && a.seatIdx !== userIdx).map(a => a.seatIdx));
+    actionHistory.filter(a => a.type === "Fold").forEach(a => inHand.delete(a.seatIdx));
+    const realOpponents = currentStreet !== "Preflop" && inHand.size > 0 ? inHand.size : Math.max(1, opponents);
     const res = runExploits({
       street: currentStreet,
       board,
       heroIsPfr,
       heroInPosition,
-      opponentsInHand: Math.max(1, opponents),
+      opponentsInHand: realOpponents,
       heroStrength,
       checkedToHero: checkedToHero(currentStreet),
       staticBoard: board.length >= 3 ? !analyzeBoard(board).dynamic : undefined,
       villain: villainFile ? { name: villainFile.name, counters: villainFile.counters } : undefined,
       line,
     });
-    return { ...res, villainSeat, villainFile, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
+    return { ...res, realOpponents, villainSeat, villainFile, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
   }, [actionHistory, userIdx, seatPlayers, playerFiles, exploitSettings.villainId, folded, pot, position, dealerIdx, tableSize, engine, board, currentStreet, opponents]);
 
   // === Conseiller de mises après le flop (alimente la décision synthétique) ===
@@ -373,7 +377,7 @@ const Index = () => {
     return advisePostflop({
       street: currentStreet as PostStreet, board, hole, heroRange, villainRange,
       heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: stack,
-      opponents: Math.max(1, opponents),
+      opponents: exploit.realOpponents,
       prevVillain: prev ? villainLine.find(e => e.street === prev)?.act : undefined,
       prevHero: prev ? heroLine.find(e => e.street === prev)?.act : undefined,
       villainCheckedThisStreet: vSeat >= 0 && actionHistory.some(a => a.street === currentStreet && a.seatIdx === vSeat && a.type === "Check"),

@@ -55,9 +55,9 @@ const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x
 const r5 = (x: number) => Math.round(x / 5) * 5;
 const halfBB = (x: number) => Math.round(x * 2) / 2;
 
-function sizeOf(pct: number, pot: number, stack: number) {
+function sizeOf(pct: number, pot: number, stack: number, jamAt = 0.7) {
   const bb = halfBB((pct / 100) * pot);
-  const allIn = bb >= stack * 0.7;
+  const allIn = bb >= stack * jamAt;
   return { sizeBB: allIn ? halfBB(stack) : Math.max(0.5, bb), allIn };
 }
 
@@ -97,7 +97,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     reasons.push(`Ton équité contre sa range : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);
     if (role === "nuts" || (role === "value" && hEq >= 0.75)) {
       const to = 3 * toCallBB;
-      const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB);
+      const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
       reasons.push("Ta main est en haut de ta range : relance pour la value.");
       plan.push(allIn ? "Tu es engagé : tapis." : "S'il relance à son tour : tapis avec cette main.");
       return {
@@ -111,7 +111,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     if (role === "draw" && street !== "River") {
       const semi = Math.round(35 * (adj.heroBluffMult ?? 1));
       const to = 3 * toCallBB;
-      const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB);
+      const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
       const canCall = hEq >= required;
       reasons.push(`Tirage (${outs} outs) : ${canCall ? "la cote permet de payer" : "la cote ne suffit pas à payer seul"}, la relance en semi-bluff ajoute de la fold equity.`);
       plan.push("Si ton tirage rentre au turn/river : mise pour la value.");
@@ -157,7 +157,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     reasons.push("Avantage d'équité sur board statique : petite mise avec une grande partie de ta range.");
   } else {
     tierPct = 50;
-    if (eqEdge < 0) reasons.push(`Ta range est derrière (${eqEdge} pts) : mise moins souvent.`);
+    if (eqEdge < 0) reasons.push(`Ta range globale est un peu derrière (${eqEdge} pts) : tes mains moyennes checkent plus souvent, tes mains fortes misent.`);
   }
   rangeFreq = clamp(50 + 2.2 * eqEdge + (ip ? 10 : -8) + (heroAggressorBefore ? (adj.cbetFreqDelta ?? 0) : 0), 10, 90);
 
@@ -207,6 +207,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
 
   if (role === "nuts" || role === "value") {
     const p = Math.max(80, rangeFreq);
+    reasons.unshift(`Ta main est devant sa range (${stats.handEquity} % d'équité) : mise pour la value.`);
     plan.push("S'il relance : paie (ou tapis si le SPR est bas).");
     return mk(kind, betVerb, betLabel, p, [{ label: betLabel, pct: p }, { label: "Check", pct: 100 - p }]);
   }
