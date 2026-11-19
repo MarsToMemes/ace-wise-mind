@@ -40,7 +40,13 @@ import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
 import { MyTablePanel } from "@/components/MyTablePanel";
-import { ExploitPanel } from "@/components/ExploitPanel";
+import { advisePostflop } from "@/engines/postflopAdvisor";
+import { filterByLine, removeDead, LineEvent, PostStreet } from "@/engines/postflopRanges";
+import { expandRange } from "@/engines/rangeVsRange";
+import { getRange, slotsFor } from "@/engines/matchupRanges";
+import { topPercentRange } from "@/engines/preflopEquity";
+import { estimate as estimateStats, FAMILY_LABEL } from "@/engines/playerStats";
+import type { SolverPreflop } from "@/components/DecisionVerdict";
 import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
 import { SolverAdviceBox } from "@/components/SolverAdviceBox";
 import { useSolverBase } from "@/hooks/use-solver-base";
@@ -273,7 +279,11 @@ const Index = () => {
 
   // === Moteur d'exploits : adversaire de la main + ligne jouée ===
   useSolverBase();
-  const [solverPreflop, setSolverPreflop] = useState<{ act: string; pct: number; label: string } | null>(null);
+  const [solverPreflop, setSolverPreflop] = useState<SolverPreflop | null>(null);
+  const [solverFormat, setSolverFormatState] = useState<"mtt" | "cash">(() => {
+    try { return (localStorage.getItem("ace:solverFormat") as "mtt" | "cash") || (stack >= 80 ? "cash" : "mtt"); } catch { return "cash"; }
+  });
+  const setSolverFormat = (f: "mtt" | "cash") => { setSolverFormatState(f); try { localStorage.setItem("ace:solverFormat", f); } catch { /* ignoré */ } };
   const exploitSettings = useExploitSettings();
   const { players: playerFiles, seats: seatPlayers, table: tablePlayers } = usePlayers();
   const exploit = useMemo(() => {
@@ -312,8 +322,65 @@ const Index = () => {
       villain: villainFile ? { name: villainFile.name, counters: villainFile.counters } : undefined,
       line,
     });
-    return { ...res, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
+    return { ...res, villainSeat, villainFile, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
   }, [actionHistory, userIdx, seatPlayers, playerFiles, exploitSettings.villainId, folded, pot, position, dealerIdx, tableSize, engine, board, currentStreet, opponents]);
+
+  // === Conseiller de mises après le flop (alimente la décision synthétique) ===
+  const postflopAdvice = useMemo(() => {
+    if (currentStreet === "Preflop" || hole.length < 2 || board.length < 3) return null;
+    const posOf = (seat: number) => (dealerIdx >= 0 && seat >= 0 ? labelToPosition(seatLabel(seat, dealerIdx, tableSize)) : "");
+    const heroPos = posOf(userIdx) || position;
+    // adversaire principal : celui de l'exploit, sinon le dernier à avoir misé, sinon le premier encore en jeu
+    let vSeat = exploit.villainSeat ?? -1;
+    if (vSeat < 0) {
+      for (let i = actionHistory.length - 1; i >= 0; i--) {
+        const a = actionHistory[i];
+        if (a.seatIdx !== userIdx && (a.type === "Bet" || a.type === "Raise")) { vSeat = a.seatIdx; break; }
+      }
+    }
+    if (vSeat < 0) vSeat = actionHistory.find(a => a.seatIdx !== userIdx && !folded[a.seatIdx])?.seatIdx ?? -1;
+    const villainPos = vSeat >= 0 ? posOf(vSeat) || "BB" : heroPos === "BB" ? "BTN" : "BB";
+    // qui a relancé préflop, et quel type de pot
+    const pre = actionHistory.filter(a => a.street === "Preflop");
+    const raises = pre.filter(a => a.type === "Raise" || a.type === "Bet");
+    const lastRaiser = raises.length ? raises[raises.length - 1].seatIdx : -1;
+    const heroIsPfr = lastRaiser >= 0 ? lastRaiser === userIdx : !actsFirstPostflop(heroPos, villainPos);
+    const slots = slotsFor(heroIsPfr ? heroPos : villainPos, heroIsPfr ? villainPos : heroPos, raises.length >= 2 ? "3bet" : "srp");
+    const combos = (slot: string, fallbackPct: number) => {
+      const w = getRange(slot).weights;
+      return expandRange(Object.keys(w).length ? w : topPercentRange(fallbackPct), board);
+    };
+    let heroRange = combos(heroIsPfr ? slots.pfr : slots.caller, 30);
+    let villainRange = removeDead(combos(heroIsPfr ? slots.caller : slots.pfr, 35), hole);
+    // ligne de chacun aux streets précédentes (le « filtre » sur les ranges)
+    const streets: PostStreet[] = ["Flop", "Turn", "River"];
+    const cur = streets.indexOf(currentStreet as PostStreet);
+    const heroFirst = actsFirstPostflop(heroPos, villainPos);
+    const lineOf = (seat: number, first: boolean): LineEvent[] => streets.slice(0, cur).flatMap(st => {
+      const acts = actionHistory.filter(a => a.street === st && a.seatIdx === seat);
+      const act = acts.some(a => a.type === "Bet" || a.type === "Raise") ? "bet" as const
+        : acts.some(a => a.type === "Call") ? "call" as const
+        : acts.some(a => a.type === "Check") ? (first ? "checkFirst" as const : "checkBack" as const) : null;
+      return act ? [{ street: st, act }] : [];
+    });
+    const heroLine = lineOf(userIdx, heroFirst);
+    const villainLine = vSeat >= 0 ? lineOf(vSeat, !heroFirst) : [];
+    heroRange = filterByLine(heroRange, board, heroLine);
+    villainRange = filterByLine(villainRange, board, villainLine);
+    const prev = cur > 0 ? streets[cur - 1] : null;
+    const vf = exploit.villainFile;
+    const villainAggressive = vf ? estimateStats(vf.counters).af >= 2 : false;
+    return advisePostflop({
+      street: currentStreet as PostStreet, board, hole, heroRange, villainRange,
+      heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: stack,
+      opponents: Math.max(1, opponents),
+      prevVillain: prev ? villainLine.find(e => e.street === prev)?.act : undefined,
+      prevHero: prev ? heroLine.find(e => e.street === prev)?.act : undefined,
+      villainCheckedThisStreet: vSeat >= 0 && actionHistory.some(a => a.street === currentStreet && a.seatIdx === vSeat && a.type === "Check"),
+      villainAggressive,
+      adjust: exploitSettings.mode ? exploit.adjust : undefined,
+    });
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode]);
 
   // Pseudo + profil court affichés au-dessus de chaque siège associé à une fiche
   const seatNames = useMemo(() => {
@@ -627,17 +694,17 @@ const Index = () => {
               </main>
             ) : (
             <main className="py-6 space-y-6">
-              {currentStreet === "Preflop" && (
-                <SolverAdviceBox
-                  hole={hole}
-                  seatPos={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? labelToPosition(seatLabel(i, dealerIdx, tableSize)) : ""))}
-                  heroSeat={userIdx}
-                  actions={actionHistory}
-                  stackBB={stack}
-                  defaultFormat={stack >= 80 ? "cash" : "mtt"}
-                  onAdvice={setSolverPreflop}
-                />
-              )}
+              <SolverAdviceBox
+                headless
+                format={solverFormat}
+                hole={hole}
+                seatPos={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? labelToPosition(seatLabel(i, dealerIdx, tableSize)) : ""))}
+                heroSeat={userIdx}
+                actions={actionHistory}
+                stackBB={stack}
+                defaultFormat={solverFormat}
+                onAdvice={setSolverPreflop}
+              />
               <DecisionVerdict
                 street={currentStreet}
                 engine={engine}
@@ -645,19 +712,20 @@ const Index = () => {
                 pot={dynamicPot}
                 toCall={userToCall}
                 stack={stack}
-                solverAdvice={currentStreet === "Preflop" ? solverPreflop : null}
-                exploitAction={exploitSettings.mode ? exploit.adjust.action ?? (currentStreet === "Preflop" && exploit.adjust.isoSizeBB ? `Iso-raise ~${exploit.adjust.isoSizeBB} bb` : undefined) : undefined}
-              />
-              <ExploitPanel
-                mode={exploitSettings.mode}
-                villainId={exploit.villainId}
-                villainOptions={(tablePlayers.length ? tablePlayers : Object.keys(playerFiles)).map(id => playerFiles[id]).filter(Boolean)}
-                autoVillainName={exploit.autoName}
-                profile={exploit.profile}
-                items={exploit.items}
-                adjust={exploit.adjust}
-                gtoAction={engine?.suggestedAction}
-                reqEquityPct={engine?.reqEquity ?? null}
+                solver={currentStreet === "Preflop" ? solverPreflop : null}
+                postflop={postflopAdvice}
+                format={solverFormat}
+                onFormat={setSolverFormat}
+                exploit={{
+                  mode: exploitSettings.mode,
+                  items: exploit.items,
+                  adjust: exploit.adjust,
+                  familyLabel: exploit.villainFile ? FAMILY_LABEL[familyOf(exploit.villainFile.counters)] : undefined,
+                  villainName: exploit.villainFile?.name,
+                  villainId: exploit.villainId,
+                  villainOptions: (tablePlayers.length ? tablePlayers : Object.keys(playerFiles)).map(id => playerFiles[id]).filter(Boolean),
+                  autoName: exploit.autoName,
+                }}
               />
               <MyTablePanel
                 seatLabels={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : ""))}

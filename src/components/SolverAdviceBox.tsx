@@ -26,17 +26,22 @@ interface Props {
   actions: TableAction[];
   stackBB: number;
   defaultFormat: Format;
-  /** Remonte l'action principale conseillée (pour la décision synthétique). */
-  onAdvice?: (a: { act: string; pct: number; label: string } | null) => void;
+  /** Remonte le conseil complet (pour la décision synthétique). */
+  onAdvice?: (a: { act: string; pct: number; label: string; title?: string; hand?: string; mix?: { label: string; pct: number }[] } | null) => void;
+  /** Format contrôlé par le parent (sinon mémorisé localement). */
+  format?: Format;
+  /** Calcule sans rien afficher (le conseil est montré dans la décision synthétique). */
+  headless?: boolean;
 }
 
-export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, defaultFormat, onAdvice }: Props) => {
+export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, defaultFormat, onAdvice, format: formatProp, headless }: Props) => {
   const [index, setIndex] = useState<SolverIndexEntry[]>([]);
-  const [format, setFormat] = useState<Format>(() => {
+  const [formatState, setFormat] = useState<Format>(() => {
     try { return (localStorage.getItem(FORMAT_KEY) as Format) || defaultFormat; } catch { return defaultFormat; }
   });
   const [game, setGame] = useState<SolverGame | null>(null);
 
+  const format = formatProp ?? formatState;
   useEffect(() => { loadSolverIndex().then(setIndex).catch(() => setIndex([])); }, []);
   const setFmt = (f: Format) => { setFormat(f); try { localStorage.setItem(FORMAT_KEY, f); } catch { /* ignoré */ } };
 
@@ -68,12 +73,16 @@ export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, def
   const hand = hole.length === 2 ? handLabel(hole) : "";
   const advice = result?.spot && hand ? adviceForHand(result.spot, hand) : null;
   const top = advice?.[0];
-  const topKey = top ? `${top.act}:${top.pct}:${entry?.label}` : "";
+  const topKey = top ? `${top.act}:${top.pct}:${entry?.label}:${result?.title}:${hand}` : "";
   useEffect(() => {
-    onAdvice?.(top ? { act: top.act, pct: top.pct, label: entry?.label ?? "" } : null);
+    onAdvice?.(top ? {
+      act: top.act, pct: top.pct, label: entry?.label ?? "", title: result?.title, hand,
+      mix: advice!.map(x => ({ label: actLabel(x.act), pct: x.pct })),
+    } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topKey]);
 
+  if (headless) return null;
   return (
     <Card className="glass-panel p-5 space-y-3 border-emerald-500/40">
       <div className="flex flex-wrap items-center justify-between gap-2">
