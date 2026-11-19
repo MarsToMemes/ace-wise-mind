@@ -1,7 +1,10 @@
 // Fiches joueurs, gardées dans le navigateur (localStorage), jamais dans le code.
 import { Counters, emptyCounters, addCounters } from "@/engines/playerStats";
 
-export interface ShownHand { cards: string; line: string; date: string }
+import type { ShowdownRecord } from "@/engines/showdown";
+
+/** Main montrée : texte libre (ancien format) ou enregistrement complet depuis la table. */
+export interface ShownHand extends Partial<Omit<ShowdownRecord, "cards" | "line" | "date">> { cards: string; line: string; date: string }
 
 export interface PlayerFile {
   id: string;
@@ -87,6 +90,15 @@ export function addShownHand(id: string, cards: string, line: string) {
   const all = loadPlayers();
   if (!all[id]) return;
   const shown = [{ cards: cards.trim().slice(0, 20), line: line.trim().slice(0, 200), date: now() }, ...all[id].shown].slice(0, 50);
+  all[id] = { ...all[id], shown, updatedAt: now() };
+  savePlayers(all);
+}
+
+/** Enregistre une main montrée complète (cartes + ligne jouée), saisie sur la table. */
+export function addShownRecord(id: string, record: ShowdownRecord) {
+  const all = loadPlayers();
+  if (!all[id]) return;
+  const shown = [record, ...all[id].shown].slice(0, 80);
   all[id] = { ...all[id], shown, updatedAt: now() };
   savePlayers(all);
 }

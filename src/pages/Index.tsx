@@ -49,6 +49,8 @@ import { estimate as estimateStats, FAMILY_LABEL } from "@/engines/playerStats";
 import type { SolverPreflop } from "@/components/DecisionVerdict";
 import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
 import { SolverAdviceBox } from "@/components/SolverAdviceBox";
+import { ShowdownPanel } from "@/components/ShowdownPanel";
+import { parseCards, buildShowdownRecord } from "@/engines/showdown";
 import { useSolverBase } from "@/hooks/use-solver-base";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
@@ -57,7 +59,7 @@ import { actsFirstPostflop } from "@/engines/matchupRanges";
 import { usePlayers } from "@/hooks/use-players";
 import { useExploitSettings } from "@/lib/exploitSettings";
 import { countAnalyzedHand } from "@/engines/playerStats";
-import { getSeatPlayers, addStatsMany, loadPlayers, clearTable } from "@/lib/playersStore";
+import { getSeatPlayers, addStatsMany, loadPlayers, clearTable, addShownRecord } from "@/lib/playersStore";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 
@@ -84,6 +86,7 @@ const Index = () => {
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
   const [actionHistory, setActionHistory] = useState<PlayerAction[]>([]);
+  const [shownCards, setShownCards] = useState<Record<number, string>>({});
   const [aiResult, setAiResult] = useState<AIAnalysis | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
@@ -323,7 +326,7 @@ const Index = () => {
       heroStrength,
       checkedToHero: checkedToHero(currentStreet),
       staticBoard: board.length >= 3 ? !analyzeBoard(board).dynamic : undefined,
-      villain: villainFile ? { name: villainFile.name, counters: villainFile.counters } : undefined,
+      villain: villainFile ? { name: villainFile.name, counters: villainFile.counters, shown: villainFile.shown } : undefined,
       line,
     });
     return { ...res, realOpponents, villainSeat, villainFile, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
@@ -486,6 +489,17 @@ const Index = () => {
       addStatsMany(deltas);
       toast.success(`Main comptée dans ${n} fiche${n > 1 ? "s" : ""} joueur.`);
     }
+    // cartes montrées à l'abattage → enregistrées avec toute la ligne
+    const board5 = [...flop, ...(turn ? [turn] : []), ...(river ? [river] : [])];
+    let shownSaved = 0;
+    for (const [seat, text] of Object.entries(shownCards)) {
+      const cards = parseCards(text);
+      const pid = seatMap[+seat];
+      if (!cards || !pid || !players[pid] || cards.some(c => hole.includes(c) || board5.includes(c))) continue;
+      addShownRecord(pid, buildShowdownRecord(cards, +seat, positions[+seat], actionHistory, board5, pot));
+      shownSaved++;
+    }
+    if (shownSaved) toast.success(`Cartes montrées enregistrées dans ${shownSaved} fiche${shownSaved > 1 ? "s" : ""}.`);
   };
 
   const reset = () => {
@@ -497,6 +511,7 @@ const Index = () => {
     setFolded(Array(tableSize).fill(false));
     setStack(100); setPot(10); setCall(0);
     setActionHistory([]);
+    setShownCards({});
     setTournamentResetKey(k => k + 1);
   };
 
@@ -772,6 +787,17 @@ const Index = () => {
                     onSizeChange={handleSizeChange}
                     seatNames={seatNames}
                   />
+                  {(river || actionHistory.some(a => a.amountBB >= stack * 0.9)) && dealerIdx >= 0 && (
+                    <ShowdownPanel
+                      seats={[...new Set(actionHistory.filter(a => a.street === "Preflop" && a.type !== "Fold").map(a => a.seatIdx))]
+                        .filter(i => i !== userIdx && !folded[i])
+                        .map(i => ({ seat: i, label: seatLabel(i, dealerIdx, tableSize), name: seatPlayers[i] ? playerFiles[seatPlayers[i]]?.name : undefined }))}
+                      values={shownCards}
+                      onChange={(seat, text) => setShownCards(v => ({ ...v, [seat]: text }))}
+                      hero={hole}
+                      board={[...flop, ...(turn ? [turn] : []), ...(river ? [river] : [])]}
+                    />
+                  )}
                   {seatNames.some(Boolean) && (
                     <div className="flex justify-end mt-2">
                       <Button size="sm" variant="ghost" type="button" className="text-xs text-muted-foreground hover:text-foreground"

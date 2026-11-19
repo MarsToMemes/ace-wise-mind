@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { classify, tendencies, PROFILE_LABEL, PROFILE_TIP, Profile, familyOf, FAMILY_LABEL, FAMILY_TIP, Family, referenceGaps } from "@/engines/playerStats";
 import { PlayerFile, updatePlayer } from "@/lib/playersStore";
+import { showdownInsights } from "@/engines/showdown";
 
 
 const FAMILY_TONE: Record<Family, string> = {
@@ -84,6 +85,15 @@ export function PlayerCard({ p, compact = false }: { p: PlayerFile; compact?: bo
         </ul>
       )}
 
+      {showdownInsights(p.shown).lines.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Ce qu'il a montré à l'abattage</div>
+          <ul className="space-y-0.5 text-sm text-emerald-200/90">
+            {showdownInsights(p.shown).lines.map(l => <li key={l}>→ {l}</li>)}
+          </ul>
+        </div>
+      )}
+
       {!compact && (
         <>
           {p.shown.length > 0 && (
@@ -91,7 +101,10 @@ export function PlayerCard({ p, compact = false }: { p: PlayerFile; compact?: bo
               <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Mains montrées</div>
               <ul className="space-y-0.5 text-sm">
                 {p.shown.slice(0, 8).map((s, i) => (
-                  <li key={i}><span className="font-mono text-primary">{s.cards}</span>{s.line ? ` — ${s.line}` : ""}
+                  <li key={i}><span className="font-mono text-primary">{s.cards}</span>
+                    {s.position && <span className="text-muted-foreground"> ({s.position})</span>}
+                    {s.board?.length ? <span className="text-muted-foreground"> · board {s.board.join(" ")}</span> : null}
+                    {s.line ? ` — ${s.line}` : ""}
                     <span className="text-[10px] text-muted-foreground"> · {new Date(s.date).toLocaleDateString("fr-FR")}</span></li>
                 ))}
               </ul>
