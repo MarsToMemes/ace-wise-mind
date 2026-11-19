@@ -108,7 +108,7 @@ export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRais
                   <Button key={q.label} size="sm" variant="outline" className="h-auto py-1.5 flex flex-col leading-tight"
                     onClick={() => send(aggressive, q.amount)}>
                     <span className="text-xs font-semibold">{q.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{fmt(q.amount)} bb</span>
+                    {!q.label.endsWith("bb") && <span className="text-[10px] text-muted-foreground">{fmt(q.amount)} bb</span>}
                   </Button>
                 ))}
               </div>
