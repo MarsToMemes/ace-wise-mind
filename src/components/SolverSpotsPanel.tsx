@@ -121,7 +121,7 @@ export const SolverSpotsPanel = ({ prefer = "mtt" }: { prefer?: string }) => {
 
           <p className="text-[11px] text-muted-foreground">
             Partie à {game.positions.length} joueurs, {game.stack} bb{game.ante ? `, ante ${game.ante} bb par joueur` : ""}.
-            Résolu par GTOpen ({game.iterations ?? "?"} itérations, écart {game.gap != null ? (game.gap * 100).toFixed(2) : "?"} % du pot).
+            Résolu par GTOpen ({game.iterations ?? "?"} itérations, écart {game.gap != null ? `${game.gap.toFixed(4).replace(".", ",")} bb par main, soit ≈ ${(game.gap * 100).toFixed(1).replace(".", ",")} bb pour 100 mains` : "inconnu"}).
             Survole une case pour le détail ; les cases grisées sont hors de la range du joueur.
           </p>
         </>
