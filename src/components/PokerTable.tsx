@@ -4,6 +4,36 @@ import { useI18n } from "@/lib/i18n";
 import { ActionMenu, PlayerAction, ActionType } from "@/components/ActionMenu";
 import { useState } from "react";
 import { stackHealth, icmThreat, stageLabel, type TournamentState } from "@/lib/tournamentEngine";
+import { SUIT_SYMBOLS } from "@/lib/pokerEngine";
+
+const HAND_FR: Record<string, string> = {
+  "High Card": "Hauteur", "Pair": "Paire", "Two Pair": "Double paire", "Three of a Kind": "Brelan",
+  "Straight": "Quinte", "Flush": "Couleur", "Full House": "Full", "Four of a Kind": "Carré", "Straight Flush": "Quinte flush",
+};
+const fmtBB = (x: number) => (Math.round(x * 10) / 10).toString();
+
+/** Carte blanche de la table Orbite (rang + couleur), avec un léger reflet dessous. */
+const TableCard = ({ card, big, testId }: { card: string; big?: boolean; testId: string }) => {
+  const red = card[1] === "h" || card[1] === "d";
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        "flex flex-col items-center justify-center rounded-lg font-extrabold leading-none shadow-[0_8px_18px_-8px_#000]",
+        big ? "w-9 h-[52px] sm:w-10 sm:h-14 text-lg" : "w-8 h-11 sm:w-9 sm:h-[50px] text-base",
+        red ? "text-[#d63c3c]" : "text-[#11131c]",
+      )}
+      style={{ background: "linear-gradient(170deg, #ffffff, #e9e4d4)", WebkitBoxReflect: "below 3px linear-gradient(transparent 60%, rgb(255 255 255 / 0.14))" }}
+    >
+      {card[0] === "T" ? "10" : card[0]}
+      <span className="text-sm mt-0.5">{SUIT_SYMBOLS[card[1]] ?? card[1]}</span>
+    </div>
+  );
+};
+
+const ACT_TONE: Record<string, string> = {
+  Fold: "hsl(0 75% 62%)", Check: "hsl(230 15% 78%)", Call: "hsl(150 68% 55%)", Bet: "hsl(38 88% 60%)", Raise: "hsl(38 88% 60%)",
+};
 
 export type TableSize = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 export type SeatMode = "dealer" | "user" | "fold" | "action";
@@ -62,22 +92,32 @@ interface Props {
   street?: "Preflop" | "Flop" | "Turn" | "River";
   potBB?: number;
   stackBB?: number;
+  /** Cartes du board et de ton jeu, affichées au centre de la table. */
+  board?: string[];
+  hole?: string[];
+  /** Catégorie de ta main (« Pair », « Two Pair »…). */
+  heroHand?: string;
 }
 
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
   currentBet, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
   tournamentState, seatStacksBB, levelTimerSec, flashMRatio, seatNames, street, potBB, stackBB,
+  board = [], hole = [], heroHand,
 }: Props) => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [actionSeat, setActionSeat] = useState<number | null>(null);
 
+  // ovale vertical ; dès que ton siège est choisi, la table tourne pour le mettre en bas
   const seats = Array.from({ length: size }, (_, i) => {
-    const angle = (-Math.PI / 2) + (i * 2 * Math.PI) / size;
-    const x = 50 + 42 * Math.cos(angle);
-    const y = 50 + 40 * Math.sin(angle);
+    const step = (2 * Math.PI) / size;
+    const angle = userIdx >= 0 ? Math.PI / 2 + (i - userIdx) * step : -Math.PI / 2 + i * step;
+    const x = 50 + 46 * Math.cos(angle);
+    const y = 50 + 45 * Math.sin(angle);
     return { i, x, y };
   });
+  const showPot = dealerIdx >= 0 && userIdx >= 0;
+  const prompt = dealerIdx < 0 ? t("table.clickDealer") : userIdx < 0 ? t("table.clickUser") : mode === "action" ? t("table.clickAction") : t("table.ready");
 
   const handleClick = (i: number) => {
     if (mode === "action") {
@@ -112,13 +152,21 @@ export const PokerTable = ({
         </div>
       </div>
 
-      <div className="relative w-full aspect-[5/4] rounded-[50%] overflow-visible"
-        style={{
-          background: "radial-gradient(ellipse at center, hsl(150 65% 28%) 0%, hsl(150 70% 16%) 60%, hsl(150 75% 10%) 100%)",
-          boxShadow: "inset 0 0 40px hsl(0 0% 0% / 0.6), 0 12px 40px hsl(0 0% 0% / 0.5), 0 0 0 6px hsl(45 60% 25%), 0 0 0 8px hsl(45 70% 40%)",
-        }}
-      >
-        <div className="absolute inset-[12%] rounded-[50%] border border-[hsl(45_60%_45%/0.25)]" />
+      <div className="px-7 sm:px-12 pt-4 pb-12">
+      <div className="relative mx-auto w-full max-w-[400px] aspect-[3/4]">
+        {/* anneau de lumière or et vert : le seul élément coloré de la table */}
+        <div
+          aria-hidden
+          className="absolute inset-[4%] rounded-[50%] p-[6px]"
+          style={{
+            background: "conic-gradient(from 210deg, hsl(45 65% 53%), hsl(150 65% 55%) 25%, hsl(45 65% 53%) 50%, hsl(150 60% 30%) 75%, hsl(45 65% 53%))",
+            boxShadow: "0 0 30px -4px hsl(150 65% 55% / 0.4), 0 0 60px -10px hsl(45 65% 53% / 0.45)",
+          }}
+        >
+          <div className="w-full h-full rounded-[50%]" style={{ background: "radial-gradient(ellipse at 50% 50%, hsl(155 45% 10%) 0%, hsl(240 30% 4%) 70%)" }} />
+        </div>
+        <div aria-hidden className="absolute inset-[16%] rounded-[50%] border border-primary/15" />
+        <div aria-hidden className="absolute inset-[28%] rounded-[50%] border border-primary/10" />
 
         {tournamentState && (() => {
           const m = tournamentState.mRatio;
@@ -128,7 +176,7 @@ export const PokerTable = ({
           return (
             <div
               className={cn(
-                "absolute left-1/2 -translate-x-1/2 top-3 z-10 pointer-events-none",
+                "absolute left-1/2 -translate-x-1/2 top-[25%] z-10 pointer-events-none",
                 "px-3 py-1.5 rounded-md bg-card/85 border border-primary/40 backdrop-blur-sm shadow",
                 "flex items-center gap-3 text-[10px]",
                 flashMRatio && "animate-pulse ring-2 ring-red-500/70",
@@ -152,14 +200,39 @@ export const PokerTable = ({
           );
         })()}
 
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center">
-            <p className="display gold-text text-lg leading-none">Ace Analyst</p>
-            <p className="text-[10px] uppercase tracking-widest text-[hsl(45_30%_70%/0.6)] mt-1">
-              {dealerIdx < 0 ? t("table.clickDealer") : userIdx < 0 ? t("table.clickUser") : mode === "action" ? t("table.clickAction") : t("table.ready")}
-            </p>
-          </div>
+        {/* centre : pot, board, ou consigne tant que la table n'est pas prête */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none z-[5]">
+          {showPot ? (
+            <>
+              <div data-testid="table-pot" className="text-center leading-none">
+                <div className="text-[11px] text-muted-foreground mb-1">Pot</div>
+                <div className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white tabular-nums">
+                  {fmtBB(potBB ?? 0)}<span className="text-sm text-primary ml-1 tracking-normal">bb</span>
+                </div>
+              </div>
+              {board.length > 0 && (
+                <div className="flex gap-1.5">{board.map(c => <TableCard key={c} card={c} testId="board-card" />)}</div>
+              )}
+            </>
+          ) : (
+            <div data-testid="table-prompt" className="text-center">
+              <p className="display gold-text text-lg leading-none">Ace Analyst</p>
+              <p className="text-[10px] uppercase tracking-widest text-[hsl(45_30%_70%/0.6)] mt-1">{prompt}</p>
+            </div>
+          )}
         </div>
+
+        {/* tes cartes, à droite de ton siège (en bas de la table) */}
+        {userIdx >= 0 && hole.length > 0 && !folded[userIdx] && (
+          <div
+            className="absolute -translate-x-1/2 z-[6] flex pointer-events-none"
+            style={{ left: `calc(${seats[userIdx].x}% + 86px)`, top: `calc(${seats[userIdx].y}% - 34px)` }}
+          >
+            {hole.map((c, k) => (
+              <div key={c} className={k === 1 ? "-ml-2.5 rotate-[7deg] translate-y-0.5" : "-rotate-[4deg]"}><TableCard card={c} big testId="hero-card" /></div>
+            ))}
+          </div>
+        )}
 
         {seats.map(({ i, x, y }) => {
           const label = seatLabel(i, dealerIdx, size);
@@ -168,10 +241,16 @@ export const PokerTable = ({
           const isFolded = folded[i];
           const contrib = streetContribs[i] || 0;
           const last = lastActions[i];
+          const stack = seatStacksBB?.[i] ?? (isUser ? stackBB : undefined);
+          const who = isUser ? t("table.you2") : seatNames?.[i]?.name;
+          // tournoi : la couleur du tapis dit sa santé (vert → rouge)
+          const healthTone = tournamentState && seatStacksBB?.[i] != null
+            ? { green: "text-emerald-300", yellow: "text-yellow-300", orange: "text-orange-300", red: "text-red-400" }[stackHealth(seatStacksBB[i])]
+            : undefined;
 
-          // chip marker offset toward center
-          const cx = 50 + (x - 50) * 0.6;
-          const cy = 50 + (y - 50) * 0.6;
+          // jetons : décalés vers le centre
+          const cx = 50 + (x - 50) * 0.62;
+          const cy = 50 + (y - 50) * 0.62;
 
           return (
             <div key={i}>
@@ -179,69 +258,65 @@ export const PokerTable = ({
                 type="button"
                 onClick={() => handleClick(i)}
                 className={cn(
-                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex flex-col items-center justify-center transition-all duration-200",
-                  "w-12 h-12 sm:w-14 sm:h-14 text-[10px] font-semibold",
-                  "border-2 hover:scale-110 active:scale-95 animate-scale-in",
+                  "absolute -translate-x-1/2 -translate-y-1/2 z-10 flex items-center gap-1.5 rounded-full whitespace-nowrap border",
+                  "px-3 py-1.5 text-xs motion-safe:transition-all motion-safe:duration-300 hover:scale-105 active:scale-95",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   isFolded
-                    ? "bg-muted/40 text-muted-foreground border-dashed border-muted-foreground/40 opacity-50 grayscale"
+                    ? "bg-card/60 border-border text-muted-foreground opacity-40 grayscale"
                     : isUser
-                      ? "bg-primary text-primary-foreground border-primary shadow-[0_0_24px_hsl(var(--primary)/0.7)]"
-                      : isDealer
-                        ? "bg-card text-primary border-primary shadow-[0_0_18px_hsl(var(--primary)/0.5)]"
-                        : "bg-card/90 text-foreground border-border hover:border-primary/60",
+                      ? "border-[hsl(45_80%_78%)] text-[hsl(40_70%_8%)] shadow-[0_0_24px_hsl(var(--primary)/0.45)] px-3.5 py-2"
+                      : "bg-[hsl(235_35%_8%/0.92)] border-primary/50 text-foreground shadow-[0_6px_18px_-6px_#000] hover:border-primary",
                 )}
-                style={{ left: `${x}%`, top: `${y}%` }}
+                style={{
+                  left: `${x}%`, top: `${y}%`,
+                  background: isUser && !isFolded ? "linear-gradient(135deg, hsl(45 75% 72%), hsl(42 62% 44%))" : undefined,
+                }}
                 aria-label={`Seat ${i + 1} ${label}`}
               >
-                {isDealer && <Crown className="w-3 h-3 absolute -top-1.5 -right-1.5 text-primary fill-primary" />}
-                {isUser && <User className="w-3 h-3 absolute -top-1.5 -left-1.5" />}
-                <span className="leading-tight">{label || `S${i + 1}`}</span>
-                {isUser && !isFolded && <span className="text-[8px] opacity-80 leading-none">{t("table.you2")}</span>}
-                {isFolded && <span className="text-[8px] leading-none">{t("table.foldedBadge")}</span>}
+                <span className={cn("font-extrabold tracking-wide", isUser ? "text-[15px]" : "text-[13px]")}>{label || `S${i + 1}`}</span>
+                {stack != null && !isFolded && (
+                  <span className={cn("font-bold tabular-nums", isUser ? "text-[hsl(40_60%_18%)]" : healthTone ?? "text-[hsl(45_80%_70%)]")}>{fmtBB(stack)}</span>
+                )}
+                {isFolded && <span className="text-[10px]">{t("table.foldedBadge")}</span>}
               </button>
 
-              {/* Pseudo du joueur associé (fiche) */}
-              {seatNames?.[i] && (
+              {/* sous la capsule : pseudo (ou « toi » et ta main), profil, dernière action */}
+              {(who || last || (isUser && heroHand)) && (
                 <div
-                  className="absolute -translate-x-1/2 pointer-events-none flex flex-col items-center gap-0.5"
-                  style={{ left: `${x}%`, top: `calc(${y}% - 54px)` }}
+                  className="absolute -translate-x-1/2 z-[9] pointer-events-none flex items-center gap-2 whitespace-nowrap text-[11px]"
+                  style={{ left: `${x}%`, top: `calc(${y}% + ${isUser ? 22 : 18}px)` }}
                 >
-                  <span className="max-w-[84px] truncate px-1.5 py-0.5 rounded bg-card/95 border border-border text-[10px] font-semibold text-foreground shadow">
-                    {seatNames[i]!.name}
-                  </span>
-                  <span className={cn("px-1 rounded text-[8px] font-semibold border bg-card/90 leading-tight", seatNames[i]!.tone)}>
-                    {seatNames[i]!.profile}
-                  </span>
+                  {who && <span className="text-muted-foreground max-w-[84px] truncate">{who}</span>}
+                  {isUser && heroHand && <span className="font-bold text-[hsl(150_68%_55%)]">{lang === "fr" ? HAND_FR[heroHand] ?? heroHand : heroHand}</span>}
+                  {!isUser && seatNames?.[i] && (
+                    <span className={cn("px-1 rounded text-[10px] font-semibold border bg-card/90 leading-tight", seatNames[i]!.tone)}>{seatNames[i]!.profile}</span>
+                  )}
+                  {last && (
+                    <span className="flex items-center gap-1 font-bold" style={{ color: ACT_TONE[last.type] }}>
+                      <i className="block w-[7px] h-[7px] rounded-full" style={{ background: ACT_TONE[last.type], boxShadow: `0 0 6px ${ACT_TONE[last.type]}` }} />
+                      {t(`act.${last.type}`)}{last.amountBB > 0 ? ` ${fmtBB(last.amountBB)}` : ""}
+                    </span>
+                  )}
                 </div>
               )}
 
-              {/* Chips in front of player */}
-              {contrib > 0 && !isFolded && (
+              {/* bouton dealer */}
+              {isDealer && (
                 <div
-                  className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none flex flex-col items-center"
+                  data-testid="dealer-button"
+                  className="absolute -translate-x-1/2 -translate-y-1/2 z-[8] pointer-events-none w-[22px] h-[22px] rounded-full bg-[#f4efe1] text-[#11131c] text-[11px] font-extrabold flex items-center justify-center shadow-[0_4px_10px_-2px_#000]"
+                  style={{ left: `calc(${x}% + ${x > 52 ? -36 : x < 48 ? 36 : 44}px)`, top: `calc(${y}% - 22px)` }}
+                >D</div>
+              )}
+
+              {/* jetons posés sur cette street (blindes…) ; masqués quand l'action affichée donne déjà le montant */}
+              {contrib > 0 && !isFolded && !last && (
+                <div
+                  className="absolute -translate-x-1/2 -translate-y-1/2 z-[7] pointer-events-none flex items-center gap-1 text-[11px] font-bold text-[hsl(45_80%_70%)] tabular-nums"
                   style={{ left: `${cx}%`, top: `${cy}%` }}
                 >
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-card/90 border border-primary/50 text-[9px] font-bold text-primary shadow">
-                    <Coins className="w-2.5 h-2.5" /> {contrib}
-                  </div>
-                </div>
-              )}
-
-              {/* Last action label */}
-              {last && (
-                <div
-                  className="absolute -translate-x-1/2 pointer-events-none"
-                  style={{ left: `${x}%`, top: `calc(${y}% + 32px)` }}
-                >
-                  <span className={cn(
-                    "px-1.5 py-0.5 rounded text-[9px] font-semibold border whitespace-nowrap",
-                    last.type === "Fold" && "bg-destructive/20 text-destructive border-destructive/40",
-                    last.type === "Check" && "bg-muted text-muted-foreground border-border",
-                    last.type === "Call" && "bg-primary/15 text-primary border-primary/40",
-                    (last.type === "Bet" || last.type === "Raise") && "bg-warning/20 text-[hsl(var(--warning))] border-[hsl(var(--warning))]/40",
-                  )}>
-                    {t(`act.${last.type}`)}{last.amountBB > 0 ? ` ${last.amountBB}` : ""}
-                  </span>
+                  <i className="block w-3 h-3 rounded-full" style={{ background: "radial-gradient(circle, #f6dd8c, #b8912a)", boxShadow: "0 0 8px hsl(45 65% 53% / 0.7)" }} />
+                  {fmtBB(contrib)}
                 </div>
               )}
 
@@ -249,13 +324,7 @@ export const PokerTable = ({
               {tournamentState && seatStacksBB && seatStacksBB[i] != null && !isFolded && (() => {
                 const sBB = seatStacksBB[i];
                 const heroBB = userIdx >= 0 && seatStacksBB[userIdx] != null ? seatStacksBB[userIdx] : tournamentState.stackBB;
-                const health = stackHealth(sBB);
                 const threat = isUser ? "neutral" : icmThreat(sBB, heroBB);
-                const stackColor =
-                  health === "green" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50" :
-                  health === "yellow" ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/50" :
-                  health === "orange" ? "bg-orange-500/20 text-orange-300 border-orange-500/50" :
-                  "bg-red-500/25 text-red-300 border-red-500/60 animate-pulse";
                 const threatColor =
                   threat === "danger" ? "bg-red-500/20 text-red-300 border-red-500/50" :
                   threat === "target" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50" :
@@ -263,11 +332,8 @@ export const PokerTable = ({
                 return (
                   <div
                     className="absolute -translate-x-1/2 pointer-events-none flex flex-col items-center gap-0.5"
-                    style={{ left: `${x}%`, top: `calc(${y}% + ${last ? 50 : 32}px)` }}
+                    style={{ left: `${x}%`, top: `calc(${y}% + 38px)` }}
                   >
-                    <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold border", stackColor)}>
-                      {sBB.toFixed(1)} BB
-                    </span>
                     <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-semibold border capitalize", threatColor)}>
                       {threat}
                     </span>
@@ -294,6 +360,7 @@ export const PokerTable = ({
             }}
           />
         )}
+      </div>
       </div>
 
       <div className="flex justify-between items-center text-xs text-muted-foreground px-1 flex-wrap gap-2">

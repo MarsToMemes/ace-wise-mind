@@ -814,6 +814,9 @@ const Index = () => {
                     street={currentStreet}
                     potBB={dynamicPot}
                     stackBB={stack}
+                    board={board}
+                    hole={hole}
+                    heroHand={hole.length === 2 && board.length >= 3 ? engine?.category : undefined}
                   />
                   {(river || actionHistory.some(a => a.amountBB >= stack * 0.9)) && dealerIdx >= 0 && (
                     <ShowdownPanel
