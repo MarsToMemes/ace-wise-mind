@@ -50,7 +50,10 @@ import type { SolverPreflop } from "@/components/DecisionVerdict";
 import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
 import { SolverAdviceBox } from "@/components/SolverAdviceBox";
 import { ShowdownPanel } from "@/components/ShowdownPanel";
-import { parseCards, buildShowdownRecord, showdownSeats } from "@/engines/showdown";
+import { parseCards, buildShowdownRecord, showdownSeats, strengthAt } from "@/engines/showdown";
+import type { EndgameInput } from "@/engines/endgame/solve";
+import { useEndgameSolve } from "@/hooks/use-endgame-solve";
+import { bluffGuard } from "@/engines/endgame/guard";
 import { useSolverBase } from "@/hooks/use-solver-base";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
@@ -335,8 +338,8 @@ const Index = () => {
     return { ...res, realOpponents, villainSeat, villainFile, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
   }, [actionHistory, userIdx, seatPlayers, playerFiles, exploitSettings.villainId, folded, potOpts, position, dealerIdx, tableSize, engine, board, currentStreet, opponents]);
 
-  // === Conseiller de mises après le flop (alimente la décision synthétique) ===
-  const postflopAdvice = useMemo(() => {
+  // === Conseiller de mises après le flop + entrée du solveur de fin de main (décision synthétique) ===
+  const postflopCtx = useMemo(() => {
     if (currentStreet === "Preflop" || hole.length < 2 || board.length < 3) return null;
     const posOf = (seat: number) => (dealerIdx >= 0 && seat >= 0 ? labelToPosition(seatLabel(seat, dealerIdx, tableSize)) : "");
     const heroPos = posOf(userIdx) || position;
@@ -361,7 +364,8 @@ const Index = () => {
       return expandRange(Object.keys(w).length ? w : topPercentRange(fallbackPct), board);
     };
     let heroRange = combos(heroIsPfr ? slots.pfr : slots.caller, 30);
-    let villainRange = removeDead(combos(heroIsPfr ? slots.caller : slots.pfr, 35), hole);
+    const villainBase = combos(heroIsPfr ? slots.caller : slots.pfr, 35);
+    let villainRange = removeDead(villainBase, hole);
     // ligne de chacun aux streets précédentes (le « filtre » sur les ranges)
     const streets: PostStreet[] = ["Flop", "Turn", "River"];
     const cur = streets.indexOf(currentStreet as PostStreet);
@@ -401,7 +405,7 @@ const Index = () => {
     const prev = cur > 0 ? streets[cur - 1] : null;
     const vf = exploit.villainFile;
     const villainAggressive = vf ? estimateStats(vf.counters).af >= 2 : false;
-    return advisePostflop({
+    const advice = advisePostflop({
       street: currentStreet as PostStreet, board, hole, heroRange, villainRange,
       heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: stack,
       opponents: exploit.realOpponents,
@@ -412,7 +416,51 @@ const Index = () => {
       villainAggressive,
       adjust: exploitSettings.mode ? exploit.adjust : undefined,
     });
-  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState]);
+
+    // solveur de fin de main : turn et river, en tête-à-tête ; ranges du DÉBUT de la street (le solveur rejoue la street)
+    let endgame: Omit<EndgameInput, "onProgress"> | null = null;
+    let endgameNote: string | null = null;
+    if ((currentStreet === "Turn" || currentStreet === "River") && board.length >= (currentStreet === "Turn" ? 4 : 5)) {
+      const curActs = actionHistory.filter(a => a.street === currentStreet && a.type !== "Fold");
+      if (exploit.realOpponents !== 1 || vSeat < 0 || curActs.some(a => a.seatIdx !== userIdx && a.seatIdx !== vSeat)) {
+        endgameNote = "Solveur de fin de main : seulement en tête-à-tête (pot à 3 ou plus : conseil maison).";
+      } else {
+        const order = ["Preflop", "Flop", "Turn", "River"];
+        const before = actionHistory.filter(a => order.indexOf(a.street) < order.indexOf(currentStreet));
+        const startPot = trackPot(before, potOpts).pot;
+        const heroPut = order.slice(0, order.indexOf(currentStreet)).reduce((t, st) => t + (trackPot(before, potOpts, st as PostStreet | "Preflop").contribs[userIdx] ?? 0), 0);
+        const effStack = Math.max(0, stack - heroPut);
+        const heroPl: 0 | 1 = heroFirst ? 0 : 1;
+        const villainEg = filterByLine(villainBase, board, villainLine);
+        const kind = { Check: "check", Bet: "bet", Raise: "raise", Call: "call", Fold: "fold" } as const;
+        if (effStack > 0 && startPot > 0) endgame = {
+          street: currentStreet, board: board.slice(0, currentStreet === "Turn" ? 4 : 5), startPot, stack: effStack,
+          ranges: heroFirst ? [heroRange, villainEg] : [villainEg, heroRange],
+          hero: heroPl, heroCards: [hole[0], hole[1]],
+          path: actionHistory.filter(a => a.street === currentStreet && (a.seatIdx === userIdx || a.seatIdx === vSeat))
+            .map(a => ({ player: (a.seatIdx === userIdx ? heroPl : 1 - heroPl) as 0 | 1, kind: kind[a.type], to: a.amountBB })),
+        };
+      }
+    }
+    return { advice, endgame, endgameNote };
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState, potOpts]);
+  const postflopAdvice = postflopCtx?.advice ?? null;
+  const endgameKey = useMemo(() => {
+    const e = postflopCtx?.endgame;
+    if (!e) return "";
+    let h = 0;
+    for (const r of e.ranges) for (const c of r) { const str = c.cards[0] + c.cards[1] + c.w.toFixed(3); for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; }
+    return JSON.stringify([e.street, e.board, e.startPot, e.stack, e.hero, e.heroCards, e.path, h]);
+  }, [postflopCtx]);
+  const endgame = useEndgameSolve(postflopCtx?.endgame ?? null, endgameKey);
+  // garde-fou : contre un récréatif (fiche), pas de bluff du solveur → conseil maison
+  const endgameGuard = useMemo(() => {
+    const vf = exploit.villainFile;
+    if (endgame.status !== "done" || !endgame.result || hole.length < 2 || !vf) return null;
+    const fam = familyOf(vf.counters);
+    if (!bluffGuard(endgame.result, fam, strengthAt(hole, board))) return null;
+    return `Garde-fou : le solveur voulait bluffer, mais ${vf.name} est un ${FAMILY_LABEL[fam].toLowerCase()} qui paie trop pour qu'un bluff rapporte. Conseil maison à la place.`;
+  }, [endgame, exploit.villainFile, hole, board]);
 
   // Pseudo + profil court affichés au-dessus de chaque siège associé à une fiche
   const seatNames = useMemo(() => {
@@ -758,6 +806,7 @@ const Index = () => {
                 stack={stack}
                 solver={currentStreet === "Preflop" ? solverPreflop : null}
                 postflop={postflopAdvice}
+                endgame={{ ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
                 format={solverFormat}
                 onFormat={setSolverFormat}
                 exploit={{

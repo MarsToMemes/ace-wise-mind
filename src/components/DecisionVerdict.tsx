@@ -9,6 +9,11 @@ import { ROLE_LABEL } from "@/engines/postflopAdvisor";
 import type { ExploitItem, Adjust } from "@/engines/exploitEngine";
 import type { PlayerFile } from "@/lib/playersStore";
 import { saveExploit } from "@/lib/exploitSettings";
+import type { EndgameState } from "@/hooks/use-endgame-solve";
+import type { ActKind } from "@/engines/endgame/tree";
+
+/** `guard` : le solveur voulait bluffer contre un récréatif ; on garde le conseil maison (texte de l'explication). */
+export type EndgameView = EndgameState & { note: string | null; guard?: string | null };
 
 export interface SolverPreflop {
   act: string;
@@ -39,6 +44,7 @@ interface Props {
   stack: number;
   solver?: SolverPreflop | null;
   postflop?: PostflopAdvice | null;
+  endgame?: EndgameView;
   exploit?: ExploitView;
   format?: "mtt" | "cash";
   onFormat?: (f: "mtt" | "cash") => void;
@@ -51,13 +57,21 @@ const VERB_STYLE = (verb: string) =>
   : /TAPIS|JAM/.test(verb) ? "bg-amber-500/15 text-amber-300 border-amber-500/40"
   : "bg-emerald-500/15 text-emerald-300 border-emerald-500/40";
 
-const MIX_COLOR = (label: string) =>
-  /fold/i.test(label) ? "#5b6472" : /check/i.test(label) && !/raise/i.test(label) ? "#64748b" : /call|limp/i.test(label) ? "#3b82f6" : /tapis|all-in/i.test(label) ? "#e3b341" : "#10b981";
+const MIX_COLOR = (label: string) => {
+  const m = label.match(/^Mise (\d+) %/);
+  if (m) return +m[1] < 50 ? "#6ee7b7" : +m[1] <= 100 ? "#10b981" : "#047857";
+  return /fold/i.test(label) ? "#5b6472" : /check/i.test(label) && !/raise/i.test(label) ? "#64748b" : /call|limp/i.test(label) ? "#3b82f6" : /tapis|all-in/i.test(label) ? "#e3b341" : /relance/i.test(label) ? "#f97316" : "#10b981";
+};
+
+const ENDGAME_VERB = (k: ActKind, label: string) =>
+  k === "check" ? "CHECK" : k === "fold" ? "FOLD" : k === "call" ? "CALL" : k === "allin" ? "TAPIS" : k === "raise" ? "RELANCE"
+  : +(label.match(/^Mise (\d+)/)?.[1] ?? 0) > 100 ? "OVERBET" : "MISE";
+const bb = (x: number) => `${x >= 0 ? "+" : ""}${(Math.round(x * 10) / 10).toString().replace(".", ",")} bb`;
 
 const SOLVER_VERB = (a: string) =>
   a === "F" ? "FOLD" : a === "X" ? "CHECK" : a === "C" ? "CALL" : a === "L" ? "LIMP" : a.startsWith("A") ? "TAPIS" : a.startsWith("R") ? "RELANCE" : a;
 
-export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, solver, postflop, exploit, format, onFormat }: Props) => {
+export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat }: Props) => {
   if (!engine) {
     return (
       <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm">
@@ -86,12 +100,29 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
     context = solver.title ?? "";
     handLine = solver.hand ? `${solver.hand} : ${solver.pct} % ${verb.toLowerCase()}` : "";
     reasons = [solver.pct < 100 ? "Stratégie mixte : le solveur alterne entre ces actions avec cette main." : "Le solveur joue cette main toujours de la même façon ici."];
+  } else if ((street === "Turn" || street === "River") && endgame?.status === "done" && endgame.result && !endgame.guard) {
+    const r = endgame.result;
+    const main = r.actions.reduce((b, a) => (a.freq > b.freq ? a : b), r.actions[0]);
+    source = "Solveur de fin de main";
+    verb = ENDGAME_VERB(main.kind, main.label);
+    sizeLine = main.label;
+    mix = r.actions.map(a => ({ label: a.label, pct: Math.round(a.freq * 100) })).filter(m => m.pct > 0);
+    handLine = postflop ? `Ta main : ${ROLE_LABEL[postflop.role]}` : "";
+    reasons = [
+      `Ce que rapporte chaque action avec ta main (se coucher = 0) : ${[...r.actions].sort((a, b) => b.ev - a.ev).map(a => `${a.label.replace(/ = .*/, "")} ${bb(a.ev)}`).join(" · ")}.`,
+      `Toute ta range ici : ${r.range.filter(l => l.freq >= 0.02).map(l => `${l.label.replace(/ = .*/, "")} ${Math.round(l.freq * 100)} %${l.with.length ? ` (${l.with.join(", ")})` : ""}`).join(" · ")}.`,
+    ];
+    if (!r.heroInRange) reasons.push("Ta main n'est presque jamais dans ta range ici : le résultat est indicatif.");
   } else if (street !== "Preflop" && postflop) {
     source = "Conseiller postflop";
     verb = postflop.verb;
     sizeLine = postflop.label;
     mix = postflop.mix;
     reasons = postflop.reasons.slice(0, 3);
+    if (endgame?.guard && (street === "Turn" || street === "River")) {
+      source = "Conseiller postflop (garde-fou)";
+      reasons = [endgame.guard, ...reasons.slice(0, 2)];
+    }
     plan = postflop.plan;
     handLine = `Ta main : ${ROLE_LABEL[postflop.role]}`;
   } else {
@@ -123,6 +154,12 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           <span className="text-xs uppercase tracking-widest text-muted-foreground">Décision synthétique</span>
           <Badge variant="outline" className="text-[10px] uppercase">{street}</Badge>
           <Badge variant="outline" className="text-[10px] text-emerald-300 border-emerald-500/40">{source}</Badge>
+          {endgame?.status === "running" && (street === "Turn" || street === "River") && (
+            <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+              Solveur : calcul {Math.round(endgame.progress * 100)} %
+              <span className="w-14 h-1 rounded-full bg-border overflow-hidden"><span className="block h-full bg-primary transition-[width]" style={{ width: `${Math.round(endgame.progress * 100)}%` }} /></span>
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
           <span>pot {pot} BB · tapis {stack} BB · SPR {spr === 99 ? "∞" : spr.toFixed(1)}</span>
@@ -211,6 +248,15 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
       <details className="rounded-md border border-border/50 px-3 py-2 text-xs">
         <summary className="cursor-pointer text-muted-foreground">Détails du calcul</summary>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+          {source === "Solveur de fin de main" && endgame?.result && (
+            <>
+              <Detail label="Précision solveur" value={`${endgame.result.exploitPct.toFixed(2).replace(".", ",")} % du pot`} />
+              <Detail label="Itérations" value={`${endgame.result.iterations}`} />
+              <Detail label="Mains calculées" value={`${endgame.result.combos[0]} vs ${endgame.result.combos[1]}`} />
+              <Detail label="Temps" value={`${(endgame.result.ms / 1000).toFixed(1).replace(".", ",")} s`} />
+              {postflop && <Detail label="Règles maison" value={postflop.label} />}
+            </>
+          )}
           {postflop && street !== "Preflop" ? (
             <>
               <Detail label="Équité de ta range" value={`${postflop.stats.rangeEquity} %`} />
@@ -230,8 +276,13 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           )}
         </div>
         <p className="mt-2 text-muted-foreground">
-          {street === "Preflop" ? "Préflop : stratégie calculée par GTOpen (sans ICM)." : "Après le flop : principes GTO calculés à la volée (ranges filtrées selon les actions), pas un solveur postflop."}
+          {street === "Preflop" ? "Préflop : stratégie calculée par GTOpen (sans ICM)."
+            : street === "Flop" ? "Flop : principes GTO calculés à la volée (ranges filtrées selon les actions), pas un solveur."
+            : "Turn et river : solveur de fin de main (CFR, comme la résolution de sous-jeu de Libratus) sur les ranges filtrées selon les actions. Mises testées : 33, 75, 125 % et tapis (river après la turn : 50, 100 % et tapis), plus la vraie mise jouée. Gain = jetons gagnés en moyenne à partir de maintenant."}
         </p>
+        {endgame?.note && <p className="mt-1 text-muted-foreground">{endgame.note}</p>}
+        {endgame?.status === "none" && <p className="mt-1 text-muted-foreground">Solveur de fin de main : ce n'est pas à toi de jouer dans cette situation.</p>}
+        {endgame?.status === "error" && <p className="mt-1 text-destructive">Solveur de fin de main : erreur de calcul, conseil maison affiché.</p>}
       </details>
     </Card>
   );
