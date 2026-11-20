@@ -16,8 +16,9 @@ def short(label, kind):
     if kind == "check": return "X"
     if kind in ("call", "limp"):
         return "L" if kind == "limp" or label.lower().startswith("limp") else "C"
-    m = re.search(r"([\d.]+)", label)
-    amt = m.group(1) if m else ""
+    # montant final en bb = DERNIER nombre du libellé ("3-bet 7.5" → 7.5, pas le 3 de « 3-bet »)
+    nums = re.findall(r"\d+(?:\.\d+)?", label)
+    amt = nums[-1] if nums else ""
     if kind == "jam" or "all-in" in label.lower(): return "A" + amt
     return "R" + amt
 

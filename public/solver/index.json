@@ -11,21 +11,21 @@
   "kind": "mtt",
   "label": "MTT · 15 bb",
   "stack": 15,
-  "spots": 458
+  "spots": 450
  },
  {
   "id": "mtt20",
   "kind": "mtt",
   "label": "MTT · 20 bb",
   "stack": 20,
-  "spots": 414
+  "spots": 410
  },
  {
   "id": "mtt25",
   "kind": "mtt",
   "label": "MTT · 25 bb",
   "stack": 25,
-  "spots": 403
+  "spots": 393
  },
  {
   "id": "mtt30",
@@ -39,14 +39,14 @@
   "kind": "mtt",
   "label": "MTT · 40 bb",
   "stack": 40,
-  "spots": 513
+  "spots": 388
  },
  {
   "id": "mtt60",
   "kind": "mtt",
   "label": "MTT · 60 bb",
   "stack": 60,
-  "spots": 827
+  "spots": 767
  },
  {
   "id": "bvb15",
@@ -60,7 +60,7 @@
   "kind": "bvb",
   "label": "Blinde contre blinde · 25 bb",
   "stack": 25,
-  "spots": 10
+  "spots": 8
  },
  {
   "id": "bvb40",
@@ -74,6 +74,6 @@
   "kind": "cash",
   "label": "Cash · 100 bb",
   "stack": 100,
-  "spots": 1602
+  "spots": 1607
  }
 ]

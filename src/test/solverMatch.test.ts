@@ -64,3 +64,27 @@ describe("lines with calls", () => {
     expect([...keys].some(k => k.endsWith("BTN:C,SB:F"))).toBe(true);
   });
 });
+
+describe("raise sizes are final amounts in bb (not the 3-bet/4-bet number)", () => {
+  const cash = load("cash100");
+  it("BB 3-bets UTG's 2.5 open to 7.5 bb", () => {
+    const m = matchSpot(cash, SIX, 5, [A(0, "Raise", 2.5)], 100);
+    expect(m.spot?.acts).toContain("R7.5");
+    expect(m.spot?.acts).not.toContain("R3");
+  });
+  it("cold 4-bet is 17.2 bb and the line key carries the 3-bet size", () => {
+    const m = matchSpot(cash, SIX, 3, [A(0, "Raise", 2.5), A(2, "Raise", 7.5)], 100);
+    expect(m.spot?.k).toContain("CO:R7.5");
+    expect(m.spot?.acts).toContain("R17.2");
+  });
+  it("no table keeps a bare re-raise number as a size", () => {
+    for (const id of ["mtt15", "mtt30", "cash100"]) {
+      const g = load(id);
+      const raises = new Set(g.spots.flatMap(s => s.acts.filter(a => a.startsWith("R"))));
+      // seuls les montants d'open ou de relance réels : aucune relance plus petite que l'open
+      const open = Math.min(...[...raises].map(a => +a.slice(1)));
+      const threebets = g.spots.filter(s => s.k.split(",").filter(x => /:R/.test(x)).length === 1).flatMap(s => s.acts.filter(a => a.startsWith("R")));
+      expect(threebets.every(a => +a.slice(1) > open * 2)).toBe(true);
+    }
+  });
+});
