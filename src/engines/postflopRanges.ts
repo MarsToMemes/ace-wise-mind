@@ -117,6 +117,47 @@ export function handEquity(hole: string[], villain: Combo[], board: string[], sa
   return score / samples;
 }
 
+const RANK_ORDER = "23456789TJQKA";
+/** Top pair ou overpair (une seule paire, au niveau de la plus haute carte du board ou au-dessus). */
+function topPairPlus(cards: string[], board: string[]): boolean {
+  const top = Math.max(...board.map(c => RANK_ORDER.indexOf(c[0])));
+  const [a, b] = cards.map(c => RANK_ORDER.indexOf(c[0]));
+  return a === b ? a > top : a === top || b === top;
+}
+
+/**
+ * Range d'un joueur qui MISE `betFrac` × le pot sur cette street.
+ * - value (top pair et mieux) : gardée entière ;
+ * - paires plus faibles : rarement misées (river 25 %, flop/turn 50 %) ;
+ * - gros tirages (8 outs et plus, avant la river) : gardés, ce sont les semi-bluffs ;
+ * - air : réduit pour que les bluffs ne dépassent pas la proportion standard d'une mise de cette taille,
+ *   bluffs / (value + bluffs) = s / (1 + 2s) (½ pot → 25 %, pot → 33 %).
+ * Aucun combo n'est supprimé : les poids sont seulement réduits.
+ */
+export function filterByBet(combos: Combo[], board: string[], street: PostStreet, betFrac: number): Combo[] {
+  const b = boardAt(board, street);
+  if (b.length < 3 || !combos.length) return combos;
+  const s = Math.max(0.1, Math.min(3, betFrac || 0.5));
+  const river = street === "River";
+  type K = "value" | "medium" | "draw" | "air";
+  const kinds: K[] = combos.map(c => {
+    const rel = relStrength(c.cards, b);
+    if (rel >= 2 || (rel === 1 && topPairPlus(c.cards, b))) return "value";
+    if (rel === 1) return "medium";
+    if (!river && detectDraws(c.cards, b).outs >= 8) return "draw";
+    return "air";
+  });
+  let value = 0, air = 0;
+  combos.forEach((c, i) => { if (kinds[i] === "value") value += c.w; else if (kinds[i] === "air") air += c.w; });
+  const target = value * s / (1 + s);
+  const airScale = air > 0 ? Math.min(1, target / air) : 1;
+  const out = combos.map((c, i) => ({
+    cards: c.cards,
+    w: c.w * (kinds[i] === "medium" ? (river ? 0.25 : 0.5) : kinds[i] === "air" ? airScale : 1),
+  }));
+  return out.some(c => c.w > 0) ? out : combos;
+}
+
 /**
  * Équité du héros contre PLUSIEURS adversaires (il faut battre tout le monde ; égalités partagées).
  * Chaque donne tire une main dans chaque range sans réutiliser une carte ; une donne impossible est rejetée.

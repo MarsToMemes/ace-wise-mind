@@ -41,7 +41,7 @@ import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
 import { MyTablePanel } from "@/components/MyTablePanel";
 import { advisePostflop } from "@/engines/postflopAdvisor";
-import { filterByLine, removeDead, LineEvent, PostStreet } from "@/engines/postflopRanges";
+import { filterByLine, filterByBet, removeDead, LineEvent, PostStreet } from "@/engines/postflopRanges";
 import { expandRange } from "@/engines/rangeVsRange";
 import { getRange, slotsFor } from "@/engines/matchupRanges";
 import { topPercentRange } from "@/engines/preflopEquity";
@@ -376,7 +376,17 @@ const Index = () => {
     const heroLine = lineOf(userIdx, heroFirst);
     const villainLine = vSeat >= 0 ? lineOf(vSeat, !heroFirst) : [];
     heroRange = filterByLine(heroRange, board, heroLine);
+    // ce qu'un adversaire a fait sur la street EN COURS : une mise resserre sa range selon sa taille, un call la resserre aussi
+    const curStreet = currentStreet as PostStreet;
+    const thisStreet = (range: typeof villainRange, seat: number) => {
+      const acts = potState.steps.filter(st => st.action.street === curStreet && st.action.seatIdx === seat);
+      const aggr = [...acts].reverse().find(st => st.action.type === "Bet" || st.action.type === "Raise");
+      if (aggr) return filterByBet(range, board, curStreet, aggr.potBefore > 0 ? (aggr.action.amountBB || 0) / aggr.potBefore : 0.5);
+      if (acts.some(st => st.action.type === "Call")) return filterByLine(range, board, [{ street: curStreet, act: "call" }]);
+      return range;
+    };
     villainRange = filterByLine(villainRange, board, villainLine);
+    if (vSeat >= 0) villainRange = thisStreet(villainRange, vSeat);
     // autres adversaires encore dans le coup (pot à 3 ou plus) : chacun avec sa range préflop puis sa ligne
     const raiserPos = lastRaiser >= 0 ? posOf(lastRaiser) || villainPos : heroIsPfr ? heroPos : villainPos;
     const potType = raises.length >= 2 ? "3bet" : "srp";
@@ -386,7 +396,7 @@ const Index = () => {
       const p = posOf(seat);
       const slot = seat === lastRaiser || !p ? slotsFor(raiserPos, villainPos, potType).pfr : slotsFor(raiserPos, p, potType).caller;
       const first = actsFirstPostflop(p || villainPos, heroPos);
-      return filterByLine(removeDead(combos(slot, 35), hole), board, lineOf(seat, first));
+      return thisStreet(filterByLine(removeDead(combos(slot, 35), hole), board, lineOf(seat, first)), seat);
     });
     const prev = cur > 0 ? streets[cur - 1] : null;
     const vf = exploit.villainFile;
@@ -402,7 +412,7 @@ const Index = () => {
       villainAggressive,
       adjust: exploitSettings.mode ? exploit.adjust : undefined,
     });
-  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode]);
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState]);
 
   // Pseudo + profil court affichés au-dessus de chaque siège associé à une fiche
   const seatNames = useMemo(() => {
