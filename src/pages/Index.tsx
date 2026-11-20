@@ -62,6 +62,7 @@ import { countAnalyzedHand } from "@/engines/playerStats";
 import { getSeatPlayers, addStatsMany, loadPlayers, clearTable, addShownRecord } from "@/lib/playersStore";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
+import { trackPot, type PotOptions } from "@/lib/potTracker";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -127,13 +128,18 @@ const Index = () => {
     () => actionHistory.filter(a => a.street === currentStreet),
     [actionHistory, currentStreet],
   );
-  const streetContribs = useMemo(() => {
-    const arr = Array(tableSize).fill(0);
-    for (const a of streetActions) {
-      if (a.amountBB > 0) arr[a.seatIdx] = Math.max(arr[a.seatIdx], a.amountBB);
-    }
-    return arr;
-  }, [streetActions, tableSize]);
+  // === Pot : suivi action par action (montants « relance à », blindes postées) ===
+  // Main saisie dès le préflop → pot calculé ; main saisie à partir du flop → départ = pot tapé à la main.
+  const potFromActions = actionHistory.length > 0 ? actionHistory[0].street === "Preflop" : currentStreet === "Preflop";
+  const potOpts = useMemo<PotOptions>(() => ({
+    blinds: potFromActions && dealerIdx >= 0 ? { sbIdx, bbIdx } : null,
+    startPot: potFromActions ? (dealerIdx >= 0 ? 0 : 1.5) : pot,
+  }), [potFromActions, dealerIdx, sbIdx, bbIdx, pot]);
+  const potState = useMemo(() => trackPot(actionHistory, potOpts, currentStreet), [actionHistory, potOpts, currentStreet]);
+  const streetContribs = useMemo(
+    () => Array.from({ length: tableSize }, (_, i) => potState.contribs[i] ?? 0),
+    [potState, tableSize],
+  );
   const lastActions = useMemo(() => {
     const arr: (PlayerAction | null)[] = Array(tableSize).fill(null);
     for (const a of streetActions) arr[a.seatIdx] = a;
@@ -143,14 +149,11 @@ const Index = () => {
     () => streetContribs.reduce((m, v) => Math.max(m, v), 0),
     [streetContribs],
   );
-  const totalCommitted = useMemo(
-    () => actionHistory.reduce((s, a) => s + (a.amountBB || 0), 0),
-    [actionHistory],
-  );
-  const dynamicPot = pot + totalCommitted;
-  const userToCall = userIdx >= 0
-    ? Math.max(0, currentBet - (streetContribs[userIdx] || 0))
-    : call;
+  const dynamicPot = potState.pot;
+  const userToCall = userIdx >= 0 ? potState.toCall(userIdx) : call;
+  // Une vraie mise / relance à payer (et pas seulement la grosse blinde)
+  const blindLevel = currentStreet === "Preflop" && potFromActions && dealerIdx >= 0 ? 1 : 0;
+  const facingBet = userIdx >= 0 ? userToCall > 0 && currentBet > blindLevel : userToCall > 0;
   const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(dynamicPot * 0.66));
 
   const engine = useMemo<EngineResult | null>(() => {
@@ -180,7 +183,7 @@ const Index = () => {
       actions: actionHistory,
       liveOpponentSeats,
       positions: positionsMap,
-      basePotBB: pot,
+      pot: potOpts,
     });
     const rangeMods = rangeModifiers(rangeReadout);
 
@@ -201,7 +204,7 @@ const Index = () => {
       a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
     );
     const facingRaise = heroBetThisStreet && userToCall > 0;
-    const betSizePct = dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : 0;
+    const betSizePct = facingBet && dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : 0;
 
     let handClass = classifyHandStrength({
       baseScore: ev.score,
@@ -213,7 +216,7 @@ const Index = () => {
       opponents,
       position,
       street: currentStreet,
-      facingAggression: userToCall > 0 || facingRaise,
+      facingAggression: facingBet || facingRaise,
       betSizePct,
     });
 
@@ -278,7 +281,7 @@ const Index = () => {
       rangeReadout,
       handClass,
     } as EngineResult;
-  }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, pot]);
+  }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, potOpts, facingBet]);
 
   // === Moteur d'exploits : adversaire de la main + ligne jouée ===
   useSolverBase();
@@ -304,7 +307,7 @@ const Index = () => {
     const villainId = exploitSettings.villainId && playerFiles[exploitSettings.villainId] ? exploitSettings.villainId : autoId;
     const villainFile = villainId ? playerFiles[villainId] : undefined;
     const villainSeat = villainId ? Number(Object.keys(seatPlayers).find(k => seatPlayers[+k] === villainId) ?? -1) : -1;
-    const { line, heroIsPfr, checkedToHero } = deriveLine(actionHistory, villainSeat, userIdx, pot);
+    const { line, heroIsPfr, checkedToHero } = deriveLine(actionHistory, villainSeat, userIdx, potOpts);
     const heroPos = position;
     const villainPos = villainSeat >= 0 && dealerIdx >= 0 ? labelToPosition(seatLabel(villainSeat, dealerIdx, tableSize)) : "";
     const heroInPosition = villainPos ? !actsFirstPostflop(heroPos, villainPos) : ["BTN", "CO"].includes(heroPos);
@@ -330,7 +333,7 @@ const Index = () => {
       line,
     });
     return { ...res, realOpponents, villainSeat, villainFile, villainId: exploitSettings.villainId, resolvedId: villainId, autoName: autoId ? playerFiles[autoId]?.name : undefined };
-  }, [actionHistory, userIdx, seatPlayers, playerFiles, exploitSettings.villainId, folded, pot, position, dealerIdx, tableSize, engine, board, currentStreet, opponents]);
+  }, [actionHistory, userIdx, seatPlayers, playerFiles, exploitSettings.villainId, folded, potOpts, position, dealerIdx, tableSize, engine, board, currentStreet, opponents]);
 
   // === Conseiller de mises après le flop (alimente la décision synthétique) ===
   const postflopAdvice = useMemo(() => {
@@ -419,10 +422,10 @@ const Index = () => {
       heroIsAggressor: userIdx >= 0 && actionHistory.some(
         a => a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise"),
       ),
-      facingBet: userToCall > 0,
-      betSizePctOfPot: dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
+      facingBet,
+      betSizePctOfPot: facingBet && dynamicPot > 0 ? (userToCall / dynamicPot) * 100 : undefined,
     });
-  }, [engine, position, currentStreet, opponents, userIdx, actionHistory, userToCall, dynamicPot]);
+  }, [engine, position, currentStreet, opponents, userIdx, actionHistory, userToCall, dynamicPot, facingBet]);
 
   const removeCard = (card: string) => {
     if (hole.includes(card)) return setHole(hole.filter(c => c !== card));
@@ -496,7 +499,7 @@ const Index = () => {
       const cards = parseCards(text);
       const pid = seatMap[+seat];
       if (!cards || !pid || !players[pid] || cards.some(c => hole.includes(c) || board5.includes(c))) continue;
-      addShownRecord(pid, buildShowdownRecord(cards, +seat, positions[+seat], actionHistory, board5, pot));
+      addShownRecord(pid, buildShowdownRecord(cards, +seat, positions[+seat], actionHistory, board5, potOpts));
       shownSaved++;
     }
     if (shownSaved) toast.success(`Cartes montrées enregistrées dans ${shownSaved} fiche${shownSaved > 1 ? "s" : ""}.`);
@@ -822,7 +825,14 @@ const Index = () => {
                     </div>
                     <div className="space-y-1.5">
                       <Label>{t("field.pot")}</Label>
-                      <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} />
+                      {potFromActions ? (
+                        <Input type="number" value={dynamicPot} readOnly disabled aria-describedby="pot-hint" />
+                      ) : (
+                        <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} aria-describedby="pot-hint" />
+                      )}
+                      <p id="pot-hint" className="text-xs text-muted-foreground">
+                        {t(potFromActions ? (dealerIdx >= 0 ? "field.potAuto" : "field.potAutoNoDealer") : "field.potManual")}
+                      </p>
                     </div>
                     <div className="space-y-1.5 col-span-2">
                       <Label>{t("field.call")}</Label>
@@ -838,7 +848,7 @@ const Index = () => {
                     hole,
                     position,
                     stackBB: stack,
-                    facingRaise: userToCall > 0,
+                    facingRaise: facingBet,
                     raiseSizeBB: currentBet,
                     opponents,
                   }) : null}
@@ -850,8 +860,8 @@ const Index = () => {
 
                 <AlphaPanel
                   defaultPot={dynamicPot}
-                  defaultBet={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
-                  perspective={userToCall > 0 ? "hero-facing" : "hero-betting"}
+                  defaultBet={facingBet ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
+                  perspective={facingBet ? "hero-facing" : "hero-betting"}
                 />
 
                 <BoardCbetPanel flop={flop} heroPosition={position} villainId={exploit.resolvedId} />
@@ -871,7 +881,7 @@ const Index = () => {
 
                 <EVCalculatorPanel
                   defaultEquityPct={engine?.equityPct ?? 50}
-                  defaultRiskBB={userToCall > 0 ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
+                  defaultRiskBB={facingBet ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
                   defaultRewardBB={Math.max(1, dynamicPot)}
                 />
 

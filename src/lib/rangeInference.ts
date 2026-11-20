@@ -1,6 +1,7 @@
 // Range Inference Engine — interprets action history into strategic intelligence.
 import type { PlayerAction } from "@/components/ActionMenu";
 import type { TournamentState } from "@/lib/tournamentEngine";
+import { trackPot, type PotOptions } from "@/lib/potTracker";
 
 export type Street = "Preflop" | "Flop" | "Turn" | "River";
 export type RangeType = "polarized" | "merged" | "capped" | "linear" | "wide" | "unknown";
@@ -27,6 +28,8 @@ interface Inputs {
   liveOpponentSeats: number[];
   positions?: Record<number, string>;
   basePotBB?: number;
+  /** Suivi exact du pot (blindes postées, montants « relance à ») ; sinon départ = basePotBB. */
+  pot?: PotOptions;
   boardCards?: string[];
   boardTexture?: "Dry" | "Semi-wet" | "Wet";
   tournamentState?: TournamentState;
@@ -46,6 +49,8 @@ const STREET_ORDER: Street[] = ["Preflop", "Flop", "Turn", "River"];
  */
 export function inferRanges(inp: Inputs): RangeReadout {
   const { actions, liveOpponentSeats, positions = {}, basePotBB = 0, boardTexture } = inp;
+  // pot juste avant chaque action (même objet action → même étape)
+  const potBefore = new Map(trackPot(actions, inp.pot ?? { startPot: Math.max(1, basePotBB) }).steps.map(st => [st.action, st.potBefore]));
 
   const opponents: OpponentRange[] = liveOpponentSeats.map(seat => {
     const own = actions.filter(a => a.seatIdx === seat);
@@ -65,7 +70,6 @@ export function inferRanges(inp: Inputs): RangeReadout {
     }
 
     // Track street-by-street behavior
-    let runningPot = Math.max(1, basePotBB);
     let lastBetterSelf = false; // did opponent bet/raise last street?
     let everRaised = false;
     let everBet = false;
@@ -73,10 +77,6 @@ export function inferRanges(inp: Inputs): RangeReadout {
 
     for (const street of STREET_ORDER) {
       const acts = own.filter(a => a.street === street);
-      const streetActsAll = actions.filter(a => a.street === street);
-      const streetMaxBet = streetActsAll.reduce((m, a) => Math.max(m, a.amountBB || 0), 0);
-      const cumBefore = runningPot;
-      runningPot += streetActsAll.reduce((s, a) => s + (a.amountBB || 0), 0);
 
       if (acts.length === 0) {
         if (lastBetterSelf && street !== "Preflop") {
@@ -92,10 +92,8 @@ export function inferRanges(inp: Inputs): RangeReadout {
 
       // Last action of opponent on this street drives interpretation
       const last = acts[acts.length - 1];
-      const potForSizing = actions
-        .filter(a => a.street === street && a.seatIdx !== seat)
-        .reduce((s, a) => s + (a.amountBB || 0), 0);
-      const sizePct = cumBefore > 0 ? ((last.amountBB || 0) / (cumBefore + potForSizing)) * 100 : 0;
+      const before = potBefore.get(last) ?? 0;
+      const sizePct = before > 0 ? ((last.amountBB || 0) / before) * 100 : 0;
 
       if (street === "Preflop") {
         const pos = positions[seat];

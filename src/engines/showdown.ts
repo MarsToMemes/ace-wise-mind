@@ -3,6 +3,7 @@
 // enseignements (ses grosses mises river sont-elles des bluffs ? paie-t-il léger ?).
 
 import type { PlayerAction } from "@/components/ActionMenu";
+import { trackPot, type PotOptions } from "@/lib/potTracker";
 import { relStrength } from "@/engines/postflopRanges";
 import { rank7 } from "@/engines/handEval7";
 import { FULL_DECK } from "@/engines/rangeVsRange";
@@ -56,19 +57,19 @@ export function strengthAt(cards: string[], board: string[]): Strength {
 const ACT_FR: Record<string, string> = { Fold: "fold", Check: "check", Call: "call", Bet: "mise", Raise: "relance" };
 
 /** Construit l'enregistrement d'une main montrée à partir de la main saisie sur la table. */
-export function buildShowdownRecord(cards: [string, string], seat: number, position: string, actions: PlayerAction[], board: string[], potStartBB = 1.5): ShowdownRecord {
-  let pot = potStartBB;
+export function buildShowdownRecord(cards: [string, string], seat: number, position: string, actions: PlayerAction[], board: string[], potStart: number | PotOptions = 1.5): ShowdownRecord {
+  const potBefore = new Map(trackPot(actions, typeof potStart === "number" ? { startPot: potStart } : potStart).steps.map(st => [st.action, st.potBefore]));
   const events: ShowdownEvent[] = [];
   for (const st of STREETS) {
     for (const a of actions.filter(x => x.street === st)) {
       if (a.seatIdx === seat) {
         const aggressive = a.type === "Bet" || a.type === "Raise";
         const ev: ShowdownEvent = { street: st, act: a.type };
+        const pot = potBefore.get(a) ?? 0;
         if (aggressive && pot > 0) ev.sizePct = Math.round(((a.amountBB || 0) / pot) * 100);
         if (aggressive || a.type === "Call") ev.strength = strengthAt(cards, boardFor(board, st));
         events.push(ev);
       }
-      pot += a.amountBB || 0;
     }
   }
   const line = events.map(e => `${e.street === "Preflop" ? "préflop" : e.street.toLowerCase()} ${ACT_FR[e.act] ?? e.act}${e.sizePct ? ` ${e.sizePct} %` : ""}`).join(" → ");
