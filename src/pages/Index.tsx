@@ -50,7 +50,7 @@ import type { SolverPreflop } from "@/components/DecisionVerdict";
 import { SolverSpotsPanel } from "@/components/SolverSpotsPanel";
 import { SolverAdviceBox } from "@/components/SolverAdviceBox";
 import { ShowdownPanel } from "@/components/ShowdownPanel";
-import { parseCards, buildShowdownRecord } from "@/engines/showdown";
+import { parseCards, buildShowdownRecord, showdownSeats } from "@/engines/showdown";
 import { useSolverBase } from "@/hooks/use-solver-base";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
@@ -820,8 +820,7 @@ const Index = () => {
                   />
                   {(river || actionHistory.some(a => a.amountBB >= stack * 0.9)) && dealerIdx >= 0 && (
                     <ShowdownPanel
-                      seats={[...new Set(actionHistory.filter(a => a.street === "Preflop" && a.type !== "Fold").map(a => a.seatIdx))]
-                        .filter(i => i !== userIdx && !folded[i])
+                      seats={showdownSeats(actionHistory, folded, userIdx)
                         .map(i => ({ seat: i, label: seatLabel(i, dealerIdx, tableSize), name: seatPlayers[i] ? playerFiles[seatPlayers[i]]?.name : undefined }))}
                       values={shownCards}
                       onChange={(seat, text) => setShownCards(v => ({ ...v, [seat]: text }))}

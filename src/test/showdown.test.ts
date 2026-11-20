@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCards, strengthAt, buildShowdownRecord, showdownInsights, equityByStreet } from "@/engines/showdown";
+import { parseCards, strengthAt, buildShowdownRecord, showdownInsights, equityByStreet, showdownSeats } from "@/engines/showdown";
 import type { PlayerAction } from "@/components/ActionMenu";
 
 const A = (seatIdx: number, street: PlayerAction["street"], type: PlayerAction["type"], amountBB = 0): PlayerAction => ({ seatIdx, street, type, amountBB });
@@ -60,5 +60,22 @@ describe("equityByStreet", () => {
     expect(eq.map(e => e.street)).toEqual(["Préflop", "Flop", "Turn", "River"]);
     expect(eq[3].equity).toBe(100);
     expect(eq[2].equity).toBeGreaterThan(85);
+  });
+});
+
+describe("showdownSeats (qui peut montrer ses cartes)", () => {
+  const A = (seatIdx: number, street: PlayerAction["street"], type: PlayerAction["type"], amountBB = 0): PlayerAction => ({ seatIdx, street, type, amountBB });
+  const none = Array(6).fill(false);
+  it("lists players who only acted after the flop (hand entered from the flop)", () => {
+    const acts = [A(5, "Flop", "Check"), A(2, "Flop", "Bet", 5), A(3, "Flop", "Call", 5), A(5, "Flop", "Call", 5)];
+    expect(showdownSeats(acts, none, 5)).toEqual([2, 3]);
+  });
+  it("leaves out you and anyone who folded, on any street", () => {
+    const acts = [A(0, "Preflop", "Raise", 2.5), A(1, "Preflop", "Call", 2.5), A(5, "Preflop", "Call", 1.5), A(1, "Turn", "Fold")];
+    const folded = [false, false, false, false, true, false];
+    expect(showdownSeats(acts, folded, 5)).toEqual([0]);
+  });
+  it("with no action entered, offers every player still seated", () => {
+    expect(showdownSeats([], [false, true, false, false, false, false], 3)).toEqual([0, 2, 4, 5]);
   });
 });

@@ -56,6 +56,18 @@ export function strengthAt(cards: string[], board: string[]): Strength {
 
 const ACT_FR: Record<string, string> = { Fold: "fold", Check: "check", Call: "call", Bet: "mise", Raise: "relance" };
 
+/**
+ * Adversaires qui peuvent montrer leurs cartes à l'abattage : ceux qui ont agi sans se coucher,
+ * quelle que soit la street (une main peut être saisie à partir du flop). Sans aucune action saisie,
+ * tous les joueurs encore assis (hors toi et hors couchés).
+ */
+export function showdownSeats(actions: PlayerAction[], folded: boolean[], heroSeat: number): number[] {
+  const out = (i: number) => i === heroSeat || folded[i] || actions.some(a => a.seatIdx === i && a.type === "Fold");
+  const acted = [...new Set(actions.filter(a => a.type !== "Fold").map(a => a.seatIdx))].filter(i => !out(i));
+  const seats = acted.length ? acted : folded.map((_, i) => i).filter(i => !out(i));
+  return seats.sort((a, b) => a - b);
+}
+
 /** Construit l'enregistrement d'une main montrée à partir de la main saisie sur la table. */
 export function buildShowdownRecord(cards: [string, string], seat: number, position: string, actions: PlayerAction[], board: string[], potStart: number | PotOptions = 1.5): ShowdownRecord {
   const potBefore = new Map(trackPot(actions, typeof potStart === "number" ? { startPot: potStart } : potStart).steps.map(st => [st.action, st.potBefore]));
