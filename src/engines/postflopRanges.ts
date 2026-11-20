@@ -117,6 +117,56 @@ export function handEquity(hole: string[], villain: Combo[], board: string[], sa
   return score / samples;
 }
 
+/**
+ * Équité du héros contre PLUSIEURS adversaires (il faut battre tout le monde ; égalités partagées).
+ * Chaque donne tire une main dans chaque range sans réutiliser une carte ; une donne impossible est rejetée.
+ * Avec un seul adversaire : exactement `handEquity`.
+ */
+export function handEquityMulti(hole: string[], ranges: Combo[][], board: string[], samples = 2000, seed = 5): number {
+  if (ranges.length <= 1) return handEquity(hole, ranges[0] ?? [], board, samples, seed);
+  const dead = [...hole, ...board];
+  const live = ranges.map(r => removeDead(r, dead));
+  if (live.some(r => !r.length)) return 0.5;
+  const rand = rng(seed);
+  const pick = live.map(r => picker(r, rand));
+  let score = 0, done = 0;
+  for (let i = 0; i < samples; i++) {
+    const used = new Set(dead);
+    const hands: [string, string][] = [];
+    for (const p of pick) {
+      let c: Combo | null = null;
+      for (let t = 0; t < 20 && !c; t++) {
+        const x = p();
+        if (!used.has(x.cards[0]) && !used.has(x.cards[1])) c = x;
+      }
+      if (!c) break;
+      used.add(c.cards[0]); used.add(c.cards[1]);
+      hands.push(c.cards);
+    }
+    if (hands.length < pick.length) continue;
+    const run = [...board];
+    while (run.length < 5) {
+      const c = FULL_DECK[Math.floor(rand() * 52)];
+      if (!used.has(c)) { used.add(c); run.push(c); }
+    }
+    const me = rank7([...hole, ...run]);
+    const opp = hands.map(h => rank7([...h, ...run]));
+    const best = Math.max(me, ...opp);
+    if (me === best) score += 1 / (1 + opp.filter(v => v === best).length);
+    done++;
+  }
+  return done ? score / done : 0.5;
+}
+
+/**
+ * Seuil d'équité pensé pour un tête-à-tête, ramené à `opponents` adversaires :
+ * 0 → 0, 50 % → part équitable 1/(n+1), 100 % → 100 % (linéaire entre ces points).
+ */
+export function scaleEqThreshold(t: number, opponents: number): number {
+  const fair = 1 / (Math.max(1, opponents) + 1);
+  return t <= 0.5 ? (t / 0.5) * fair : fair + ((t - 0.5) / 0.5) * (1 - fair);
+}
+
 /** Place de la main du héros dans sa propre range (0 = bas, 1 = haut) sur le board actuel. */
 export function handPercentile(hole: string[], range: Combo[], board: string[]): number {
   const me = rank7([...hole, ...board]);

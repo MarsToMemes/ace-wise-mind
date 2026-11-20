@@ -377,6 +377,17 @@ const Index = () => {
     const villainLine = vSeat >= 0 ? lineOf(vSeat, !heroFirst) : [];
     heroRange = filterByLine(heroRange, board, heroLine);
     villainRange = filterByLine(villainRange, board, villainLine);
+    // autres adversaires encore dans le coup (pot à 3 ou plus) : chacun avec sa range préflop puis sa ligne
+    const raiserPos = lastRaiser >= 0 ? posOf(lastRaiser) || villainPos : heroIsPfr ? heroPos : villainPos;
+    const potType = raises.length >= 2 ? "3bet" : "srp";
+    const otherSeats = [...new Set(pre.filter(a => a.type !== "Fold").map(a => a.seatIdx))]
+      .filter(seat => seat !== userIdx && seat !== vSeat && !folded[seat] && !actionHistory.some(a => a.seatIdx === seat && a.type === "Fold"));
+    const otherRanges = otherSeats.map(seat => {
+      const p = posOf(seat);
+      const slot = seat === lastRaiser || !p ? slotsFor(raiserPos, villainPos, potType).pfr : slotsFor(raiserPos, p, potType).caller;
+      const first = actsFirstPostflop(p || villainPos, heroPos);
+      return filterByLine(removeDead(combos(slot, 35), hole), board, lineOf(seat, first));
+    });
     const prev = cur > 0 ? streets[cur - 1] : null;
     const vf = exploit.villainFile;
     const villainAggressive = vf ? estimateStats(vf.counters).af >= 2 : false;
@@ -384,6 +395,7 @@ const Index = () => {
       street: currentStreet as PostStreet, board, hole, heroRange, villainRange,
       heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: stack,
       opponents: exploit.realOpponents,
+      otherRanges,
       prevVillain: prev ? villainLine.find(e => e.street === prev)?.act : undefined,
       prevHero: prev ? heroLine.find(e => e.street === prev)?.act : undefined,
       villainCheckedThisStreet: vSeat >= 0 && actionHistory.some(a => a.street === currentStreet && a.seatIdx === vSeat && a.type === "Check"),

@@ -4,7 +4,7 @@
 // le rôle de la main, les raisons et le plan. Ce n'est pas un solveur postflop.
 
 import { Combo } from "@/engines/rangeVsRange";
-import { PostStreet, LineAct, rangeAdvantage, handPercentile, handEquity, relStrength } from "@/engines/postflopRanges";
+import { PostStreet, LineAct, rangeAdvantage, handPercentile, handEquityMulti, scaleEqThreshold, relStrength } from "@/engines/postflopRanges";
 import { detectDraws } from "@/lib/pokerEngine";
 import { analyzeBoard } from "@/engines/boardTexture";
 import type { Adjust } from "@/engines/exploitEngine";
@@ -22,6 +22,8 @@ export interface PostflopInput {
   hole: string[];
   heroRange: Combo[];
   villainRange: Combo[];
+  /** Ranges des AUTRES adversaires encore dans le coup (pots à 3 ou plus). */
+  otherRanges?: Combo[][];
   heroInPosition: boolean;
   heroIsPfr: boolean;
   potBB: number;          // pot actuel (mises de la street incluses)
@@ -71,7 +73,12 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
   const eqEdge = Math.round((adv.heroEquity * 100 - 50) * 10) / 10;
   const nutEdge = Math.round((adv.heroStrongPct - adv.villainStrongPct) * 10) / 10;
   const percentile = handPercentile(hole, inp.heroRange, board);
-  const hEq = handEquity(hole, inp.villainRange, board, Math.round(samples * 0.8));
+  // équité contre TOUS les adversaires encore dans le coup ; s'il manque des ranges, celle de l'adversaire principal les remplace
+  const ranges = [inp.villainRange, ...(inp.otherRanges ?? [])].slice(0, 5);
+  while (ranges.length < Math.min(5, inp.opponents)) ranges.push(inp.villainRange);
+  const nOpp = ranges.length;
+  const T = (t: number) => scaleEqThreshold(t, nOpp); // seuils pensés en tête-à-tête, ramenés au nombre d'adversaires
+  const hEq = handEquityMulti(hole, ranges, board, Math.round(samples * 0.8));
   const rel = relStrength(hole, board);
   const outs = street === "River" ? 0 : detectDraws(hole, board).outs;
   const spr = potBB > 0 ? heroStackBB / potBB : 99;
@@ -79,10 +86,10 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
 
   let role: HandRole =
     percentile >= 0.93 && rel >= 2 ? "nuts"
-    : (percentile >= 0.7 && hEq >= 0.5) || hEq >= 0.65 ? "value"
+    : (percentile >= 0.7 && hEq >= T(0.5)) || hEq >= T(0.65) ? "value"
     : outs >= 8 ? "draw"
-    : percentile >= 0.35 || hEq >= 0.4 ? "showdown" : "air";
-  if (multiway && role === "value" && hEq < 0.6) role = "showdown"; // seuil de value plus haut en multiway
+    : percentile >= 0.35 || hEq >= T(0.4) ? "showdown" : "air";
+  if (multiway && role === "value" && hEq < T(0.6)) role = "showdown"; // seuil de value plus haut en multiway
 
   const stats = { rangeEquity: Math.round(adv.heroEquity * 1000) / 10, handEquity: Math.round(hEq * 1000) / 10, eqEdge, nutEdge, percentile: Math.round(percentile * 100), spr: Math.round(spr * 10) / 10 };
   const reasons: string[] = [];
@@ -94,8 +101,8 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     const required = toCallBB / (potBB + toCallBB) + (adj.callThresholdDelta ?? 0) / 100;
     const reqPct = Math.round(required * 1000) / 10;
     const checkRaise = !ip && inp.villainCheckedThisStreet === false;
-    reasons.push(`Ton équité contre sa range : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);
-    if (role === "nuts" || (role === "value" && hEq >= 0.75)) {
+    reasons.push(`Ton équité ${nOpp > 1 ? `contre les ${nOpp} adversaires` : "contre sa range"} : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);
+    if (role === "nuts" || (role === "value" && hEq >= T(0.75))) {
       const to = 3 * toCallBB;
       const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
       reasons.push("Ta main est en haut de ta range : relance pour la value.");
@@ -195,7 +202,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
       plan.push(`S'il mise : check-raise à environ 3× sa mise.`);
       return mk("checkRaise", "CHECK (pour check-raise)", "Check, puis check-raise ≈ 3× sa mise", 70, [{ label: "Check (check-raise)", pct: 70 }, { label: "Check-call", pct: 30 }]);
     }
-    if (street === "River" && (role === "showdown" || (role === "value" && hEq < 0.65))) {
+    if (street === "River" && (role === "showdown" || (role === "value" && hEq < T(0.65)))) {
       const bp = inp.villainAggressive ? 60 : 35;
       const bs = sizeOf(25, potBB, heroStackBB);
       reasons.push("Main correcte mais pas assez forte pour une grosse mise : une petite mise prend un peu de value et évite une grosse mise de sa part.");
@@ -207,7 +214,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
 
   if (role === "nuts" || role === "value") {
     const p = Math.max(80, rangeFreq);
-    reasons.unshift(`Ta main est devant sa range (${stats.handEquity} % d'équité) : mise pour la value.`);
+    reasons.unshift(nOpp > 1 ? `Ta main est devant les ${nOpp} adversaires (${stats.handEquity} % d'équité, part équitable ${Math.round(100 / (nOpp + 1))} %) : mise pour la value.` : `Ta main est devant sa range (${stats.handEquity} % d'équité) : mise pour la value.`);
     plan.push("S'il relance : paie (ou tapis si le SPR est bas).");
     return mk(kind, betVerb, betLabel, p, [{ label: betLabel, pct: p }, { label: "Check", pct: 100 - p }]);
   }
