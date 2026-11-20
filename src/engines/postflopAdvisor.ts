@@ -202,6 +202,15 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
       plan.push(`S'il mise : check-raise à environ 3× sa mise.`);
       return mk("checkRaise", "CHECK (pour check-raise)", "Check, puis check-raise ≈ 3× sa mise", 70, [{ label: "Check (check-raise)", pct: 70 }, { label: "Check-call", pct: 30 }]);
     }
+    if (role === "nuts") {
+      // les nuts ne se contentent pas de payer : contre un joueur qui mise peu, mise toi-même ; sinon check pour relancer
+      const lead = sizeOf(street === "River" ? 75 : 66, potBB, heroStackBB);
+      const label = lead.allIn ? `Tapis ${lead.sizeBB} BB` : `Mise ${street === "River" ? 75 : 66} % = ${lead.sizeBB} BB`;
+      reasons.push("Tu as les nuts : un simple check-call laisserait de la value. Mise toi-même : un joueur qui ne mise pas souvent ne fera pas grossir le pot pour toi.");
+      plan.push(lead.allIn ? "Tu es engagé : tapis." : "S'il relance : tapis.");
+      plan.push("Si tu choisis de checker : s'il mise, relance (check-raise ≈ 3× sa mise), ne te contente pas de payer.");
+      return { ...mk("bet", lead.allIn ? "TAPIS" : "MISE", label, 65, [{ label, pct: 65 }, { label: "Check (check-raise)", pct: 35 }]), sizePct: street === "River" ? 75 : 66, sizeBB: lead.sizeBB, allIn: lead.allIn };
+    }
     if (street === "River" && (role === "showdown" || (role === "value" && hEq < T(0.65)))) {
       const bp = inp.villainAggressive ? 60 : 35;
       const bs = sizeOf(25, potBB, heroStackBB);
