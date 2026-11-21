@@ -728,6 +728,33 @@ const Index = () => {
     }
   };
 
+  // décision synthétique : affichée à côté de la table (droite sur ordinateur, sous la table sur mobile)
+  const decisionBox = (
+    <DecisionVerdict
+      street={currentStreet}
+      engine={engine}
+      polar={polarization}
+      pot={dynamicPot}
+      toCall={userToCall}
+      stack={stack}
+      solver={currentStreet === "Preflop" ? solverPreflop : null}
+      postflop={postflopAdvice}
+      endgame={{ ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
+      format={solverFormat}
+      onFormat={setSolverFormat}
+      exploit={{
+        mode: exploitSettings.mode,
+        items: exploit.items,
+        adjust: exploit.adjust,
+        familyLabel: exploit.villainFile ? FAMILY_LABEL[familyOf(exploit.villainFile.counters)] : undefined,
+        villainName: exploit.villainFile?.name,
+        villainId: exploit.villainId,
+        villainOptions: (tablePlayers.length ? tablePlayers : Object.keys(playerFiles)).map(id => playerFiles[id]).filter(Boolean),
+        autoName: exploit.autoName,
+      }}
+    />
+  );
+
   return (
     <div className="min-h-screen">
       <RangeExplorer />
@@ -796,29 +823,6 @@ const Index = () => {
                 stackBB={stack}
                 defaultFormat={solverFormat}
                 onAdvice={setSolverPreflop}
-              />
-              <DecisionVerdict
-                street={currentStreet}
-                engine={engine}
-                polar={polarization}
-                pot={dynamicPot}
-                toCall={userToCall}
-                stack={stack}
-                solver={currentStreet === "Preflop" ? solverPreflop : null}
-                postflop={postflopAdvice}
-                endgame={{ ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
-                format={solverFormat}
-                onFormat={setSolverFormat}
-                exploit={{
-                  mode: exploitSettings.mode,
-                  items: exploit.items,
-                  adjust: exploit.adjust,
-                  familyLabel: exploit.villainFile ? FAMILY_LABEL[familyOf(exploit.villainFile.counters)] : undefined,
-                  villainName: exploit.villainFile?.name,
-                  villainId: exploit.villainId,
-                  villainOptions: (tablePlayers.length ? tablePlayers : Object.keys(playerFiles)).map(id => playerFiles[id]).filter(Boolean),
-                  autoName: exploit.autoName,
-                }}
               />
               <MyTablePanel
                 seatLabels={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : ""))}
@@ -889,6 +893,11 @@ const Index = () => {
                   )}
                 </Card>
 
+                {/* mobile : la décision juste sous la table */}
+                <div className="lg:hidden">
+                  {decisionBox}
+                </div>
+
                 <Card className="glass-panel p-6">
                   <h2 className="display text-xl mb-4">{t("section.stakes")}</h2>
                   <div className="grid grid-cols-2 gap-4">
@@ -916,6 +925,10 @@ const Index = () => {
               </div>
 
               <div className="space-y-6">
+                {/* ordinateur : la décision à droite de la table, épinglée pendant le défilement */}
+                <div className="hidden lg:block lg:sticky lg:top-[72px] lg:z-20 lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto rounded-xl bg-background shadow-[0_20px_40px_-20px_#000]">
+                  {decisionBox}
+                </div>
                 <CashHUD
                   preflop={hole.length === 2 ? analyzePreflop({
                     hole,
