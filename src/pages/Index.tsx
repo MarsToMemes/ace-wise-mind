@@ -66,6 +66,8 @@ import { getSeatPlayers, addStatsMany, loadPlayers, clearTable, addShownRecord }
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 import { trackPot, type PotOptions } from "@/lib/potTracker";
+import { VoiceInput } from "@/components/VoiceInput";
+import type { VoiceResult, VoiceTable } from "@/lib/voiceInput";
 
 type PickMode = "hole" | "flop" | "turn" | "river";
 type Street = "Preflop" | "Flop" | "Turn" | "River";
@@ -585,6 +587,7 @@ const Index = () => {
     setStack(100); setPot(10); setCall(0);
     setActionHistory([]);
     setShownCards({});
+    setVoiceUndo([]);
     setTournamentResetKey(k => k + 1);
   };
 
@@ -617,11 +620,41 @@ const Index = () => {
     }
   };
 
+  // === Saisie vocale : ce qui est compris s'ajoute à la main ; « annule » revient à l'état d'avant la dictée ===
+  type VoiceSnap = { actionHistory: PlayerAction[]; folded: boolean[]; hole: string[]; flop: string[]; turn: string | null; river: string | null; pickMode: PickMode };
+  const [voiceUndo, setVoiceUndo] = useState<VoiceSnap[]>([]);
+  const voiceTable: VoiceTable = {
+    size: tableSize, dealerIdx, userIdx, actions: actionHistory, board, hole, folded, stack,
+    blinds: potFromActions && dealerIdx >= 0, startPot: potOpts.startPot ?? 0,
+  };
+  const applyVoice = (r: VoiceResult) => {
+    setVoiceUndo(u => [...u, { actionHistory, folded, hole, flop, turn, river, pickMode }].slice(-20));
+    if (r.actions.length) {
+      setActionHistory(prev => [...prev, ...r.actions]);
+      setFolded(prev => prev.map((f, i) => f || r.actions.some(a => a.seatIdx === i && a.type === "Fold")));
+    }
+    const nextHole = r.hole ?? hole;
+    const nextBoard = r.board ?? board;
+    if (r.hole) setHole(r.hole);
+    if (r.board) { setFlop(r.board.slice(0, 3)); setTurn(r.board[3] ?? null); setRiver(r.board[4] ?? null); }
+    if (r.hole || r.board) {
+      setPickMode(nextHole.length < 2 ? "hole" : nextBoard.length < 3 ? "flop" : nextBoard.length < 4 ? "turn" : "river");
+    }
+  };
+  const undoVoice = () => {
+    const snap = voiceUndo[voiceUndo.length - 1];
+    if (!snap) return;
+    setVoiceUndo(u => u.slice(0, -1));
+    setActionHistory(snap.actionHistory); setFolded(snap.folded); setHole(snap.hole);
+    setFlop(snap.flop); setTurn(snap.turn); setRiver(snap.river); setPickMode(snap.pickMode);
+  };
+
   const handleSizeChange = (s: TableSize) => {
     setTableSize(s);
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setFolded(Array(s).fill(false));
     setActionHistory([]);
+    setVoiceUndo([]);
   };
 
   const runAI = async () => {
@@ -871,6 +904,8 @@ const Index = () => {
                     hole={hole}
                     heroHand={hole.length === 2 && board.length >= 3 ? engine?.category : undefined}
                   />
+                  <VoiceInput table={voiceTable} onApply={applyVoice} onUndo={undoVoice} canUndo={voiceUndo.length > 0}
+                    onNewHand={reset} />
                   {(river || actionHistory.some(a => a.amountBB >= stack * 0.9)) && dealerIdx >= 0 && (
                     <ShowdownPanel
                       seats={showdownSeats(actionHistory, folded, userIdx)
