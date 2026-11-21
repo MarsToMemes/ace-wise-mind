@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sparkles, RotateCcw, Spade } from "lucide-react";
+import { Sparkles, RotateCcw, Spade, ChevronDown } from "lucide-react";
 import { CardPicker } from "@/components/CardPicker";
 import { StreetSlots } from "@/components/StreetSlots";
 import { EngineReadout, EngineResult } from "@/components/EngineReadout";
@@ -98,6 +98,12 @@ const Index = () => {
   const [aiError, setAiError] = useState<string | null>(null);
   const [geminiText, setGeminiText] = useState<string | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
+  const [decisionOpen, setDecisionOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem("ace.decisionOpen") !== "0"; } catch { return true; }
+  });
+  const [advanced, setAdvanced] = useState<boolean>(() => {
+    try { return localStorage.getItem("ace.advanced") === "1"; } catch { return false; }
+  });
 
   const userLabel = userIdx >= 0 && dealerIdx >= 0 ? seatLabel(userIdx, dealerIdx, tableSize) : "";
   const position = userLabel ? labelToPosition(userLabel) : "BTN";
@@ -857,11 +863,7 @@ const Index = () => {
                 defaultFormat={solverFormat}
                 onAdvice={setSolverPreflop}
               />
-              <MyTablePanel
-                seatLabels={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : ""))}
-                heroSeat={userIdx}
-              />
-              <div className="grid lg:grid-cols-2 gap-8">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
               <div className="space-y-6">
                 <Card className="glass-panel p-5">
                   <StreetSlots
@@ -879,7 +881,9 @@ const Index = () => {
                     <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
                   </div>
                 </Card>
+              </div>
 
+              <div className="space-y-6">
                 <Card className="glass-panel p-6">
                   <h2 className="display text-xl mb-4">{t("section.tableAndPosition")}</h2>
                   <PokerTable
@@ -928,129 +932,164 @@ const Index = () => {
                   )}
                 </Card>
 
-                {/* mobile : la décision juste sous la table */}
-                <div className="lg:hidden">
-                  {decisionBox}
-                </div>
-
-                <Card className="glass-panel p-6">
-                  <h2 className="display text-xl mb-4">{t("section.stakes")}</h2>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label>{t("field.stack")}</Label>
-                      <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label>{t("field.pot")}</Label>
-                      {potFromActions ? (
-                        <Input type="number" value={dynamicPot} readOnly disabled aria-describedby="pot-hint" />
-                      ) : (
-                        <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} aria-describedby="pot-hint" />
-                      )}
-                      <p id="pot-hint" className="text-xs text-muted-foreground">
-                        {t(potFromActions ? (dealerIdx >= 0 ? "field.potAuto" : "field.potAutoNoDealer") : "field.potManual")}
-                      </p>
-                    </div>
-                    <div className="space-y-1.5 col-span-2">
-                      <Label>{t("field.call")}</Label>
-                      <Input type="number" min={0} value={call} onChange={e => setCall(+e.target.value)} />
-                    </div>
-                  </div>
-                </Card>
+              </div>
               </div>
 
-              <div className="space-y-6">
-                {/* ordinateur : la décision à droite de la table, épinglée pendant le défilement */}
-                <div className="hidden lg:block lg:sticky lg:top-[72px] lg:z-20 lg:max-h-[calc(100vh-88px)] lg:overflow-y-auto rounded-xl bg-background shadow-[0_20px_40px_-20px_#000]">
-                  {decisionBox}
+              {/* décision synthétique toujours visible : fixée en bas de l'écran, repliable */}
+              <div className="fixed inset-x-0 bottom-0 z-40 pointer-events-none">
+                <div className="container pb-2 sm:pb-3">
+                  <section aria-label="Décision synthétique" className="pointer-events-auto relative rounded-2xl border border-primary/35 bg-background/95 backdrop-blur-md shadow-[0_-24px_48px_-24px_#000]">
+                    <button
+                      type="button"
+                      onClick={() => setDecisionOpen(o => { const v = !o; try { localStorage.setItem("ace.decisionOpen", v ? "1" : "0"); } catch { /* stockage indisponible */ } return v; })}
+                      aria-expanded={decisionOpen}
+                      className={decisionOpen
+                        ? "absolute -top-3 right-4 z-10 flex items-center gap-1 rounded-full border border-primary/40 bg-background px-3 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+                        : "flex w-full items-center justify-between gap-2 px-4 py-3 text-sm font-semibold"}
+                    >
+                      {decisionOpen ? <>Réduire <ChevronDown className="h-3.5 w-3.5" /></> : <><span className="text-xs uppercase tracking-widest text-muted-foreground">Décision synthétique</span><span className="flex items-center gap-1 text-primary">Afficher <ChevronDown className="h-4 w-4 rotate-180" /></span></>}
+                    </button>
+                    {decisionOpen && (
+                      <div className="max-h-[34vh] lg:max-h-[36vh] overflow-y-auto rounded-2xl">
+                        {decisionBox}
+                      </div>
+                    )}
+                  </section>
                 </div>
-                <CashHUD
-                  preflop={hole.length === 2 ? analyzePreflop({
-                    hole,
-                    position,
-                    stackBB: stack,
-                    facingRaise: facingBet,
-                    raiseSizeBB: currentBet,
-                    opponents,
-                  }) : null}
-                  street={currentStreet}
-                  stackBB={stack}
-                  opponents={opponents}
-                />
-                <EngineReadout result={engine} />
+              </div>
 
-                <AlphaPanel
-                  defaultPot={dynamicPot}
-                  defaultBet={facingBet ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
-                  perspective={facingBet ? "hero-facing" : "hero-betting"}
-                />
-
-                <BoardCbetPanel flop={flop} heroPosition={position} villainId={exploit.resolvedId} />
-
-                <GeometricSizingPanel
-                  defaultPot={dynamicPot}
-                  defaultHeroStack={stack}
-                  defaultVillainStack={stack}
-                  streetsRemaining={
-                    (currentStreet === "Preflop" || currentStreet === "Flop"
-                      ? 3
-                      : currentStreet === "Turn"
-                      ? 2
-                      : 1) as 1 | 2 | 3
-                  }
-                />
-
-                <EVCalculatorPanel
-                  defaultEquityPct={engine?.equityPct ?? 50}
-                  defaultRiskBB={facingBet ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
-                  defaultRewardBB={Math.max(1, dynamicPot)}
-                />
-
-                <BankrollPanel />
-
-                <PolarizationPanel result={polarization} />
-
-                <RangeTrackerPanel
-                  hole={hole}
-                  board={board}
-                  potBB={dynamicPot}
-                  texture={(engine?.texture as "Dry" | "Semi-wet" | "Wet") ?? "Semi-wet"}
-                />
-
-                <JamFoldPanel
-                  defaultPotBB={dynamicPot}
-                  defaultStackBB={stack}
-                  defaultEquityPct={Math.round(engine?.equityPct ?? 35)}
-                />
-
-                <SolverSpotsPanel prefer="cash" />
-
-                <Button
-                  onClick={runAI}
-                  disabled={!engine || aiLoading}
-                  className="w-full h-12 text-base font-semibold"
-                  style={{ background: "var(--gradient-gold)", color: "hsl(var(--primary-foreground))" }}
-                >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  {aiLoading ? t("btn.analyzing") : `${t("btn.runAi")} (${currentStreet})`}
+              {/* tout le reste, replié par défaut : la page montre l'essentiel (cartes, table, décision) */}
+              <div className="flex justify-center pt-2">
+                <Button type="button" variant="outline" className="gap-2" aria-expanded={advanced} aria-controls="advanced-tools"
+                  onClick={() => setAdvanced(a => { const v = !a; try { localStorage.setItem("ace.advanced", v ? "1" : "0"); } catch { /* stockage indisponible */ } return v; })}>
+                  {advanced ? "Masquer les options avancées" : "Options avancées"}
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${advanced ? "rotate-180" : ""}`} />
                 </Button>
-
-                <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
-
-                {aiResult && (
-                  <Card className="glass-panel p-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="display text-lg gold-text">{lang === "fr" ? "Explication détaillée" : "Detailed explanation"}</h4>
-                      <Button size="sm" variant="outline" onClick={explainWithGemini} disabled={geminiLoading}>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        {geminiLoading ? (lang === "fr" ? "Analyse..." : "Thinking...") : (lang === "fr" ? "Expliquer la décision" : "Explain decision")}
-                      </Button>
-                    </div>
-                    {geminiText && <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{geminiText}</p>}
-                  </Card>
-                )}
               </div>
-              </div>
+              {!advanced && (
+                <p className="text-center text-xs text-muted-foreground -mt-3">
+                  Ma table et pseudos, mises, calculateurs (EV, stack-off, jam/fold), range du vilain, bankroll, spots du solveur, analyse IA.
+                </p>
+              )}
+              {advanced && (
+                <section id="advanced-tools" aria-label="Options avancées" className="space-y-6">
+                <MyTablePanel
+                  seatLabels={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : ""))}
+                  heroSeat={userIdx}
+                />
+                  <div className="gap-6 lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
+                    <Card className="glass-panel p-6">
+                      <h2 className="display text-xl mb-4">{t("section.stakes")}</h2>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>{t("field.stack")}</Label>
+                          <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>{t("field.pot")}</Label>
+                          {potFromActions ? (
+                            <Input type="number" value={dynamicPot} readOnly disabled aria-describedby="pot-hint" />
+                          ) : (
+                            <Input type="number" min={0} value={pot} onChange={e => setPot(+e.target.value)} aria-describedby="pot-hint" />
+                          )}
+                          <p id="pot-hint" className="text-xs text-muted-foreground">
+                            {t(potFromActions ? (dealerIdx >= 0 ? "field.potAuto" : "field.potAutoNoDealer") : "field.potManual")}
+                          </p>
+                        </div>
+                        <div className="space-y-1.5 col-span-2">
+                          <Label>{t("field.call")}</Label>
+                          <Input type="number" min={0} value={call} onChange={e => setCall(+e.target.value)} />
+                        </div>
+                      </div>
+                    </Card>
+                    <CashHUD
+                      preflop={hole.length === 2 ? analyzePreflop({
+                        hole,
+                        position,
+                        stackBB: stack,
+                        facingRaise: facingBet,
+                        raiseSizeBB: currentBet,
+                        opponents,
+                      }) : null}
+                      street={currentStreet}
+                      stackBB={stack}
+                      opponents={opponents}
+                    />
+                    <EngineReadout result={engine} />
+
+                    <AlphaPanel
+                      defaultPot={dynamicPot}
+                      defaultBet={facingBet ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
+                      perspective={facingBet ? "hero-facing" : "hero-betting"}
+                    />
+
+                    <BoardCbetPanel flop={flop} heroPosition={position} villainId={exploit.resolvedId} />
+
+                    <GeometricSizingPanel
+                      defaultPot={dynamicPot}
+                      defaultHeroStack={stack}
+                      defaultVillainStack={stack}
+                      streetsRemaining={
+                        (currentStreet === "Preflop" || currentStreet === "Flop"
+                          ? 3
+                          : currentStreet === "Turn"
+                          ? 2
+                          : 1) as 1 | 2 | 3
+                      }
+                    />
+
+                    <EVCalculatorPanel
+                      defaultEquityPct={engine?.equityPct ?? 50}
+                      defaultRiskBB={facingBet ? userToCall : Math.max(1, Math.round(dynamicPot * 0.66))}
+                      defaultRewardBB={Math.max(1, dynamicPot)}
+                    />
+
+                    <BankrollPanel />
+
+                    <PolarizationPanel result={polarization} />
+
+                    <RangeTrackerPanel
+                      hole={hole}
+                      board={board}
+                      potBB={dynamicPot}
+                      texture={(engine?.texture as "Dry" | "Semi-wet" | "Wet") ?? "Semi-wet"}
+                    />
+
+                    <JamFoldPanel
+                      defaultPotBB={dynamicPot}
+                      defaultStackBB={stack}
+                      defaultEquityPct={Math.round(engine?.equityPct ?? 35)}
+                    />
+
+                    <SolverSpotsPanel prefer="cash" />
+
+                    <Button
+                      onClick={runAI}
+                      disabled={!engine || aiLoading}
+                      className="w-full h-12 text-base font-semibold"
+                      style={{ background: "var(--gradient-gold)", color: "hsl(var(--primary-foreground))" }}
+                    >
+                      <Sparkles className="w-5 h-5 mr-2" />
+                      {aiLoading ? t("btn.analyzing") : `${t("btn.runAi")} (${currentStreet})`}
+                    </Button>
+
+                    <AIPanel analysis={aiResult} loading={aiLoading} error={aiError} />
+
+                    {aiResult && (
+                      <Card className="glass-panel p-6 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="display text-lg gold-text">{lang === "fr" ? "Explication détaillée" : "Detailed explanation"}</h4>
+                          <Button size="sm" variant="outline" onClick={explainWithGemini} disabled={geminiLoading}>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            {geminiLoading ? (lang === "fr" ? "Analyse..." : "Thinking...") : (lang === "fr" ? "Expliquer la décision" : "Explain decision")}
+                          </Button>
+                        </div>
+                        {geminiText && <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{geminiText}</p>}
+                      </Card>
+                    )}
+                  </div>
+                </section>
+              )}
             </main>
             )}
           </TabsContent>
@@ -1064,6 +1103,8 @@ const Index = () => {
       </div>
 
       <FooterDisclaimer />
+      {/* place pour la décision fixée en bas, pour qu'elle ne cache jamais le bas de la page */}
+      {appMode === "analyzer" && analyzerMode === "cash" && <div aria-hidden className={decisionOpen ? "h-[38vh] lg:h-[40vh]" : "h-16"} />}
     </div>
   );
 };
