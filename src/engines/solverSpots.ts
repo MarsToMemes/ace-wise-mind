@@ -169,6 +169,28 @@ export interface SpotMatch {
   reason?: string;
 }
 
+// --- Cash : profondeurs calculées ---
+/** Tapis proposés en cash ; seuls ceux marqués `ready` ont une table solveur. */
+export const CASH_DEPTHS: { bb: number; ready: boolean }[] = [
+  { bb: 50, ready: false }, { bb: 100, ready: true }, { bb: 150, ready: false }, { bb: 200, ready: false },
+];
+/** Écart toléré autour d'une profondeur calculée (un tapis réel de 92 bb joue comme 100 bb). */
+const CASH_TOLERANCE_BB = 10;
+
+/**
+ * Le tapis est-il couvert par une table cash ? Hors tolérance : pas de conseil solveur,
+ * et un message qui le dit (plutôt que servir la table 100 bb en silence).
+ */
+export function cashCoverage(stackBB: number): { ok: boolean; note: string | null } {
+  const ready = CASH_DEPTHS.filter(d => d.ready);
+  const near = ready.find(d => Math.abs(d.bb - stackBB) <= CASH_TOLERANCE_BB);
+  const fmt = (x: number) => String(Math.round(x * 10) / 10).replace(".", ",");
+  if (!near) {
+    return { ok: false, note: `La bibliothèque cash n'est calculée qu'à ${ready.map(d => `${d.bb} bb`).join(", ")} (ton tapis : ${fmt(stackBB)} bb) : pas de conseil solveur à cette profondeur.` };
+  }
+  return { ok: true, note: near.bb === stackBB ? null : `Conseil calculé à ${near.bb} bb (ton tapis : ${fmt(stackBB)} bb).` };
+}
+
 /** Choisit la partie calculée la plus adaptée (format + tapis le plus proche). */
 export function pickGame(index: SolverIndexEntry[], kind: string, stackBB: number): SolverIndexEntry | undefined {
   const list = index.filter(e => e.kind === kind);

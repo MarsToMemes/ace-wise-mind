@@ -5,7 +5,7 @@ import { Network } from "lucide-react";
 import { handLabel } from "@/engines/cashPreflopEngine";
 import {
   SolverGame, SolverIndexEntry, loadSolverIndex, loadSolverGame, pickGame, matchSpot, adviceForHand, actLabel,
-  isJam, isRaise, TableAction,
+  isJam, isRaise, TableAction, cashCoverage,
 } from "@/engines/solverSpots";
 
 type Format = "mtt" | "cash";
@@ -52,7 +52,7 @@ export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, def
     && preflop.every(a => a.type === "Fold" || seatPos[a.seatIdx] === "SB" || seatPos[a.seatIdx] === "BB");
 
   const entry = useMemo(() => {
-    if (format === "cash") return index.find(e => e.id === "cash100");
+    if (format === "cash") return cashCoverage(stackBB).ok ? index.find(e => e.id === "cash100") : undefined;
     const bvb = blindBattle ? pickGame(index, "bvb", stackBB) : undefined;
     if (bvb && Math.abs(bvb.stack - stackBB) <= 10) return bvb;
     return pickGame(index, "mtt", stackBB);

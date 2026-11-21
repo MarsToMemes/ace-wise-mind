@@ -46,4 +46,11 @@ describe("PokerTable (Orbite)", () => {
     renderTable();
     expect(screen.getByTestId("dealer-button").textContent).toBe("D");
   });
+
+  it("shows what is left for you to pay, not the whole bet", () => {
+    renderTable({ currentBet: 20, toCallBB: 12.5 });
+    const el = screen.getByTestId("table-to-call");
+    expect(el.textContent).toContain("12.5");
+    expect(el.textContent).not.toContain("20");
+  });
 });

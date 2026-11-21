@@ -76,6 +76,8 @@ interface Props {
   streetContribs: number[];
   lastActions: (PlayerAction | null)[];
   currentBet: number;
+  /** Ce qu'il te reste à payer (mise adverse moins ce que tu as déjà mis). */
+  toCallBB?: number;
   defaultRaise: number;
   onSeatClick: (i: number) => void;
   onPlayerAction: (seatIdx: number, type: ActionType, amountBB: number) => void;
@@ -101,7 +103,7 @@ interface Props {
 
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
-  currentBet, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
+  currentBet, toCallBB, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
   tournamentState, seatStacksBB, levelTimerSec, flashMRatio, seatNames, street, potBB, stackBB,
   board = [], hole = [], heroHand,
 }: Props) => {
@@ -366,7 +368,7 @@ export const PokerTable = ({
       <div className="flex justify-between items-center text-xs text-muted-foreground px-1 flex-wrap gap-2">
         <span>{dealerIdx >= 0 ? "✓ Dealer set" : "Set dealer (BTN)"}</span>
         <span>{`Active: ${folded.filter(f => !f).length}/${size}`}</span>
-        <span>{`To call: ${currentBet} BB`}</span>
+        <span data-testid="table-to-call">{`${t("table.toCall")} : ${toCallBB ?? currentBet} BB`}</span>
         {userIdx >= 0 && (
           <span className="text-primary font-semibold">{seatLabel(userIdx, dealerIdx, size)}</span>
         )}

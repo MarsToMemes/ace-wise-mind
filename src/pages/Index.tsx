@@ -55,6 +55,7 @@ import type { EndgameInput } from "@/engines/endgame/solve";
 import { useEndgameSolve } from "@/hooks/use-endgame-solve";
 import { bluffGuard } from "@/engines/endgame/guard";
 import { useSolverBase } from "@/hooks/use-solver-base";
+import { cashCoverage, CASH_DEPTHS } from "@/engines/solverSpots";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
 import { analyzeBoard } from "@/engines/boardTexture";
@@ -297,10 +298,9 @@ const Index = () => {
   // === Moteur d'exploits : adversaire de la main + ligne jouée ===
   useSolverBase();
   const [solverPreflop, setSolverPreflop] = useState<SolverPreflop | null>(null);
-  const [solverFormat, setSolverFormatState] = useState<"mtt" | "cash">(() => {
-    try { return (localStorage.getItem("ace:solverFormat") as "mtt" | "cash") || (stack >= 80 ? "cash" : "mtt"); } catch { return "cash"; }
-  });
-  const setSolverFormat = (f: "mtt" | "cash") => { setSolverFormatState(f); try { localStorage.setItem("ace:solverFormat", f); } catch { /* ignoré */ } };
+  // l'analyse cash n'utilise que les tables cash (le tournoi a son propre espace)
+  const solverFormat = "cash" as const;
+  const cashCover = cashCoverage(stack);
   const exploitSettings = useExploitSettings();
   const { players: playerFiles, seats: seatPlayers, table: tablePlayers } = usePlayers();
   const exploit = useMemo(() => {
@@ -780,7 +780,7 @@ const Index = () => {
       postflop={postflopAdvice}
       endgame={{ ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
       format={solverFormat}
-      onFormat={setSolverFormat}
+      solverNote={cashCover.note}
       exploit={{
         mode: exploitSettings.mode,
         items: exploit.items,
@@ -895,6 +895,7 @@ const Index = () => {
                     streetContribs={streetContribs}
                     lastActions={lastActions}
                     currentBet={currentBet}
+                    toCallBB={userToCall}
                     defaultRaise={defaultRaise}
                     onSeatClick={handleSeatClick}
                     onPlayerAction={handlePlayerAction}
@@ -983,7 +984,16 @@ const Index = () => {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <Label>{t("field.stack")}</Label>
-                          <Input type="number" min={0} value={stack} onChange={e => setStack(+e.target.value)} />
+                          <div role="radiogroup" aria-label={t("field.stack")} className="flex rounded-md border border-border overflow-hidden text-sm">
+                            {CASH_DEPTHS.map(d => (
+                              <button key={d.bb} type="button" role="radio" aria-checked={stack === d.bb} disabled={!d.ready}
+                                onClick={() => setStack(d.bb)} title={d.ready ? undefined : "Pas encore calculé"}
+                                className={`flex-1 px-2 py-1.5 ${stack === d.bb ? "bg-primary text-primary-foreground" : "hover:bg-secondary"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}>
+                                {d.bb}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="text-xs text-muted-foreground">Seul le tapis de 100 bb est calculé en cash pour l'instant. Les autres profondeurs arriveront après validation.</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label>{t("field.pot")}</Label>

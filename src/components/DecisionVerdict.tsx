@@ -48,6 +48,8 @@ interface Props {
   exploit?: ExploitView;
   format?: "mtt" | "cash";
   onFormat?: (f: "mtt" | "cash") => void;
+  /** Remarque sur la couverture du solveur préflop (tapis hors des profondeurs calculées…). */
+  solverNote?: string | null;
 }
 
 const VERB_STYLE = (verb: string) =>
@@ -71,7 +73,7 @@ const bb = (x: number) => `${x >= 0 ? "+" : ""}${(Math.round(x * 10) / 10).toStr
 const SOLVER_VERB = (a: string) =>
   a === "F" ? "FOLD" : a === "X" ? "CHECK" : a === "C" ? "CALL" : a === "L" ? "LIMP" : a.startsWith("A") ? "TAPIS" : a.startsWith("R") ? "RELANCE" : a;
 
-export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat }: Props) => {
+export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat, solverNote }: Props) => {
   if (!engine) {
     return (
       <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm">
@@ -97,7 +99,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
     verb = SOLVER_VERB(solver.act);
     sizeLine = solver.act.startsWith("R") ? `Relance à ${solver.act.slice(1)} BB` : solver.act.startsWith("A") ? `Tapis ${stack} BB` : solver.act === "C" ? `Suivre ${toCall} BB` : verb === "FOLD" ? "Coucher" : verb === "CHECK" ? "Checker" : "";
     mix = solver.mix ?? [{ label: verb, pct: solver.pct }];
-    context = solver.title ?? "";
+    context = [solver.title, solverNote].filter(Boolean).join(" · ");
     handLine = solver.hand ? `${solver.hand} : ${solver.pct} % ${verb.toLowerCase()}` : "";
     reasons = [solver.pct < 100 ? "Stratégie mixte : le solveur alterne entre ces actions avec cette main." : "Le solveur joue cette main toujours de la même façon ici."];
   } else if ((street === "Turn" || street === "River") && endgame?.status === "done" && endgame.result && !endgame.guard) {
@@ -127,6 +129,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
     handLine = `Ta main : ${ROLE_LABEL[postflop.role]}`;
   } else {
     // repli : moteur de base (sans position ou sans cartes adverses connues)
+    if (street === "Preflop" && solverNote) { source = "Approximation · moteur de base"; context = solverNote; }
     let action: string = engine.suggestedAction;
     if (action === "Raise" && toCall <= 0) action = "Bet";
     if ((action === "Bet" || action === "Raise") && stack <= 15 && spr < 2.5) action = "Jam";
