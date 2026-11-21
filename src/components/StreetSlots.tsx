@@ -17,11 +17,11 @@ interface SlotsProps {
 }
 
 const Slot = ({ filled, onClick, locked }: { filled?: string; onClick?: () => void; locked?: boolean }) => {
-  if (filled) return <PlayingCard card={filled} animated onClick={onClick} />;
+  if (filled) return <PlayingCard card={filled} size="slot" animated onClick={onClick} />;
   return (
     <div
       className={cn(
-        "w-12 h-16 rounded-md border-2 border-dashed flex items-center justify-center transition-all",
+        "w-9 h-12 lg:w-12 lg:h-16 rounded-md border-2 border-dashed flex items-center justify-center transition-all",
         locked
           ? "border-border/30 bg-muted/20 text-muted-foreground/40"
           : "border-border/60 bg-muted/30 text-muted-foreground/50",
@@ -43,20 +43,20 @@ const Section = ({
     disabled={locked}
     onClick={onActivate}
     className={cn(
-      "w-full text-left rounded-xl p-3 transition-all border",
+      "w-full text-left rounded-xl p-2 lg:p-3 transition-all border",
       active && !locked && "border-primary/60 bg-primary/5 shadow-[var(--shadow-gold)]",
       !active && !locked && "border-border/40 hover:border-primary/30 bg-muted/20",
       locked && "border-border/20 bg-muted/10 cursor-not-allowed opacity-60",
     )}
   >
-    <div className="flex items-center justify-between mb-2">
-      <p className="text-xs uppercase tracking-widest font-semibold text-muted-foreground">{title}</p>
+    <div className="flex items-center justify-between gap-1 mb-1.5 lg:mb-2">
+      <p className="text-[10px] lg:text-xs uppercase tracking-widest font-semibold text-muted-foreground">{title}</p>
       <span className={cn(
         "text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full",
         active && !locked ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
       )}>{badge}</span>
     </div>
-    <div className="flex gap-2">{children}</div>
+    <div className="flex gap-1.5 lg:gap-2">{children}</div>
   </button>
 );
 
@@ -69,8 +69,8 @@ export const StreetSlots = ({
   const riverLocked = !turn;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between mb-1">
+    <div className="grid grid-cols-2 gap-2 lg:block lg:space-y-3">
+      <div className="col-span-2 flex items-center justify-between mb-1">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">{t("slots.selection")}</p>
         <span className="text-xs font-semibold gold-text">{t("slots.street")}: {currentStreet}</span>
       </div>

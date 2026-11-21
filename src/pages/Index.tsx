@@ -865,7 +865,7 @@ const Index = () => {
               />
               <div className="grid lg:grid-cols-2 gap-8 items-start">
               <div className="space-y-6">
-                <Card className="glass-panel p-5">
+                <Card className="glass-panel p-3 sm:p-5">
                   <StreetSlots
                     hole={hole}
                     flop={flop}
@@ -876,14 +876,14 @@ const Index = () => {
                     onRemove={removeCard}
                     currentStreet={currentStreet}
                   />
-                  <div className="pt-5 mt-5 border-t border-border/40">
+                  <div className="pt-3 mt-3 lg:pt-5 lg:mt-5 border-t border-border/40">
                     <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">{t("section.deck")}</p>
                     <CardPicker selected={selected} hole={hole} board={board} onPick={pickCard} />
                   </div>
                 </Card>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-6 order-first lg:order-none">
                 <Card className="glass-panel p-6">
                   <h2 className="display text-xl mb-4">{t("section.tableAndPosition")}</h2>
                   <PokerTable

@@ -18,14 +18,14 @@ export const CardPicker = ({ selected, onPick }: Props) => {
   });
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1 lg:space-y-2">
       {SUITS.map(s => (
-        <div key={s} className="flex gap-1.5 flex-wrap">
+        <div key={s} className="grid grid-cols-[repeat(13,minmax(0,1fr))] gap-[3px] lg:flex lg:flex-wrap lg:gap-1.5">
           {grouped[s].map(card => (
             <PlayingCard
               key={card}
               card={card}
-              size="sm"
+              size="deck"
               selected={selected.includes(card)}
               onClick={() => onPick(card)}
             />
