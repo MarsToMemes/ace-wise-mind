@@ -55,6 +55,61 @@ export interface VoiceResult {
   next: number | null;
 }
 
+/* ------------------------------------------------------------ mots mal entendus */
+
+/**
+ * La reconnaissance vocale écrit parfois un mot courant à la place du mot de poker
+ * (« vallée » pour valet, « cette » pour sept, « chèque » pour check…).
+ * - toujours remplacés : les mots qui n'ont pas d'autre sens dans une phrase de poker ;
+ * - remplacés seulement si une couleur suit (« cette de cœur ») : les mots courants (si, cette, dis…).
+ */
+const SUIT_RAW = "(?:piques?|pics?|c(?:œ|oe)urs?|ch(?:œ|oe)urs?|carreaux?|caro|carot|tr[eè]ff?les?)";
+const FIN = "(?![\\p{L}\\p{N}])";
+const DEB = "(?<![\\p{L}\\p{N}'’])";
+const SUIT_AFTER = `(?=\\s*,?\\s*(?:de\\s+|d['’]\\s*)?${SUIT_RAW}${FIN})`;
+const TOUJOURS: [string, string][] = [
+  ["vall?[ée]es?|vallets?|valets", "valet"], ["dames", "dame"], ["rois|roy", "roi"], ["asse|hasse", "as"],
+  ["piques|pics?", "pique"], ["ch(?:œ|oe)urs?|c(?:œ|oe)urs", "cœur"], ["carreaux|carot|caro", "carreau"],
+  ["tr[eè]ffles?|tr[eè]fles", "trèfle"],
+  ["tch[eè]ques?|ch[eè]ques?|tchek|chek", "check"], ["b[eê]tes?|bettes?|bett|bets", "bet"], ["tapie|tapi", "tapis"],
+  ["folle|fol|folds", "fold"], ["cole|kol|col", "call"], ["relances", "relance"],
+  ["b[ée]b[ée]", "BB"], ["smoll?|smole", "small"], ["bigue", "big"],
+  ["high jack|a[ïi]e jack|aille jack", "hijack"], ["cat off|kat off|cut of|cute off", "cutoff"], ["aime p[ée]|emme p[ée]", "MP"],
+  ["flope|flopp", "flop"], ["turne|teurn|terne|tourne", "turn"], ["riveur|rivers", "river"],
+];
+const AVANT_COULEUR: [string, string][] = [
+  ["valais|valait|valaient|val[ée]|valer", "valet"], ["d['’]\\s*[âa]me|damme|dam", "dame"], ["roa|rwa", "roi"],
+  ["à|a|assez|hase", "as"], ["dis|dit|dits|disse", "dix"], ["neuve|neufs|nef", "neuf"], ["huits|wheat", "huit"],
+  ["cette|cet|set|sets|s[èe]te", "sept"], ["si|scie|sis|ci|cis", "six"], ["saint|sainte|sain|seins?|cinque", "cinq"],
+  ["cat|cate|quatres|katre", "quatre"], ["troie|troies|troa", "trois"], ["d['’]\\s*eux|eux", "deux"],
+];
+const CORRECTIONS: [RegExp, string][] = [
+  ...TOUJOURS.map(([p, r]) => [new RegExp(`${DEB}(?:${p})${FIN}`, "giu"), r] as [RegExp, string]),
+  ...AVANT_COULEUR.map(([p, r]) => [new RegExp(`${DEB}(?:${p})${SUIT_AFTER}`, "giu"), r] as [RegExp, string]),
+  // « deux de pique » entendu « de de pique »
+  [new RegExp(`${DEB}de(?=\\s+(?:de\\s+|d['’]\\s*)${SUIT_RAW}${FIN})`, "giu"), "deux"],
+];
+const garderMaj = (vu: string, mot: string) =>
+  vu[0] !== vu[0].toLowerCase() && mot === mot.toLowerCase() ? mot[0].toUpperCase() + mot.slice(1) : mot;
+
+/** Remplace les mots mal entendus par les mots de poker (le reste de la phrase ne bouge pas). */
+export function corrigerDictee(text: string): string {
+  return CORRECTIONS.reduce((s, [re, mot]) => s.replace(re, vu => garderMaj(vu, mot)), text);
+}
+
+/**
+ * Le navigateur propose souvent plusieurs versions de ce qu'il a entendu :
+ * garde celle qui donne le moins d'erreurs (à égalité, la première, la plus sûre pour lui).
+ */
+export function meilleureVersion(t: VoiceTable, avant: string, versions: string[]): number {
+  let best = 0, bestErr = Infinity;
+  versions.forEach((v, i) => {
+    const err = interpretVoice(t, `${avant} ${v}`).entries.filter(e => e.level === "err").length;
+    if (err < bestErr) { best = i; bestErr = err; }
+  });
+  return best;
+}
+
 /* ------------------------------------------------------------------ vocabulaire */
 
 const norm = (s: string) =>
@@ -70,7 +125,7 @@ const LEX_SRC: [string, string][] = [
   ["nouvelle main", "NEWHAND"], ["annule|annuler|efface|corrige", "UNDO"],
   ["utg plus deux|utg plus 2|utg 2|utg deux", "P:UTG+2"], ["utg plus un|utg plus 1|utg 1|utg un", "P:UTG+1"],
   ["under the gun|u t g|utg", "P:UTG"],
-  ["hi jack|hijack|hj", "P:HJ"], ["lo jack|lojack|lj", "P:LJ"], ["middle position|mp|milieu", "P:MP"],
+  ["hi jack|hijack|hj", "P:HJ"], ["lo jack|lojack|lj", "P:LJ"], ["middle position|m p|mp|milieu", "P:MP"],
   ["cut off|cutoff|cut|c o|co", "P:CO"], ["le bouton|bouton|button|btn|dealer|donneur", "P:BTN"],
   ["petite blinde|small blind|small|petite|sb|s b", "P:SB"], ["grosse blinde|big blind|big|grosse|bb|b b", "P:BB"],
   ["moi je|moi|je|hero|heros", "HERO"],
@@ -89,7 +144,7 @@ const LEX_SRC: [string, string][] = [
 const LEX: [string[], string][] = LEX_SRC
   .flatMap(([p, t]) => p.split("|").map(a => [a.split(" "), t] as [string[], string]))
   .sort((a, b) => b[0].length - a[0].length);
-const STOP = new Set(", a au aux de du des le la les l et puis ensuite alors ok bon euh donc il elle qui ca fait apres sur en".split(" "));
+const STOP = new Set(", a au aux de du des le la les l et puis ensuite alors ok bon euh heu hum bah ben hein donc il elle qui ca fait apres sur en".split(" "));
 
 const UNITS: Record<string, number> = {
   zero: 0, un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, sept: 7, huit: 8, neuf: 9, dix: 10, onze: 11, douze: 12,
@@ -136,14 +191,17 @@ function readNumber(w: string[], i: number): [number, number] | null {
   return [acc, j - i];
 }
 
+const FILLERS = ["euh", "heu", "hum", "bah", "ben"];
+
 /** Lit des cartes : « roi de cœur », « 7 trèfle »… (« K? » si la couleur manque). */
 function readCards(w: string[], i: number, max: number): [string[], number] {
   const cards: string[] = []; let j = i;
   while (cards.length < max && j < w.length) {
-    if ([",", "de", "et", "le", "un", "une"].includes(w[j])) { j++; continue; }
+    if ([",", "de", "et", "le", "un", "une", ...FILLERS].includes(w[j])) { j++; continue; }
     const r = RANKW[w[j]];
     if (!r) break;
     let k = j + 1;
+    while (FILLERS.includes(w[k])) k++;
     if (w[k] === "de" || w[k] === "d") k++;
     const s = SUITW[w[k]];
     if (s) { cards.push(r + s); j = k + 1; } else { cards.push(r + "?"); j++; }
@@ -152,7 +210,7 @@ function readCards(w: string[], i: number, max: number): [string[], number] {
 }
 
 export function lex(text: string): Tok[] {
-  const w = norm(text).split(" ").filter(Boolean);
+  const w = norm(corrigerDictee(text)).split(" ").filter(Boolean);
   const out: Tok[] = [];
   let i = 0;
   while (i < w.length) {

@@ -4,17 +4,27 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SUIT_SYMBOLS } from "@/lib/pokerEngine";
-import { interpretVoice, fmtBB, type VoiceEntry, type VoiceResult, type VoiceTable } from "@/lib/voiceInput";
+import { interpretVoice, corrigerDictee, meilleureVersion, fmtBB, type VoiceEntry, type VoiceResult, type VoiceTable } from "@/lib/voiceInput";
 import { seatLabel } from "@/components/PokerTable";
 
 /* Reconnaissance vocale du navigateur (Chrome, Edge, Safari) : pas de type officiel dans TypeScript. */
+type Alternatives = { isFinal: boolean; length?: number; [i: number]: { transcript: string } };
 type Recognition = {
-  lang: string; interimResults: boolean; continuous: boolean;
+  lang: string; interimResults: boolean; continuous: boolean; maxAlternatives: number;
   start: () => void; stop: () => void;
-  onresult: ((e: { results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onresult: ((e: { results: ArrayLike<Alternatives> }) => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
 };
+/** Versions proposées par le navigateur pour un morceau de phrase, mots mal entendus corrigés. */
+const versions = (r: Alternatives) =>
+  Array.from({ length: Math.max(1, r.length ?? 1) }, (_, i) => r[i]?.transcript).filter((t): t is string => !!t).map(corrigerDictee);
+/** Le morceau de phrase le mieux compris, compte tenu de ce qui a déjà été dit avant. */
+const bestOf = (t: VoiceTable, avant: string, r: Alternatives) => {
+  const v = versions(r);
+  return v.length > 1 ? v[meilleureVersion(t, avant, v)] : v[0] ?? "";
+};
+
 const getRecognition = (): (new () => Recognition) | null => {
   const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
@@ -101,12 +111,13 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
     setHeard({ final: "", interim: "" }); setMicError(""); setEntries([]);
     const launch = () => {
       const rec = new Rec();
-      rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = true;
+      rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 5;
       rec.onresult = ev => {
         let fin = "", interim = "";
         for (let i = 0; i < ev.results.length; i++) {
           const r = ev.results[i];
-          if (r.isFinal) fin += r[0].transcript + " "; else interim += r[0].transcript;
+          if (r.isFinal) fin += bestOf(tableRef.current, keptRef.current + fin, r) + " ";
+          else interim += corrigerDictee(r[0].transcript);
         }
         finalRef.current = (keptRef.current + fin).trim();
         setHeard({ final: finalRef.current ? finalRef.current + " " : "", interim });
@@ -148,10 +159,13 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
     setMicError("");
     const before = typed.trim() ? typed.trim() + " " : "";
     const rec = new Rec();
-    rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = true;
+    rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 5;
     rec.onresult = ev => {
       let txt = "";
-      for (let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+      for (let i = 0; i < ev.results.length; i++) {
+        const r = ev.results[i];
+        txt += r.isFinal ? bestOf(tableRef.current, before + txt, r) : corrigerDictee(r[0].transcript);
+      }
       const v = before + txt.trim();
       setTyped(v);
       setEntries(interpretVoice(tableRef.current, v).entries);

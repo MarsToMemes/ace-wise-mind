@@ -6,7 +6,7 @@ import type { VoiceTable } from "@/lib/voiceInput";
 // Fausse reconnaissance vocale du navigateur : on pilote ce qu'elle « entend ».
 class FakeRec {
   static last: FakeRec | null = null;
-  lang = ""; interimResults = false; continuous = false;
+  lang = ""; interimResults = false; continuous = false; maxAlternatives = 1;
   onresult: ((e: { results: { isFinal: boolean; 0: { transcript: string } }[] }) => void) | null = null;
   onerror: ((e: { error: string }) => void) | null = null;
   onend: (() => void) | null = null;
@@ -15,6 +15,12 @@ class FakeRec {
   start() { this.started = true; }
   stop() { this.started = false; this.onend?.(); }
   say(text: string, isFinal = true) { this.onresult?.({ results: [{ isFinal, 0: { transcript: text } }] }); }
+  /** Plusieurs versions de la même phrase, la première étant la plus sûre pour le navigateur. */
+  sayAlts(texts: string[]) {
+    const r: Record<string, unknown> = { isFinal: true, length: texts.length };
+    texts.forEach((t, i) => { r[i] = { transcript: t }; });
+    this.onresult?.({ results: [r as never] });
+  }
 }
 
 const table: VoiceTable = {
@@ -115,5 +121,29 @@ describe("saisie vocale : gros micro en clic / reclic", () => {
     expect(mic.getAttribute("aria-pressed")).toBe("true");
     fireEvent.keyDown(window, { code: "Space" });
     expect(mic.getAttribute("aria-pressed")).toBe("false");
+  });
+});
+
+describe("saisie vocale : mots mal entendus", () => {
+  it("la barre affiche « valet » et non « vallée »", () => {
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition = FakeRec;
+    render(<VoiceInput table={table} onApply={() => {}} onUndo={() => {}} canUndo={false} onNewHand={() => {}} />);
+    const input = screen.getByLabelText("Écrire les actions") as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: "Dicter dans la barre" }));
+    act(() => FakeRec.last!.say("j'ai vallée de pique, cette de cœur"));
+    expect(input.value).toBe("j'ai valet de pique, sept de cœur");
+  });
+
+  it("le gros micro demande plusieurs versions et garde celle qui se comprend", () => {
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition = FakeRec;
+    const apply = vi.fn();
+    render(<VoiceInput table={table} onApply={apply} onUndo={() => {}} canUndo={false} onNewHand={() => {}} />);
+    const mic = screen.getByRole("button", { name: /clique pour parler, reclique pour finir/ });
+    fireEvent.click(mic);
+    expect(FakeRec.last!.maxAlternatives).toBeGreaterThan(1);
+    act(() => FakeRec.last!.sayAlts(["cut of relent sa", "cutoff relance à deux et demi"]));
+    expect(screen.getByText(/cutoff relance à deux et demi/)).toBeTruthy();
+    fireEvent.click(mic);
+    expect(apply.mock.calls[0][0].actions.map((a: { seatIdx: number; type: string }) => `${a.seatIdx}:${a.type}`)).toEqual(["3:Fold", "4:Fold", "5:Raise"]);
   });
 });
