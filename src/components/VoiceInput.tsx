@@ -59,8 +59,8 @@ interface Props {
 }
 
 /**
- * Saisie vocale des actions : maintenir le micro (ou la barre espace), parler, relâcher.
- * Les actions comprises s'affichent pendant qu'on parle, puis s'inscrivent sur la table au relâchement.
+ * Saisie vocale des actions : un clic sur le micro (ou la barre espace) pour parler, un second clic pour finir.
+ * Les actions comprises s'affichent pendant qu'on parle, puis s'inscrivent sur la table au second clic.
  */
 export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props) => {
   const Rec = useMemo(getRecognition, []);
@@ -92,42 +92,52 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
   const commitRef = useRef(commit);
   commitRef.current = commit;
 
-  const start = () => {
+  // gros micro : un clic ouvre, il reste ouvert (même si le navigateur coupe après un silence), un second clic inscrit sur la table
+  const keptRef = useRef("");
+  const open = () => {
     if (holding.current || !ready) return;
     if (!Rec) { setMicError("La reconnaissance vocale marche dans Chrome, Edge ou Safari. Ici, écris la phrase dans la case."); return; }
-    holding.current = true; finalRef.current = "";
-    setHeard({ final: "", interim: "" }); setMicError("");
-    const rec = new Rec();
-    rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = true;
-    rec.onresult = ev => {
-      let fin = "", interim = "";
-      for (let i = 0; i < ev.results.length; i++) {
-        const r = ev.results[i];
-        if (r.isFinal) fin += r[0].transcript + " "; else interim += r[0].transcript;
-      }
-      finalRef.current = fin;
-      setHeard({ final: fin, interim });
-      setEntries(interpretVoice(tableRef.current, fin + interim).entries);
+    holding.current = true; finalRef.current = ""; keptRef.current = "";
+    setHeard({ final: "", interim: "" }); setMicError(""); setEntries([]);
+    const launch = () => {
+      const rec = new Rec();
+      rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = true;
+      rec.onresult = ev => {
+        let fin = "", interim = "";
+        for (let i = 0; i < ev.results.length; i++) {
+          const r = ev.results[i];
+          if (r.isFinal) fin += r[0].transcript + " "; else interim += r[0].transcript;
+        }
+        finalRef.current = (keptRef.current + fin).trim();
+        setHeard({ final: finalRef.current ? finalRef.current + " " : "", interim });
+        setEntries(interpretVoice(tableRef.current, `${finalRef.current} ${interim}`).entries);
+      };
+      rec.onerror = ev => {
+        if (ev.error === "no-speech" || ev.error === "aborted") return; // le micro reste ouvert
+        holding.current = false;
+        setMicError(ev.error === "not-allowed" ? "Le micro est bloqué : autorise-le dans le navigateur (icône à gauche de l'adresse)."
+          : ev.error === "network" ? "La reconnaissance vocale n'est pas disponible dans cette fenêtre : essaie Chrome ou Safari."
+          : `Micro : ${ev.error}`);
+      };
+      rec.onend = () => {
+        if (holding.current) { keptRef.current = finalRef.current + " "; launch(); return; }
+        setListening(false);
+        const text = finalRef.current.trim();
+        if (text) { setHeard({ final: text, interim: "" }); commitRef.current(text); }
+      };
+      recRef.current = rec;
+      try { rec.start(); } catch { /* déjà lancé */ }
     };
-    rec.onerror = ev => {
-      setMicError(ev.error === "not-allowed" ? "Le micro est bloqué : autorise-le dans le navigateur (icône à gauche de l'adresse)."
-        : ev.error === "network" ? "La reconnaissance vocale n'est pas disponible dans cette fenêtre : essaie Chrome ou Safari."
-        : ev.error === "no-speech" ? "Je n'ai rien entendu." : `Micro : ${ev.error}`);
-    };
-    rec.onend = () => {
-      setListening(false);
-      const text = finalRef.current.trim();
-      if (text) { setHeard({ final: text, interim: "" }); commitRef.current(text); }
-    };
-    recRef.current = rec;
-    try { rec.start(); setListening(true); } catch { holding.current = false; }
+    launch();
+    setListening(true);
   };
-  const stop = () => {
+  // fermer : le navigateur finit d'écrire les derniers mots, puis la phrase est inscrite sur la table
+  const close = () => {
     if (!holding.current) return;
     holding.current = false;
-    // un court délai pour ne pas couper le dernier mot
-    setTimeout(() => recRef.current?.stop(), 250);
+    recRef.current?.stop();
   };
+  const toggle = () => (holding.current ? close() : open());
   // petit micro de la barre : clic = parler, reclic = arrêter ; la phrase s'écrit dans la barre sans être envoyée
   const [barOn, setBarOn] = useState(false);
   const barRec = useRef<Recognition | null>(null);
@@ -157,8 +167,7 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
   };
   useEffect(() => () => barRec.current?.stop(), []);
 
-  const startRef = useRef(start); startRef.current = start;
-  const stopRef = useRef(stop); stopRef.current = stop;
+  const toggleRef = useRef(toggle); toggleRef.current = toggle;
 
   // barre espace maintenue = micro (sauf quand on écrit dans un champ)
   useEffect(() => {
@@ -166,13 +175,11 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
       const el = document.activeElement as HTMLElement | null;
       return !!el && (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(el.tagName) || el.isContentEditable);
     };
-    const down = (e: KeyboardEvent) => { if (e.code === "Space" && !e.repeat && !typing()) { e.preventDefault(); startRef.current(); } };
-    const up = (e: KeyboardEvent) => { if (e.code === "Space" && holding.current) { e.preventDefault(); stopRef.current(); } };
+    const down = (e: KeyboardEvent) => { if (e.code === "Space" && !e.repeat && !typing()) { e.preventDefault(); toggleRef.current(); } };
     window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+    return () => window.removeEventListener("keydown", down);
   }, []);
-  useEffect(() => () => recRef.current?.stop(), []);
+  useEffect(() => () => { holding.current = false; recRef.current?.stop(); }, []);
 
   const nextText = !ready ? "Place d'abord le bouton et ton siège sur la table."
     : nextSeat === null ? "Tour d'enchères fini : dis la carte suivante (« flop … », « turn … »)."
@@ -182,19 +189,16 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
     <section className="mt-5 rounded-2xl border border-primary/25 bg-background/40 p-4" aria-labelledby="voice-title" data-testid="voice-input">
       <div className="flex items-baseline justify-between gap-3">
         <h3 id="voice-title" className="display text-lg">Dicter la main</h3>
-        <span className="hidden text-[11px] text-muted-foreground sm:inline">maintiens le micro ou la barre espace</span>
+        <span className="hidden text-[11px] text-muted-foreground sm:inline">clique le micro ou la barre espace, reclique pour finir</span>
       </div>
 
       <div className="mt-3 flex items-center gap-3">
         <button
           type="button"
-          aria-label="Maintenir pour parler"
+          aria-label="Dicter : clique pour parler, reclique pour finir"
           aria-pressed={listening}
           disabled={!ready}
-          onPointerDown={e => { e.preventDefault(); start(); }}
-          onPointerUp={stop}
-          onPointerLeave={stop}
-          onPointerCancel={stop}
+          onClick={toggle}
           className={cn(
             "voice-mic relative grid h-16 w-16 shrink-0 select-none place-items-center rounded-full border-2 transition-[transform,background-color,border-color] duration-150 active:scale-[0.96] touch-none",
             "disabled:cursor-not-allowed disabled:opacity-40",
@@ -207,7 +211,7 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
         </button>
         <div className="min-h-16 flex-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2" aria-live="polite">
           <div className={cn("text-[11px] font-semibold", listening ? "text-[hsl(150_68%_55%)]" : "text-muted-foreground")}>
-            {listening ? "J'écoute…" : "Micro prêt"}
+            {listening ? "J'écoute… reclique pour finir" : "Micro prêt"}
           </div>
           <div className="text-sm">
             {heard.final || heard.interim

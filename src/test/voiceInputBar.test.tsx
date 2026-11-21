@@ -68,3 +68,52 @@ describe("saisie vocale : petit micro dans la barre de saisie", () => {
     expect(screen.getByText(/Chrome, Edge ou Safari/)).toBeTruthy();
   });
 });
+
+describe("saisie vocale : gros micro en clic / reclic", () => {
+  it("un clic ouvre le micro, il reste ouvert, un second clic inscrit les actions", () => {
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition = FakeRec;
+    const apply = vi.fn();
+    render(<VoiceInput table={table} onApply={apply} onUndo={() => {}} canUndo={false} onNewHand={() => {}} />);
+    const mic = screen.getByRole("button", { name: /clique pour parler, reclique pour finir/ });
+
+    fireEvent.click(mic);
+    expect(mic.getAttribute("aria-pressed")).toBe("true");
+    expect(FakeRec.last?.started).toBe(true);
+    act(() => FakeRec.last!.say("cutoff relance à 2,5"));
+    expect(apply).not.toHaveBeenCalled();
+    expect(mic.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(mic);
+    expect(mic.getAttribute("aria-pressed")).toBe("false");
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(apply.mock.calls[0][0].actions.map((a: { seatIdx: number; type: string }) => `${a.seatIdx}:${a.type}`)).toEqual(["3:Fold", "4:Fold", "5:Raise"]);
+  });
+
+  it("si le navigateur coupe après un silence, le micro se relance sans perdre ce qui a été dit", () => {
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition = FakeRec;
+    const apply = vi.fn();
+    render(<VoiceInput table={table} onApply={apply} onUndo={() => {}} canUndo={false} onNewHand={() => {}} />);
+    const mic = screen.getByRole("button", { name: /clique pour parler, reclique pour finir/ });
+    fireEvent.click(mic);
+    const first = FakeRec.last!;
+    act(() => first.say("UTG fold"));
+    act(() => first.onend?.()); // coupure du navigateur
+    expect(FakeRec.last).not.toBe(first);
+    expect(FakeRec.last?.started).toBe(true);
+    expect(apply).not.toHaveBeenCalled();
+    act(() => FakeRec.last!.say("MP fold"));
+    fireEvent.click(mic);
+    expect(apply.mock.calls[0][0].actions.map((a: { seatIdx: number; type: string }) => `${a.seatIdx}:${a.type}`)).toEqual(["3:Fold", "4:Fold"]);
+  });
+
+  it("la barre espace ouvre puis ferme le micro", () => {
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition = FakeRec;
+    render(<VoiceInput table={table} onApply={() => {}} onUndo={() => {}} canUndo={false} onNewHand={() => {}} />);
+    const mic = screen.getByRole("button", { name: /clique pour parler, reclique pour finir/ });
+    fireEvent.keyDown(window, { code: "Space" });
+    fireEvent.keyUp(window, { code: "Space" });
+    expect(mic.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.keyDown(window, { code: "Space" });
+    expect(mic.getAttribute("aria-pressed")).toBe("false");
+  });
+});
