@@ -128,6 +128,35 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
     // un court délai pour ne pas couper le dernier mot
     setTimeout(() => recRef.current?.stop(), 250);
   };
+  // petit micro de la barre : clic = parler, reclic = arrêter ; la phrase s'écrit dans la barre sans être envoyée
+  const [barOn, setBarOn] = useState(false);
+  const barRec = useRef<Recognition | null>(null);
+  const toggleBar = () => {
+    if (barOn) { barRec.current?.stop(); setBarOn(false); return; }
+    if (!ready) return;
+    if (!Rec) { setMicError("La reconnaissance vocale marche dans Chrome, Edge ou Safari. Ici, écris la phrase dans la case."); return; }
+    setMicError("");
+    const before = typed.trim() ? typed.trim() + " " : "";
+    const rec = new Rec();
+    rec.lang = "fr-FR"; rec.interimResults = true; rec.continuous = true;
+    rec.onresult = ev => {
+      let txt = "";
+      for (let i = 0; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+      const v = before + txt.trim();
+      setTyped(v);
+      setEntries(interpretVoice(tableRef.current, v).entries);
+    };
+    rec.onerror = ev => {
+      setMicError(ev.error === "not-allowed" ? "Le micro est bloqué : autorise-le dans le navigateur (icône à gauche de l'adresse)."
+        : ev.error === "network" ? "La reconnaissance vocale n'est pas disponible dans cette fenêtre : essaie Chrome ou Safari."
+        : ev.error === "no-speech" ? "Je n'ai rien entendu." : `Micro : ${ev.error}`);
+    };
+    rec.onend = () => setBarOn(false);
+    barRec.current = rec;
+    try { rec.start(); setBarOn(true); } catch { setBarOn(false); }
+  };
+  useEffect(() => () => barRec.current?.stop(), []);
+
   const startRef = useRef(start); startRef.current = start;
   const stopRef = useRef(stop); stopRef.current = stop;
 
@@ -201,16 +230,33 @@ export const VoiceInput = ({ table, onApply, onUndo, canUndo, onNewHand }: Props
 
       <form
         className="mt-3 flex flex-wrap gap-2"
-        onSubmit={e => { e.preventDefault(); setHeard({ final: typed, interim: "" }); commit(typed); setTyped(""); }}
+        onSubmit={e => { e.preventDefault(); if (barOn) { barRec.current?.stop(); setBarOn(false); } setHeard({ final: typed, interim: "" }); commit(typed); setTyped(""); }}
       >
-        <Input
-          value={typed}
-          disabled={!ready}
-          onChange={e => { setTyped(e.target.value); if (ready) setEntries(e.target.value.trim() ? interpretVoice(table, e.target.value).entries : []); }}
-          placeholder="Ou écris-la : « co relance 2,5, moi je suis »"
-          aria-label="Écrire les actions"
-          className="h-9 min-w-[13rem] flex-1"
-        />
+        <div className="relative min-w-[13rem] flex-1">
+          <Input
+            value={typed}
+            disabled={!ready}
+            onChange={e => { setTyped(e.target.value); if (ready) setEntries(e.target.value.trim() ? interpretVoice(table, e.target.value).entries : []); }}
+            placeholder={barOn ? "Parle, je t'écoute…" : "Ou écris-la : « co relance 2,5, moi je suis »"}
+            aria-label="Écrire les actions"
+            className={cn("h-9 pr-11", barOn && "border-[hsl(150_68%_55%/0.6)] ring-2 ring-[hsl(150_68%_55%/0.15)]")}
+          />
+          <button
+            type="button"
+            onClick={toggleBar}
+            disabled={!ready}
+            aria-label="Dicter dans la barre"
+            aria-pressed={barOn}
+            title="Dicter : clique pour parler, reclique pour arrêter"
+            className={cn(
+              "absolute right-1 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md transition-colors duration-150",
+              "disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
+              barOn ? "voice-bar-on bg-[hsl(150_68%_55%)] text-[#04170d]" : "text-muted-foreground hover:bg-white/5 hover:text-primary",
+            )}
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+        </div>
         <Button type="submit" size="sm" variant="outline" className="h-9" disabled={!ready || !typed.trim()}>Envoyer</Button>
         <Button type="button" size="sm" variant="ghost" className="h-9 px-2" disabled={!canUndo} onClick={() => { onUndo(); setEntries([{ level: "info", label: "Annulé", note: "dernière dictée effacée" }]); }} aria-label="Annuler la dernière dictée" title="Annuler la dernière dictée">
           <Undo2 className="h-4 w-4" />
