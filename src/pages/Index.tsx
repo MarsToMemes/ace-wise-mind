@@ -36,6 +36,7 @@ import { assessPolarization } from "@/engines/polarizationAssessor";
 import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
+import { ResizableDock } from "@/components/ResizableDock";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
@@ -99,6 +100,7 @@ const Index = () => {
   const [aiError, setAiError] = useState<string | null>(null);
   const [geminiText, setGeminiText] = useState<string | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
+  const [dockH, setDockH] = useState(0); // hauteur du panneau de décision (réglable), pour la marge en bas de page
   const [decisionOpen, setDecisionOpen] = useState<boolean>(() => {
     try { return localStorage.getItem("ace.decisionOpen") !== "0"; } catch { return true; }
   });
@@ -950,11 +952,7 @@ const Index = () => {
                     >
                       {decisionOpen ? <>Réduire <ChevronDown className="h-3.5 w-3.5" /></> : <><span className="text-xs uppercase tracking-widest text-muted-foreground">Décision synthétique</span><span className="flex items-center gap-1 text-primary">Afficher <ChevronDown className="h-4 w-4 rotate-180" /></span></>}
                     </button>
-                    {decisionOpen && (
-                      <div className="max-h-[34vh] lg:max-h-[36vh] overflow-y-auto rounded-2xl">
-                        {decisionBox}
-                      </div>
-                    )}
+                    {decisionOpen && <ResizableDock onHeight={setDockH}>{decisionBox}</ResizableDock>}
                   </section>
                 </div>
               </div>
@@ -1114,7 +1112,7 @@ const Index = () => {
 
       <FooterDisclaimer />
       {/* place pour la décision fixée en bas, pour qu'elle ne cache jamais le bas de la page */}
-      {appMode === "analyzer" && analyzerMode === "cash" && <div aria-hidden className={decisionOpen ? "h-[38vh] lg:h-[40vh]" : "h-16"} />}
+      {appMode === "analyzer" && analyzerMode === "cash" && <div aria-hidden className={decisionOpen ? undefined : "h-16"} style={decisionOpen ? { height: dockH + 24 } : undefined} />}
     </div>
   );
 };
