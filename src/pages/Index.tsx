@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { ResizableDock } from "@/components/ResizableDock";
 import { HandHistory } from "@/components/HandHistory";
 import { saveHand, type SavedHand } from "@/lib/handHistory";
+import { loadSeat, saveSeat, nextHandSeat, type TableSeat } from "@/lib/tableSeat";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
@@ -87,11 +88,13 @@ const Index = () => {
   const [turn, setTurn] = useState<string | null>(null);
   const [river, setRiver] = useState<string | null>(null);
   const [pickMode, setPickMode] = useState<PickMode>("hole");
-  const [tableSize, setTableSize] = useState<TableSize>(6);
-  const [dealerIdx, setDealerIdx] = useState<number>(-1);
-  const [userIdx, setUserIdx] = useState<number>(-1);
-  const [seatMode, setSeatMode] = useState<SeatMode>("dealer");
-  const [folded, setFolded] = useState<boolean[]>(() => Array(6).fill(false));
+  // table en cours (bouton et ta place), reprise d'une visite à l'autre jusqu'à « Nouvelle table »
+  const [initSeat] = useState(loadSeat);
+  const [tableSize, setTableSize] = useState<TableSize>(() => initSeat?.size ?? 6);
+  const [dealerIdx, setDealerIdx] = useState<number>(() => initSeat?.dealer ?? -1);
+  const [userIdx, setUserIdx] = useState<number>(() => initSeat?.user ?? -1);
+  const [seatMode, setSeatMode] = useState<SeatMode>(() => (!initSeat ? "dealer" : initSeat.user < 0 ? "user" : "action"));
+  const [folded, setFolded] = useState<boolean[]>(() => Array(initSeat?.size ?? 6).fill(false));
   const [stack, setStack] = useState(100);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
@@ -103,6 +106,7 @@ const Index = () => {
   const [geminiText, setGeminiText] = useState<string | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [reviewId, setReviewId] = useState<string | null>(null); // main rouverte depuis l'historique
+  const liveSeat = useRef<TableSeat | null>(null); // table en cours, mise de côté pendant qu'on revoit une main
   const [dockH, setDockH] = useState(0); // hauteur du panneau de décision (réglable), pour la marge en bas de page
   const [decisionOpen, setDecisionOpen] = useState<boolean>(() => {
     try { return localStorage.getItem("ace.decisionOpen") !== "0"; } catch { return true; }
@@ -603,6 +607,12 @@ const Index = () => {
 
   /** Remet une main de l'historique dans l'analyseur (la main en cours est d'abord enregistrée). */
   const reviewHand = (h: SavedHand) => {
+    if (!reviewId) {
+      // la table en cours est mise de côté ; si une main y était entamée, la suivante aura le bouton avancé
+      const cur: TableSeat = { size: tableSize, dealer: dealerIdx, user: userIdx };
+      const started = hole.length > 0 || flop.length > 0 || actionHistory.length > 0;
+      liveSeat.current = started ? nextHandSeat(cur) : cur;
+    }
     finishHand();
     setAppMode("analyzer"); setAnalyzerMode("cash");
     setTableSize(h.tableSize);
@@ -621,19 +631,35 @@ const Index = () => {
     toast.success(`Main ${h.hole.map(c => c[0] + (SYM[c[1]] ?? c[1])).join(" ")}${h.hero ? ` (${h.hero})` : ""} rechargée depuis l'historique.`);
   };
 
-  const reset = () => {
+  /** Main suivante. À la même table, le bouton passe au siège suivant et tu gardes ta place ;
+   *  `leaveTable` (« Nouvelle table ») efface le bouton et ta place. */
+  const startHand = (leaveTable: boolean) => {
     finishHand();
     setHole([]); setFlop([]); setTurn(null); setRiver(null);
     setAiResult(null); setAiError(null);
     setPickMode("hole");
-    setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
-    setFolded(Array(tableSize).fill(false));
+    const next: TableSeat = leaveTable
+      ? { size: tableSize, dealer: -1, user: -1 }
+      : reviewId
+        ? liveSeat.current ?? { size: tableSize, dealer: -1, user: -1 }
+        : nextHandSeat({ size: tableSize, dealer: dealerIdx, user: userIdx });
+    liveSeat.current = null;
+    setTableSize(next.size); setDealerIdx(next.dealer); setUserIdx(next.user);
+    setSeatMode(next.dealer < 0 ? "dealer" : next.user < 0 ? "user" : "action");
+    setFolded(Array(next.size).fill(false));
     setStack(100); setPot(10); setCall(0);
     setActionHistory([]);
     setShownCards({});
     setVoiceUndo([]);
     setTournamentResetKey(k => k + 1);
   };
+  const reset = () => startHand(false);
+  const newTable = () => startHand(true);
+
+  // garde la table (bouton, ta place) pour la prochaine visite ; pas pendant qu'on revoit une main de l'historique
+  useEffect(() => {
+    if (!reviewId) saveSeat(dealerIdx >= 0 ? { size: tableSize, dealer: dealerIdx, user: userIdx } : null);
+  }, [tableSize, dealerIdx, userIdx, reviewId]);
 
   const handleSeatClick = (i: number) => {
     if (seatMode === "fold") {
@@ -960,14 +986,26 @@ const Index = () => {
                       board={[...flop, ...(turn ? [turn] : []), ...(river ? [river] : [])]}
                     />
                   )}
-                  {seatNames.some(Boolean) && (
-                    <div className="flex justify-end mt-2">
-                      <Button size="sm" variant="ghost" type="button" className="text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          if (window.confirm("Changer de table : effacer les pseudos des sièges et vider « Ma table » ? Les fiches et leurs stats sont gardées.")) clearTable();
-                        }}>
-                        Changer de table · effacer les pseudos
-                      </Button>
+                  {(dealerIdx >= 0 || seatNames.some(Boolean)) && (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      {dealerIdx >= 0 && !reviewId ? (
+                        <p className="text-xs text-muted-foreground">Le bouton avance d'un siège à chaque nouvelle main.</p>
+                      ) : <span />}
+                      <div className="flex gap-1">
+                        {dealerIdx >= 0 && (
+                          <Button size="sm" variant="ghost" type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={newTable}>
+                            Nouvelle table
+                          </Button>
+                        )}
+                        {seatNames.some(Boolean) && (
+                          <Button size="sm" variant="ghost" type="button" className="text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              if (window.confirm("Changer de table : effacer les pseudos des sièges et vider « Ma table » ? Les fiches et leurs stats sont gardées.")) { clearTable(); newTable(); }
+                            }}>
+                            Changer de table · effacer les pseudos
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </Card>
