@@ -3,8 +3,8 @@
  "id": "cash100",
  "table": {
   "file": "cash100.json",
-  "sha256": "2f017af95c823bb72d3ec4305dfd7adc6cf2a390804508070e3cc658d3207211",
-  "spots": 1607
+  "sha256": "a9c655a1796d1ad04322750aab6eec9865eaa7ecb428b59d254109352c7be4d0",
+  "spots": 604
  },
  "game": {
   "variant": "NLHE",
@@ -47,18 +47,25 @@
   ],
   "maxRaises": 4,
   "addAllin": true,
-  "allinThreshold": 0.4
+  "allinThreshold": 0.35
  },
  "model": {
-  "realization": "balanced",
-  "leafNet": null
+  "realization": "leafnet",
+  "leafNet": "v2"
  },
  "solve": {
-  "iterations": 978,
-  "gap": 0.0003277266309716315,
-  "gaps": null,
-  "gapIteration": null,
-  "stopReason": null,
+  "iterations": 2050,
+  "gap": 0.002987371978849739,
+  "gaps": [
+   0.0006325038987093476,
+   0.0005036916354277789,
+   0.0004702247574605396,
+   0.0004932529607802683,
+   0.0003491862045472199,
+   0.0005385125219245848
+  ],
+  "gapIteration": 2050,
+  "stopReason": "target_reached",
   "gapDefinition": "Somme, sur tous les sièges, du gain d'une meilleure réponse, en bb par main, mesurée dans le jeu décrit par cette fiche (arbre, rake, modèle d'après-flop). Elle ne mesure pas l'erreur du modèle d'après-flop lui-même."
  },
  "export": {
@@ -99,27 +106,34 @@
   ],
   "max_raises": 4,
   "add_allin": true,
-  "allin_threshold": 0.4,
+  "allin_threshold": 0.35,
   "rake_pct": 5,
   "rake_cap": 3,
-  "realization": "balanced"
+  "realization": "leafnet",
+  "leaf_net": "v2"
  },
  "generator": {
   "name": "GTOpen",
   "url": "https://github.com/MatthewPDingle/GTOpen",
   "commit": "370e1a19b",
   "engine": "solveur préflop CPU, serveur local",
-  "pruning": "élagage CPU au calcul initial (réglage par défaut), désactivé pendant l'affinage final"
+  "settings": {
+   "PREFLOP_PRUNE": "0",
+   "PREFLOP_LEAF_BLOCKING": "on"
+  },
+  "settingsNote": "Réglages du serveur, absents de la config : élagage CPU coupé (exigé par le modèle leafnet) ; comptabilité des pots 4-bettés corrigée (PREFLOP_LEAF_BLOCKING=on, réglage de recherche que la documentation de GTOpen dit non encore comparé sur des solves complets)."
  },
  "run": {
-  "dates": "2026-11-18 → 2026-11-20",
-  "durationMin": null,
-  "durationNote": "calcul initial non chronométré ; deux passes d'affinage de 189,9 et 90,4 min",
+  "dates": "2026-11-22",
+  "durationMin": 191,
   "machine": "Apple M5, 10 cœurs, 16 Go de RAM",
-  "publishedCommit": "efd2210"
+  "script": "gtopen-batch/run_leafnet.py (AT=0.35, TARGET=0.003)"
  },
  "notes": [
   "Licence de GTOpen non établie : aucun fichier de licence trouvé dans la copie utilisée.",
-  "Modèle d'après-flop « balanced » : dans un petit pot 4-betté, le tapis restant derrière n'est pas compté (pas de mises après le flop). Le solveur y préfère des 4-bets à tapis avec des mains faibles (54s, 76s, 44…). Recalcul en cours avec le modèle « leafnet » (5-bet = tapis)."
+  "Remplace la table « balanced » du 20 nov. (978 itérations), dont les petits pots 4-bettés ignoraient le tapis restant.",
+  "Modèle « leafnet » v2 : valeurs d'après-flop apprises sur des flops résolus, pour les pots à deux seulement ; les pots multiway gardent le modèle balanced.",
+  "Arbre : après un 4-bet, la seule relance proposée est le tapis (seuil de tapis 0,35 au lieu de 0,4).",
+  "À confirmer avec une référence extérieure : face au 3-bet en position du BTN, CO ne paye presque jamais (4-bet ou fold)."
  ]
 }
