@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { upsertPlayer, setMyTable, getSeatPlayers, setSeatPlayers, assignSeat, duplicateSeats, creditableSeats } from "@/lib/playersStore";
 import { MyTablePanel } from "@/components/MyTablePanel";
@@ -41,7 +41,7 @@ describe("panneau Ma table : association des sièges", () => {
     setMyTable([paul.id]);
     setSeatPlayers({ 1: paul.id });
     render(<MyTablePanel seatLabels={labels} heroSeat={3} />);
-    fireEvent.change(screen.getByLabelText(/Siège 5/), { target: { value: paul.id } });
+    fireEvent.change(screen.getByLabelText(/Siège 5 /), { target: { value: paul.id } }); // à ta gauche = siège interne 4
     expect(getSeatPlayers()).toEqual({ 4: paul.id });
   });
 
@@ -51,5 +51,28 @@ describe("panneau Ma table : association des sièges", () => {
     setSeatPlayers({ 1: paul.id, 4: paul.id });
     render(<MyTablePanel seatLabels={labels} heroSeat={3} />);
     expect(screen.getByText(/Paul est sur deux sièges/)).toBeInTheDocument();
+  });
+});
+
+describe("panneau Ma table : numéros de sièges fixes et changement de table", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("liste les sièges 1 à 6 comme sur Betclic (toi au 4, absent de la liste), avec gauche et droite", () => {
+    const paul = upsertPlayer("Paul");
+    setMyTable([paul.id]);
+    // 6 joueurs, tu es au siège interne 3, le bouton au siège interne 0
+    render(<MyTablePanel seatLabels={["BTN", "SB", "BB", "UTG", "MP", "CO"]} heroSeat={3} />);
+    const labels = screen.getAllByText(/^Siège \d/).map(e => e.textContent);
+    expect(labels).toEqual(["Siège 1 · BTN", "Siège 2 · SB", "Siège 3 · BB (à ta droite)", "Siège 5 · MP (à ta gauche)", "Siège 6 · CO"]);
+  });
+
+  it("changer de table enlève aussi le bouton et ta place", () => {
+    const paul = upsertPlayer("Paul");
+    setMyTable([paul.id]);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const onChangeTable = vi.fn();
+    render(<MyTablePanel seatLabels={["BTN", "SB", "BB", "UTG", "MP", "CO"]} heroSeat={3} onChangeTable={onChangeTable} />);
+    fireEvent.click(screen.getByRole("button", { name: "Changer de table" }));
+    expect(onChangeTable).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,3 +1,4 @@
+import { seatNumber } from "@/lib/tableSeat";
 import { cn } from "@/lib/utils";
 import { Crown, User, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
@@ -273,9 +274,11 @@ export const PokerTable = ({
                   left: `${x}%`, top: `${y}%`,
                   background: isUser && !isFolded ? "linear-gradient(135deg, hsl(45 75% 72%), hsl(42 62% 44%))" : undefined,
                 }}
-                aria-label={`Seat ${i + 1} ${label}`}
+                aria-label={`Siège ${seatNumber(i, userIdx, size)} ${label}`.trim()}
               >
-                <span className={cn("font-extrabold tracking-wide", isUser ? "text-[15px]" : "text-[13px]")}>{label || `S${i + 1}`}</span>
+                {/* numéro de siège fixe, comme sur Betclic (1 en haut, toi en bas) : il ne bouge pas quand le bouton avance */}
+                <span aria-hidden className={cn("tabular-nums text-[10px] font-bold opacity-60", isUser ? "text-[hsl(40_60%_18%)]" : "text-muted-foreground")}>{seatNumber(i, userIdx, size)}</span>
+                <span className={cn("font-extrabold tracking-wide", isUser ? "text-[15px]" : "text-[13px]")}>{label || `S${seatNumber(i, userIdx, size)}`}</span>
                 {stack != null && !isFolded && (
                   <span className={cn("font-bold tabular-nums", isUser ? "text-[hsl(40_60%_18%)]" : healthTone ?? "text-[hsl(45_80%_70%)]")}>{fmtBB(stack)}</span>
                 )}

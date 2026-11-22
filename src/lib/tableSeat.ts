@@ -18,6 +18,17 @@ export function nextHandSeat(s: TableSeat): TableSeat {
   return { ...s, dealer: s.dealer < 0 ? -1 : (s.dealer + 1) % s.size };
 }
 
+/** Ton numéro de siège quand tu es en bas de la table (Betclic, 6 joueurs : 4 ; siège 1 en haut). */
+export const heroSeatNumber = (size: number) => Math.floor(size / 2) + 1;
+
+/**
+ * Numéro de siège comme sur Betclic : siège 1 en haut, toi toujours en bas (siège 4 à 6 joueurs), numéros dans le sens
+ * des aiguilles d'une montre (ta gauche = le suivant). Il ne suit pas le bouton. Avant que ta place soit choisie : l'ordre des sièges.
+ */
+export function seatNumber(i: number, user: number, size: number): number {
+  return user >= 0 ? ((i - user + heroSeatNumber(size) - 1 + size) % size) + 1 : i + 1;
+}
+
 export function loadSeat(): TableSeat | null {
   try {
     const s = JSON.parse(localStorage.getItem(SEAT_KEY) || "null");

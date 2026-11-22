@@ -1102,6 +1102,7 @@ const Index = () => {
                 <MyTablePanel
                   seatLabels={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : ""))}
                   heroSeat={userIdx}
+                  onChangeTable={newTable}
                 />
                   <div className="gap-6 lg:columns-2 [&>*]:mb-6 [&>*]:break-inside-avoid">
                     <Card className="glass-panel p-6">

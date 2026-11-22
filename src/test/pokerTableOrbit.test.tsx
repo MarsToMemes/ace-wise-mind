@@ -15,18 +15,27 @@ describe("PokerTable (Orbite)", () => {
   it("keeps one clickable seat per player with its position", () => {
     const click = vi.fn();
     renderTable({ onSeatClick: click });
-    const btn = screen.getByRole("button", { name: "Seat 4 BTN" });
+    const btn = screen.getByRole("button", { name: "Siège 4 BTN" });
     fireEvent.click(btn);
     expect(click).toHaveBeenCalledWith(3);
-    expect(screen.getAllByRole("button", { name: /^Seat \d/ })).toHaveLength(6);
+    expect(screen.getAllByRole("button", { name: /^Siège \d/ })).toHaveLength(6);
   });
 
   it("puts your seat at the bottom of the table", () => {
     renderTable({ userIdx: 5 });
-    const hero = screen.getByRole("button", { name: "Seat 6 BB" });
+    const hero = screen.getByRole("button", { name: "Siège 4 BB" });
     expect(parseFloat(hero.style.top)).toBeGreaterThan(85);
-    const across = screen.getByRole("button", { name: "Seat 3 CO" });
+    const across = screen.getByRole("button", { name: "Siège 1 CO" });
     expect(parseFloat(across.style.top)).toBeLessThan(15);
+  });
+
+  it("shows each seat's fixed number, which does not follow the button", () => {
+    const { rerender } = renderTable({ userIdx: 3, dealerIdx: 3 });
+    const left = screen.getByRole("button", { name: /^Siège 5 / });
+    expect(left.textContent).toContain("5");
+    rerender(<I18nProvider><PokerTable {...base} userIdx={3} dealerIdx={4} /></I18nProvider>);
+    // le bouton a avancé : le siège à ta gauche est maintenant le BTN, mais garde son numéro
+    expect(screen.getByRole("button", { name: "Siège 5 BTN" })).toBe(screen.getAllByRole("button", { name: /^Siège 5 / })[0]);
   });
 
   it("shows the pot, the board and your cards in the middle", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { nextHandSeat, loadSeat, saveSeat, SEAT_KEY } from "@/lib/tableSeat";
+import { nextHandSeat, loadSeat, saveSeat, seatNumber, SEAT_KEY } from "@/lib/tableSeat";
 
 describe("bouton qui tourne à la même table", () => {
   beforeEach(() => localStorage.clear());
@@ -41,5 +41,22 @@ describe("bouton qui tourne à la même table", () => {
     expect(loadSeat()).toBeNull();
     localStorage.setItem(SEAT_KEY, JSON.stringify({ size: 10, dealer: 1, user: 1 }));
     expect(loadSeat()).toBeNull();
+  });
+});
+
+describe("numéro de siège vu par le joueur", () => {
+  it("comme sur Betclic en 6 joueurs : 1 en haut, toi en bas au 4, ta gauche au 5 (sens des aiguilles d'une montre)", () => {
+    expect(seatNumber(4, 4, 6)).toBe(4); // toi
+    expect(seatNumber(5, 4, 6)).toBe(5); // à ta gauche
+    expect(seatNumber(1, 4, 6)).toBe(1); // en face, en haut
+    expect(seatNumber(3, 4, 6)).toBe(3); // à ta droite
+    expect(seatNumber(0, 4, 6)).toBe(6);
+  });
+  it("ne dépend pas du bouton", () => {
+    expect(seatNumber(2, 4, 6)).toBe(seatNumber(2, 4, 6));
+  });
+  it("avant que tu aies choisi ta place : numéros dans l'ordre des sièges", () => {
+    expect(seatNumber(0, -1, 6)).toBe(1);
+    expect(seatNumber(5, -1, 6)).toBe(6);
   });
 });

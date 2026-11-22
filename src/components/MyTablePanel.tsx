@@ -1,3 +1,4 @@
+import { seatNumber, heroSeatNumber } from "@/lib/tableSeat";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,11 @@ interface Props {
   /** Libellé de position de chaque siège de l'analyseur ("" si le bouton n'est pas placé). */
   seatLabels?: string[];
   heroSeat?: number;
+  /** « Changer de table » : enlève aussi le bouton et ta place sur la table de l'analyseur. */
+  onChangeTable?: () => void;
 }
 
-export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
+export const MyTablePanel = ({ seatLabels = [], heroSeat = -1, onChangeTable }: Props) => {
   const { players, table, seats } = usePlayers();
   const [name, setName] = useState("");
   const [flags, setFlags] = useState<Record<string, HandFlags>>({});
@@ -93,8 +96,9 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
           <div className="flex gap-2">
             <Button size="sm" variant="outline" type="button"
               onClick={() => {
-                if (window.confirm("Changer de table : retirer tous les joueurs de « Ma table » et effacer les pseudos des sièges ? Leurs fiches et leurs stats sont gardées.")) {
+                if (window.confirm("Changer de table : retirer tous les joueurs de « Ma table », effacer les pseudos des sièges et enlever le bouton ? Leurs fiches et leurs stats sont gardées.")) {
                   clearTable(); setFlags({}); setHandNo(1); setOpen(null); setShown(null);
+                  onChangeTable?.();
                 }
               }}>Changer de table</Button>
             <Button size="sm" variant="secondary" onClick={nextHand}>Main suivante</Button>
@@ -170,21 +174,27 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
           </p>
           {Object.entries(duplicateSeats(seats)).map(([pid, list]) => players[pid] && (
             <p key={pid} className="text-xs text-amber-300 mt-2">
-              {players[pid].name} est sur deux sièges ({list.map(s => s + 1).join(" et ")}) : mets « — » sur celui où il n'est pas.
+              {players[pid].name} est sur deux sièges ({list.map(s => seatNumber(s, heroSeat, seatCount)).sort((a, b) => a - b).join(" et ")}) : mets « — » sur celui où il n'est pas.
               Ses stats ne sont pas comptées tant que ce n'est pas réglé.
             </p>
           ))}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-            {Array.from({ length: seatCount }, (_, i) => i).filter(i => i !== heroSeat).map(i => (
+            {Array.from({ length: seatCount }, (_, i) => i).filter(i => i !== heroSeat)
+              .sort((a, b) => seatNumber(a, heroSeat, seatCount) - seatNumber(b, heroSeat, seatCount)).map(i => {
+              const n = seatNumber(i, heroSeat, seatCount);
+              const me = heroSeatNumber(seatCount);
+              const side = heroSeat < 0 ? "" : n === (me % seatCount) + 1 ? " (à ta gauche)" : n === ((me - 2 + seatCount) % seatCount) + 1 ? " (à ta droite)" : "";
+              return (
               <label key={i} className="text-xs space-y-1 block min-w-0">
-                <span className="text-muted-foreground">Siège {i + 1}{seatLabels[i] ? ` · ${seatLabels[i]}` : ""}</span>
+                <span className="text-muted-foreground">{`Siège ${n}${seatLabels[i] ? ` · ${seatLabels[i]}` : ""}${side}`}</span>
                 <select value={seats[i] ?? ""} className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
                   onChange={e => assignSeat(i, e.target.value || null)}>
                   <option value="">—</option>
                   {table.map(pid => players[pid] && <option key={pid} value={pid}>{players[pid].name}</option>)}
                 </select>
               </label>
-            ))}
+              );
+            })}
           </div>
         </details>
       )}
