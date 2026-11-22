@@ -35,16 +35,24 @@ export function fitZoom(measure: (z: number) => number, avail: number, max = ZOO
 }
 
 /**
- * Panneau trop petit pour tout montrer, même à 70 % : on masque d'abord les détails (niveau 1),
- * puis tout sauf l'action (niveau 2). Rend le premier niveau qui tient, et son échelle.
+ * Choisit la disposition du contenu (niveau 0 = tout en hauteur, puis des versions plus basses)
+ * et son échelle : la plus complète qui tient (à 70 % au moins). `accept0` : échelle en dessous de
+ * laquelle on préfère une version plus basse au niveau 0 (1 sur grand écran : des colonnes plutôt
+ * qu'un texte rétréci). Une version plus basse ne dépasse jamais 100 %, sinon le texte grossirait
+ * en rétrécissant le panneau. Au pire : le dernier niveau.
  */
-export function chooseFit(measure: (level: number, z: number) => number, avail: number, maxLevel: number): { level: number; zoom: number } {
+export function chooseFit(
+  measure: (level: number, z: number) => number, avail: number, maxLevel: number, accept0 = ZOOM_MIN,
+): { level: number; zoom: number } {
+  let fallback: { level: number; zoom: number } | null = null;
   for (let level = 0; level <= maxLevel; level++) {
-    // version réduite : jamais plus grande que 100 %, sinon le texte grossirait en rétrécissant le panneau
     const zoom = fitZoom(z => measure(level, z), avail, level === 0 ? ZOOM_MAX : 1);
-    if (level === maxLevel || measure(level, zoom) <= avail) return { level, zoom };
+    const fits = measure(level, zoom) <= avail;
+    if (fits && (level > 0 || zoom >= accept0)) return { level, zoom };
+    if (fits && !fallback) fallback = { level, zoom };
+    if (level === maxLevel) return fallback ?? { level, zoom };
   }
-  return { level: maxLevel, zoom: ZOOM_MIN };
+  return fallback ?? { level: maxLevel, zoom: ZOOM_MIN };
 }
 
 const clamp = (h: number) => {
@@ -97,7 +105,9 @@ export function ResizableDock({ children, onHeight }: { children: ReactNode; onH
     };
     // sans blocs marqués « data-dock-extra », pas de niveau compact à essayer
     const maxLevel = el.querySelector("[data-dock-extra]") ? 2 : 0;
-    const { level, zoom } = chooseFit(at, live.current, maxLevel);
+    // grand écran : le contenu peut passer en colonnes (voir index.css), on préfère ça à un texte rétréci
+    const wide = typeof window !== "undefined" && window.matchMedia?.("(min-width: 768px)").matches;
+    const { level, zoom } = chooseFit(at, live.current, maxLevel, wide ? 1 : ZOOM_MIN);
     at(level, zoom);
   }, []);
   useLayoutEffect(refit, [height, children, refit]);

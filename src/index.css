@@ -177,12 +177,63 @@
   .voice-bar-on::after { animation: none; opacity: 0.5; }
 }
 
-/* Panneau de décision réduit (ResizableDock) : d'abord sans les détails, puis l'action seule. */
-.dock-fit[data-compact="1"] [data-dock-extra="1"],
-.dock-fit[data-compact="2"] [data-dock-extra] {
-  display: none !important;
+/* Panneau de décision moins haut (ResizableDock, niveaux data-compact 1 et 2). */
+
+/* Écran étroit : on masque d'abord les détails, puis tout sauf l'action. */
+@media (max-width: 767px) {
+  .dock-fit[data-compact="1"] [data-dock-extra="1"],
+  .dock-fit[data-compact="2"] [data-dock-extra] {
+    display: none !important;
+  }
+}
+
+/* Écran large : la place est en largeur, on range les blocs en colonnes au lieu de les masquer.
+   Niveau 1 : action | situation, raisons | exploits, suite, détails.
+   Niveau 2 : une bande, action | en-tête et situation ; le reste est masqué. */
+@media (min-width: 768px) {
+  .dock-fit[data-compact] > [data-dock-card] {
+    display: grid;
+    column-gap: 1.5rem;
+    row-gap: 0.5rem;
+    align-items: start;
+    align-content: start;
+  }
+  .dock-fit[data-compact] > [data-dock-card] > * {
+    margin: 0 !important;
+    min-width: 0;
+  }
+  .dock-fit[data-compact] [data-dock-area="action"] { grid-area: action; align-self: center; }
+  .dock-fit[data-compact] [data-dock-area="head"] { grid-area: head; }
+  .dock-fit[data-compact] [data-dock-area="context"] { grid-area: context; }
+  .dock-fit[data-compact] [data-dock-area="why"] { grid-area: why; }
+  .dock-fit[data-compact] [data-dock-area="exploit"] { grid-area: exploit; }
+  .dock-fit[data-compact] [data-dock-area="plan"] { grid-area: plan; }
+  .dock-fit[data-compact] [data-dock-area="details"] { grid-area: details; }
+
+  .dock-fit[data-compact="1"] > [data-dock-card] {
+    grid-template-columns: auto minmax(0, 1.15fr) minmax(0, 1fr);
+    grid-template-areas:
+      "action head    exploit"
+      "action context exploit"
+      "action why     plan"
+      "action why     details";
+  }
+
+  .dock-fit[data-compact="2"] > [data-dock-card] {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "action head"
+      "action context";
+  }
+  .dock-fit[data-compact="2"] [data-dock-extra="1"] {
+    display: none !important;
+  }
 }
 .dock-fit[data-compact] > * {
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
+}
+/* Panneau bas, même sur téléphone : l'action et sa taille côte à côte. */
+.dock-fit[data-compact] [data-dock-area="action"] {
+  grid-template-columns: auto minmax(0, 1fr);
 }

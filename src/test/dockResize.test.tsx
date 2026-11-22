@@ -158,3 +158,23 @@ describe("pas de texte plus gros dans un panneau plus petit", () => {
     expect(chooseFit((l, z) => sizes[l] * z, 245, 2)).toEqual({ level: 1, zoom: 1 });
   });
 });
+
+describe("grand écran : des colonnes plutôt que du texte rétréci", () => {
+  // niveau 0 = tout en hauteur, 1 = en 3 colonnes (moins haut), 2 = une bande
+  const sizes = [400, 220, 120];
+  const m = (l: number, z: number) => sizes[l] * z;
+
+  it("passe en colonnes dès que tout en hauteur obligerait à rétrécir sous 100 %", () => {
+    // 300 px : en hauteur il faudrait 75 % ; en colonnes ça tient à 100 %
+    expect(chooseFit(m, 300, 2, 1)).toEqual({ level: 1, zoom: 1 });
+  });
+
+  it("garde tout en hauteur quand ça tient à 100 %", () => {
+    expect(chooseFit(m, 450, 2, 1).level).toBe(0);
+  });
+
+  it("si aucune disposition ne tient à 100 %, prend la plus complète qui tient", () => {
+    // 180 px : en hauteur non (280 au mieux) ; en colonnes à 82 % oui → colonnes plutôt que la bande seule
+    expect(chooseFit(m, 180, 2, 1)).toEqual({ level: 1, zoom: 0.818 });
+  });
+});
