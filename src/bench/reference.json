@@ -122,6 +122,11 @@
    "result": "CHECK · Check (check-call)"
   },
   {
+   "id": "po-river-straight-paired-facing",
+   "what": "River pairée, quinte face à une mise (fulls dans ta range)",
+   "result": "CALL · Call 10 BB · requis 29.4 %"
+  },
+  {
    "id": "po-flop-air-facing-rake",
    "what": "Flop, air face à une mise, rake cash",
    "result": "FOLD · Coucher · requis 21.1 %"

@@ -106,7 +106,9 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     const reqPct = Math.round(required * 1000) / 10;
     const checkRaise = !ip && inp.villainCheckedThisStreet === false;
     reasons.push(`Ton équité ${nOpp > 1 ? `contre les ${nOpp} adversaires` : "contre sa range"} : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);
-    if (role === "nuts" || (role === "value" && hEq >= T(0.75))) {
+    // à la river, il ne paie une relance qu'avec mieux : seul le haut de ta range relance, une value moyenne paie
+    // (banc maison / solveur : relances de value jouées 0 % du temps, −6,7 bb pour une quinte sur board pairé)
+    if (role === "nuts" || (role === "value" && hEq >= T(0.75) && street !== "River")) {
       const to = 3 * toCallBB;
       const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
       reasons.push("Ta main est en haut de ta range : relance pour la value.");
