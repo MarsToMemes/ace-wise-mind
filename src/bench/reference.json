@@ -127,6 +127,11 @@
    "result": "CALL · Call 10 BB · requis 29.4 %"
   },
   {
+   "id": "po-river-donk-value",
+   "what": "River, T9 value, donk bet après avoir payé la turn",
+   "result": "DONK BET · Donk bet 33 % = 4.5 BB"
+  },
+  {
    "id": "po-flop-air-facing-rake",
    "what": "Flop, air face à une mise, rake cash",
    "result": "FOLD · Coucher · requis 21.1 %"

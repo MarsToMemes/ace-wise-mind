@@ -191,6 +191,9 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     reasons.unshift("Tu as checké la street d'avant et il a checké aussi : c-bet retardé.");
   }
 
+  // donk bet river avec une value moyenne : petite mise, une grosse ne se fait payer que par mieux
+  // (banc maison / solveur : 33 % joué ~98 % du temps, 66 % jamais)
+  if (kind === "donk" && street === "River" && role === "value") tierPct = 33;
   if ((adj.valueSizeTierDelta ?? 0) > 0 && (role === "nuts" || role === "value") && kind !== "check") tierPct = Math.round(tierPct * (1 + 0.35 * adj.valueSizeTierDelta!));
   if (multiway && kind !== "check") rangeFreq = Math.round(rangeFreq * 0.7);
   rangeFreq = r5(rangeFreq);
