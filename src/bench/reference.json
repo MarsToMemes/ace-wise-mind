@@ -1,0 +1,125 @@
+{
+ "version": 1,
+ "decisions": [
+  {
+   "id": "pf-utg-aa",
+   "what": "UTG premier à parler, AA",
+   "result": "R2.5 100 · exact"
+  },
+  {
+   "id": "pf-utg-ajo",
+   "what": "UTG premier à parler, AJo",
+   "result": "R2.5 100 · exact"
+  },
+  {
+   "id": "pf-utg-76s",
+   "what": "UTG premier à parler, 76s",
+   "result": "R2.5 94 / F 6 · exact"
+  },
+  {
+   "id": "pf-utg-22",
+   "what": "UTG premier à parler, 22",
+   "result": "F 94 / R2.5 6 · exact"
+  },
+  {
+   "id": "pf-btn-k9o",
+   "what": "BTN premier à parler, K9o",
+   "result": "R2.5 100 · exact"
+  },
+  {
+   "id": "pf-btn-54s",
+   "what": "BTN premier à parler, 54s",
+   "result": "R2.5 100 · exact"
+  },
+  {
+   "id": "pf-sb-k7s",
+   "what": "SB premier à parler, K7s",
+   "result": "R2.5 100 · exact"
+  },
+  {
+   "id": "pf-bb-a5o-btn",
+   "what": "BB face à l'ouverture du BTN, A5o",
+   "result": "C 100 · exact"
+  },
+  {
+   "id": "pf-bb-t8s-btn",
+   "what": "BB face à l'ouverture du BTN, T8s",
+   "result": "C 80 / R7.5 20 · exact"
+  },
+  {
+   "id": "pf-bb-72o-btn",
+   "what": "BB face à l'ouverture du BTN, 72o",
+   "result": "F 100 · exact"
+  },
+  {
+   "id": "pf-btn-aqo-utg",
+   "what": "BTN face à l'ouverture d'UTG, AQo",
+   "result": "C 61 / R7.5 38 · exact"
+  },
+  {
+   "id": "pf-btn-99-utg",
+   "what": "BTN face à l'ouverture d'UTG, 99",
+   "result": "C 94 / R7.5 6 · exact"
+  },
+  {
+   "id": "pf-sb-kjs-btn",
+   "what": "SB face à l'ouverture du BTN, KJs",
+   "result": "R7.5 100 · exact"
+  },
+  {
+   "id": "pf-btn-ajs-3bet",
+   "what": "BTN ouvre, BB 3-bet : AJs",
+   "result": "C 100 · exact"
+  },
+  {
+   "id": "pf-btn-88-3bet",
+   "what": "BTN ouvre, BB 3-bet : 88",
+   "result": "C 98 / R17.2 2 · exact"
+  },
+  {
+   "id": "pf-bb-aks-4bet",
+   "what": "BB 3-bet, BTN 4-bet : AKs",
+   "result": "A100 99 / C 1 · exact"
+  },
+  {
+   "id": "pf-co-65s-3bet",
+   "what": "CO ouvre, BTN 3-bet : 65s",
+   "result": "F 100 · exact"
+  },
+  {
+   "id": "pf-btn-utg3bb",
+   "what": "BTN face à une ouverture d'UTG à 3 bb, AJo",
+   "result": "F 68 / R7.5 27 / C 6 · approx"
+  },
+  {
+   "id": "po-river-nuts",
+   "what": "River, AA sur A-K-7-2-2, gros avantage",
+   "result": "OVERBET · Overbet 150 % = 18 BB"
+  },
+  {
+   "id": "po-turn-donk",
+   "what": "Turn favorable au payeur, 74s",
+   "result": "DONK BET · Donk bet 66 % = 8 BB"
+  },
+  {
+   "id": "po-river-block",
+   "what": "River hors de position, JT moyenne",
+   "result": "BLOCK BET · Block bet 25 % = 3 BB"
+  },
+  {
+   "id": "po-flop-set-facing",
+   "what": "Flop, brelan de 8 face à une mise",
+   "result": "CHECK-RAISE · Check-raise à 12 BB (≈ 3× sa mise) · requis 20 %"
+  },
+  {
+   "id": "po-flop-air-facing-rake",
+   "what": "Flop, air face à une mise, rake cash",
+   "result": "FOLD · Coucher · requis 21.1 %"
+  },
+  {
+   "id": "eg-river-qq-facing",
+   "what": "Fin de main : QQ face à une mise de 75 % à la river (rake cash)",
+   "result": "Fold 52 / Call 7,5 bb 48"
+  }
+ ]
+}
