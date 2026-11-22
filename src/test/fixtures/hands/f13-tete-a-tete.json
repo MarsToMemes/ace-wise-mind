@@ -1,0 +1,43 @@
+{
+ "name": "f13-tete-a-tete",
+ "description": "Tête-à-tête : le bouton poste la petite blinde et parle en premier ; il complète, BB peut checker ou relancer.",
+ "input": {
+  "tableSize": 2,
+  "dealerIdx": 0,
+  "heroIdx": 1,
+  "stacksBB": 100,
+  "hole": [
+   "5h",
+   "5c"
+  ],
+  "board": [],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 0.5
+   }
+  ]
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "pot": 2,
+  "toAct": 1,
+  "toCall": 0,
+  "supported": true,
+  "unsupported": [],
+  "legal": {
+   "fold": true,
+   "check": true,
+   "call": 0,
+   "bet": null,
+   "raise": {
+    "minTo": 2,
+    "maxTo": 100
+   }
+  }
+ }
+}

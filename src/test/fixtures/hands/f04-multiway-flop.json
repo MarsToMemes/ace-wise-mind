@@ -1,0 +1,89 @@
+{
+ "name": "f04-multiway-flop",
+ "description": "MP ouvre, CO et BB payent ; flop : BB check, MP mise 3 ; CO (toi) doit 3, peut relancer à 6 au moins.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [
+   "Ah",
+   "8d",
+   "3c"
+  ],
+  "heroIdx": 2,
+  "hole": [
+   "Qs",
+   "Qh"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 2,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 4,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 5,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 1.5
+   },
+   {
+    "seatIdx": 5,
+    "street": "Flop",
+    "type": "Check",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 1,
+    "street": "Flop",
+    "type": "Bet",
+    "amountBB": 3
+   }
+  ]
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "pot": 11,
+  "toAct": 2,
+  "toCall": 3,
+  "supported": true,
+  "unsupported": [],
+  "legal": {
+   "fold": true,
+   "check": false,
+   "call": 3,
+   "bet": null,
+   "raise": {
+    "minTo": 6,
+    "maxTo": 97.5
+   }
+  }
+ }
+}

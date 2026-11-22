@@ -1,0 +1,90 @@
+{
+ "name": "f02-4bet-tapis",
+ "description": "UTG ouvre, BTN 3-bet, UTG 4-bet, BTN tapis, UTG paye : tout le monde est à tapis, plus personne ne parle.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 3,
+  "hole": [
+   "Ah",
+   "Ad"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 2,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 7.5
+   },
+   {
+    "seatIdx": 4,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 5,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 17.2
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 100
+   },
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 82.8
+   }
+  ]
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "pot": 201.5,
+  "toAct": -1,
+  "toCall": 0,
+  "supported": true,
+  "unsupported": [],
+  "legal": null,
+  "remaining": [
+   0,
+   100,
+   100,
+   0,
+   99.5,
+   99
+  ]
+ }
+}

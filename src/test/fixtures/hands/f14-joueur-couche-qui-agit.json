@@ -1,0 +1,36 @@
+{
+ "name": "f14-joueur-couche-qui-agit",
+ "description": "UTG se couche puis « paye » : un joueur couché ne peut plus agir.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 1,
+  "hole": [
+   "Ad",
+   "Qd"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 1
+   }
+  ]
+ },
+ "expect": {
+  "valid": false,
+  "errors": [
+   "ACTOR_INACTIVE"
+  ],
+  "warnings": []
+ }
+}

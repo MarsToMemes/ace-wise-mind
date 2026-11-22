@@ -1,0 +1,36 @@
+{
+ "name": "f08-check-face-a-une-mise",
+ "description": "UTG relance à 2,5 ; MP « checke » alors qu'il doit 2,5. Saisie impossible.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 1,
+  "hole": [
+   "Ts",
+   "9s"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Check",
+    "amountBB": 0
+   }
+  ]
+ },
+ "expect": {
+  "valid": false,
+  "errors": [
+   "CHECK_FACING_BET"
+  ],
+  "warnings": []
+ }
+}

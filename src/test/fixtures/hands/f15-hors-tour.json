@@ -1,0 +1,41 @@
+{
+ "name": "f15-hors-tour",
+ "description": "UTG relance, puis BTN relance sans que MP et CO aient été saisis : signalé, mais pas bloquant (le site laisse saisir seulement les actions utiles).",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 3,
+  "hole": [
+   "Kd",
+   "Ks"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 7.5
+   }
+  ]
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [
+   "OUT_OF_TURN"
+  ],
+  "pot": 11.5,
+  "toAct": 4,
+  "toCall": 7,
+  "supported": true,
+  "unsupported": []
+ }
+}

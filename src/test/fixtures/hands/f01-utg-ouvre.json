@@ -1,0 +1,36 @@
+{
+ "name": "f01-utg-ouvre",
+ "description": "Premier à parler, rien n'a été joué : UTG doit 1 bb (la grosse blinde) et peut relancer à 2 bb au moins.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 0,
+  "hole": [
+   "As",
+   "Kd"
+  ],
+  "actions": []
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "pot": 1.5,
+  "toAct": 0,
+  "toCall": 1,
+  "supported": true,
+  "unsupported": [],
+  "legal": {
+   "fold": true,
+   "check": false,
+   "call": 1,
+   "bet": null,
+   "raise": {
+    "minTo": 2,
+    "maxTo": 100
+   }
+  }
+ }
+}

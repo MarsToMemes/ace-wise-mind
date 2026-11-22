@@ -1,0 +1,66 @@
+{
+ "name": "f12-board-incoherent",
+ "description": "Une action est saisie au flop alors qu'aucune carte du flop n'est posée.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 3,
+  "hole": [
+   "Jd",
+   "Td"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 2,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 4,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 5,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 1.5
+   },
+   {
+    "seatIdx": 5,
+    "street": "Flop",
+    "type": "Check",
+    "amountBB": 0
+   }
+  ]
+ },
+ "expect": {
+  "valid": false,
+  "errors": [
+   "BOARD_STREET"
+  ],
+  "warnings": []
+ }
+}

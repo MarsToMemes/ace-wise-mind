@@ -1,0 +1,98 @@
+{
+ "name": "f03-bvb-turn",
+ "description": "Blinde contre blinde : SB relance à 3, BB paye ; flop : SB mise 2, BB paye ; turn : SB parle, peut checker ou miser.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [
+   "Kh",
+   "7c",
+   "2d",
+   "9s"
+  ],
+  "heroIdx": 5,
+  "hole": [
+   "Qc",
+   "Jc"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 2,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 4,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 3
+   },
+   {
+    "seatIdx": 5,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 2
+   },
+   {
+    "seatIdx": 4,
+    "street": "Flop",
+    "type": "Bet",
+    "amountBB": 2
+   },
+   {
+    "seatIdx": 5,
+    "street": "Flop",
+    "type": "Call",
+    "amountBB": 2
+   }
+  ]
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "pot": 10,
+  "toAct": 4,
+  "toCall": 0,
+  "supported": true,
+  "unsupported": [],
+  "legal": {
+   "fold": true,
+   "check": true,
+   "call": 0,
+   "bet": {
+    "min": 1,
+    "max": 95
+   },
+   "raise": null
+  },
+  "remaining": [
+   100,
+   100,
+   100,
+   100,
+   95,
+   95
+  ]
+ }
+}

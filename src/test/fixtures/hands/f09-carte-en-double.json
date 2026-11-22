@@ -1,0 +1,64 @@
+{
+ "name": "f09-carte-en-double",
+ "description": "L'as de pique est à la fois dans ta main et sur le flop.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [
+   "As",
+   "7c",
+   "2d"
+  ],
+  "heroIdx": 3,
+  "hole": [
+   "As",
+   "Kd"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 2,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 4,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 5,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 1.5
+   }
+  ]
+ },
+ "expect": {
+  "valid": false,
+  "errors": [
+   "DUPLICATE_CARD"
+  ],
+  "warnings": []
+ }
+}

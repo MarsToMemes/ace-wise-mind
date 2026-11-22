@@ -1,0 +1,96 @@
+{
+ "name": "f06-tapis-a-trois-pot-annexe",
+ "description": "Tapis différents : MP n'a que 40 bb. Trois joueurs à tapis : un pot principal (121,5) et un pot annexe (120) entre UTG et BTN. Non pris en charge par le conseil.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": [
+   100,
+   40,
+   100,
+   100,
+   100,
+   100
+  ],
+  "board": [],
+  "heroIdx": 3,
+  "hole": [
+   "Kc",
+   "Kh"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 2.5
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 40
+   },
+   {
+    "seatIdx": 2,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 100
+   },
+   {
+    "seatIdx": 4,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 5,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 97.5
+   }
+  ]
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "pot": 241.5,
+  "toAct": -1,
+  "toCall": 0,
+  "supported": false,
+  "unsupported": [
+   "SIDE_POTS"
+  ],
+  "legal": null,
+  "sidePots": [
+   {
+    "amount": 121.5,
+    "eligible": [
+     0,
+     1,
+     3
+    ]
+   },
+   {
+    "amount": 120,
+    "eligible": [
+     0,
+     3
+    ]
+   }
+  ]
+ }
+}

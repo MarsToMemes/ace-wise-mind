@@ -1,0 +1,70 @@
+{
+ "name": "f11-relance-sans-mise",
+ "description": "Au flop, personne n'a misé, et SB « relance » : on ne peut que miser ou checker.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [
+   "Kh",
+   "7d",
+   "2s"
+  ],
+  "heroIdx": 5,
+  "hole": [
+   "8c",
+   "7c"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 1,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 2,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 3,
+    "street": "Preflop",
+    "type": "Fold",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 4,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 0.5
+   },
+   {
+    "seatIdx": 5,
+    "street": "Preflop",
+    "type": "Check",
+    "amountBB": 0
+   },
+   {
+    "seatIdx": 4,
+    "street": "Flop",
+    "type": "Raise",
+    "amountBB": 3
+   }
+  ]
+ },
+ "expect": {
+  "valid": false,
+  "errors": [
+   "RAISE_WITHOUT_BET"
+  ],
+  "warnings": []
+ }
+}

@@ -1,0 +1,43 @@
+{
+ "name": "f05-limp",
+ "description": "UTG limpe (paye 1 bb) : MP doit 1 bb et peut relancer à 2 bb au moins.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 1,
+  "hole": [
+   "9h",
+   "9d"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Call",
+    "amountBB": 1
+   }
+  ]
+ },
+ "expect": {
+  "valid": true,
+  "errors": [],
+  "warnings": [],
+  "pot": 2.5,
+  "toAct": 1,
+  "toCall": 1,
+  "supported": true,
+  "unsupported": [],
+  "legal": {
+   "fold": true,
+   "check": false,
+   "call": 1,
+   "bet": null,
+   "raise": {
+    "minTo": 2,
+    "maxTo": 100
+   }
+  }
+ }
+}

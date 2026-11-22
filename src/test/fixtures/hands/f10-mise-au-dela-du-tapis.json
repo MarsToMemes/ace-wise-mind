@@ -1,0 +1,30 @@
+{
+ "name": "f10-mise-au-dela-du-tapis",
+ "description": "UTG relance à 150 avec un tapis de 100.",
+ "input": {
+  "tableSize": 6,
+  "dealerIdx": 3,
+  "stacksBB": 100,
+  "board": [],
+  "heroIdx": 0,
+  "hole": [
+   "Ac",
+   "Ah"
+  ],
+  "actions": [
+   {
+    "seatIdx": 0,
+    "street": "Preflop",
+    "type": "Raise",
+    "amountBB": 150
+   }
+  ]
+ },
+ "expect": {
+  "valid": false,
+  "errors": [
+   "OVER_STACK"
+  ],
+  "warnings": []
+ }
+}
