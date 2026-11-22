@@ -237,7 +237,9 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     plan.push("S'il relance : paie si la cote le permet, sinon couche-toi.");
     return mk(kind, p >= 50 ? betVerb : "CHECK / MISE", p >= 50 ? betLabel : "Check (ou mise en semi-bluff)", p >= 50 ? p : 100 - p, [{ label: betLabel, pct: p }, { label: "Check", pct: 100 - p }]);
   }
-  if (role === "showdown" && (kind === "probe" || kind === "delayed")) {
+  // à la river, plus rien à protéger : miser une main moyenne ne se fait payer que par mieux (banc maison / solveur :
+  // accord 0 % sur ces probes) ; elle passe donc par la règle générale des mains moyennes (check)
+  if (role === "showdown" && (kind === "probe" || kind === "delayed") && street !== "River") {
     reasons.push("Sa range est limitée (il a checké) : ta main moyenne peut miser pour une value fine et protéger.");
     plan.push("S'il relance : couche-toi le plus souvent.");
     return mk(kind, betVerb, betLabel, 55, [{ label: betLabel, pct: 55 }, { label: "Check", pct: 45 }]);

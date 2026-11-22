@@ -112,6 +112,11 @@
    "result": "CHECK-RAISE · Check-raise à 12 BB (≈ 3× sa mise) · requis 20 %"
   },
   {
+   "id": "po-river-probe-medium",
+   "what": "River, 77 moyenne, tu parles en premier après son check derrière",
+   "result": "CHECK · Check (main à abattage)"
+  },
+  {
    "id": "po-flop-air-facing-rake",
    "what": "Flop, air face à une mise, rake cash",
    "result": "FOLD · Coucher · requis 21.1 %"
