@@ -37,6 +37,8 @@ import { PolarizationPanel } from "@/components/PolarizationPanel";
 import { JamFoldPanel } from "@/components/JamFoldPanel";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { ResizableDock } from "@/components/ResizableDock";
+import { HandHistory } from "@/components/HandHistory";
+import { saveHand, type SavedHand } from "@/lib/handHistory";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
@@ -100,6 +102,7 @@ const Index = () => {
   const [aiError, setAiError] = useState<string | null>(null);
   const [geminiText, setGeminiText] = useState<string | null>(null);
   const [geminiLoading, setGeminiLoading] = useState(false);
+  const [reviewId, setReviewId] = useState<string | null>(null); // main rouverte depuis l'historique
   const [dockH, setDockH] = useState(0); // hauteur du panneau de décision (réglable), pour la marge en bas de page
   const [decisionOpen, setDecisionOpen] = useState<boolean>(() => {
     try { return localStorage.getItem("ace.decisionOpen") !== "0"; } catch { return true; }
@@ -585,8 +588,41 @@ const Index = () => {
     if (shownSaved) toast.success(`Cartes montrées enregistrées dans ${shownSaved} fiche${shownSaved > 1 ? "s" : ""}.`);
   };
 
+  /** Fin de main : enregistrée dans l'historique (cash, deux cartes entrées) et comptée dans les fiches joueurs.
+   *  Une main rouverte depuis l'historique est mise à jour, et n'est pas comptée une seconde fois. */
+  const finishHand = () => {
+    if (analyzerMode === "cash") {
+      saveHand(
+        { tableSize, dealerIdx, userIdx, hole, flop, turn, river, folded, stack, pot, call, actions: actionHistory, shown: shownCards },
+        { replaceId: reviewId ?? undefined },
+      );
+    }
+    if (!reviewId) recordHandForPlayers();
+    setReviewId(null);
+  };
+
+  /** Remet une main de l'historique dans l'analyseur (la main en cours est d'abord enregistrée). */
+  const reviewHand = (h: SavedHand) => {
+    finishHand();
+    setAppMode("analyzer"); setAnalyzerMode("cash");
+    setTableSize(h.tableSize);
+    setHole(h.hole); setFlop(h.flop); setTurn(h.turn); setRiver(h.river);
+    setPickMode(h.river ? "river" : h.turn ? "river" : h.flop.length === 3 ? "turn" : "flop");
+    setDealerIdx(h.dealerIdx); setUserIdx(h.userIdx);
+    setSeatMode(h.dealerIdx >= 0 && h.userIdx >= 0 ? "action" : h.dealerIdx >= 0 ? "user" : "dealer");
+    setFolded(h.folded.length === h.tableSize ? h.folded : Array(h.tableSize).fill(false));
+    setStack(h.stack); setPot(h.pot); setCall(h.call);
+    setActionHistory(h.actions);
+    setShownCards(h.shown ?? {});
+    setAiResult(null); setAiError(null);
+    setVoiceUndo([]);
+    setReviewId(h.id);
+    const SYM: Record<string, string> = { s: "♠", h: "♥", d: "♦", c: "♣" };
+    toast.success(`Main ${h.hole.map(c => c[0] + (SYM[c[1]] ?? c[1])).join(" ")}${h.hero ? ` (${h.hero})` : ""} rechargée depuis l'historique.`);
+  };
+
   const reset = () => {
-    recordHandForPlayers();
+    finishHand();
     setHole([]); setFlop([]); setTurn(null); setRiver(null);
     setAiResult(null); setAiError(null);
     setPickMode("hole");
@@ -800,21 +836,22 @@ const Index = () => {
     <div className="min-h-screen">
       <RangeExplorer />
       <header className="border-b border-border/40 backdrop-blur-md bg-background/40 sticky top-0 z-20">
-        <div className="container py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-gold)" }}>
+        <div className="container py-4 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="hidden sm:flex w-10 h-10 shrink-0 rounded-lg items-center justify-center" style={{ background: "var(--gradient-gold)" }}>
               <Spade className="w-5 h-5 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="display text-2xl gold-text leading-none">{t("app.title")}</h1>
-              <p className="text-xs text-muted-foreground">{t("app.subtitle")}</p>
+            <div className="min-w-0">
+              <h1 className="display text-lg sm:text-2xl gold-text leading-none whitespace-nowrap">{t("app.title")}</h1>
+              <p className="hidden sm:block text-xs text-muted-foreground">{t("app.subtitle")}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <LanguageSelector />
+            <HandHistory onReview={reviewHand} />
             {appMode === "analyzer" && (
               <Button variant="outline" size="sm" onClick={reset} className="gold-border">
-                <RotateCcw className="w-4 h-4 mr-2" /> {t("btn.reset")}
+                <RotateCcw className="w-4 h-4 sm:mr-2" /><span className="sr-only sm:not-sr-only">{t("btn.reset")}</span>
               </Button>
             )}
           </div>
