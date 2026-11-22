@@ -5,7 +5,7 @@ import { Network } from "lucide-react";
 import { handLabel } from "@/engines/cashPreflopEngine";
 import {
   SolverGame, SolverIndexEntry, loadSolverIndex, loadSolverGame, pickGame, matchSpot, adviceForHand, actLabel,
-  isJam, isRaise, TableAction, cashCoverage,
+  isJam, isRaise, TableAction, cashCoverage, coverageOf, Coverage, RARE_NOTE,
 } from "@/engines/solverSpots";
 
 type Format = "mtt" | "cash";
@@ -27,7 +27,7 @@ interface Props {
   stackBB: number;
   defaultFormat: Format;
   /** Remonte le conseil complet (pour la décision synthétique). */
-  onAdvice?: (a: { act: string; pct: number; label: string; title?: string; hand?: string; mix?: { label: string; pct: number }[] } | null) => void;
+  onAdvice?: (a: { act: string; pct: number; label: string; title?: string; hand?: string; mix?: { label: string; pct: number }[]; coverage?: Coverage } | null) => void;
   /** Format contrôlé par le parent (sinon mémorisé localement). */
   format?: Format;
   /** Calcule sans rien afficher (le conseil est montré dans la décision synthétique). */
@@ -73,11 +73,14 @@ export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, def
   const hand = hole.length === 2 ? handLabel(hole) : "";
   const advice = result?.spot && hand ? adviceForHand(result.spot, hand) : null;
   const top = advice?.[0];
-  const topKey = top ? `${top.act}:${top.pct}:${entry?.label}:${result?.title}:${hand}` : "";
+  // fiabilité du conseil (cash seulement) : ligne exacte, rapprochée ou rare
+  const coverage = result && format === "cash" ? coverageOf(result, cashCoverage(stackBB).note) : undefined;
+  const topKey = top ? `${top.act}:${top.pct}:${entry?.label}:${result?.title}:${hand}:${coverage?.level}:${coverage?.details.join("|")}` : "";
   useEffect(() => {
     onAdvice?.(top ? {
       act: top.act, pct: top.pct, label: entry?.label ?? "", title: result?.title, hand,
       mix: advice!.map(x => ({ label: actLabel(x.act), pct: x.pct })),
+      coverage,
     } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topKey]);
@@ -128,6 +131,7 @@ export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, def
               )}
             </>
           )}
+          {result.spot.r && <p className="text-[11px] text-amber-300">{RARE_NOTE}</p>}
           {result.notes.map(n => <p key={n} className="text-[11px] text-muted-foreground">{n}</p>)}
           <p className="text-[11px] text-muted-foreground">
             Joueurs sans action saisie avant toi = couchés. Calcul GTOpen sans ICM ; les exploits et le bounty ajustent ce conseil plus bas.

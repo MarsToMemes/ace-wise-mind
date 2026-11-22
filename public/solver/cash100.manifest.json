@@ -3,7 +3,7 @@
  "id": "cash100",
  "table": {
   "file": "cash100.json",
-  "sha256": "23da762cfcaae50f2bc6c8683abdd803e3a9a8eedd54a33b5df7aa0120eba3fe",
+  "sha256": "b309a06844a8dc8d1e15c8c762298d0566dfa639825d4e50ef9b2df3272807cf",
   "spots": 1919
  },
  "game": {
@@ -74,6 +74,8 @@
   "handsListed": "mains atteintes à plus de 0,1 % dans ce nœud",
   "branchMinFreq": 0.0,
   "branches": "toutes les actions sont développées, même celles que la stratégie ne joue jamais ; au plus 4 relances ; rien n'est développé après le call d'un 3-bet ou plus",
+  "rareFreq": 0.002,
+  "rareLines": "« r »: 1 marque une ligne dont une action a une fréquence globale sous 0,2 % : la stratégie ne la joue presque jamais, le calcul l'a peu entraînée, le conseil y est indicatif",
   "importer": "scripts/import_gtopen.py"
  },
  "config": {

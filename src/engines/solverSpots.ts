@@ -13,6 +13,7 @@ export interface SolverSpot {
   acts: string[];   // F, X, C, L, R<to>, A<to>
   f: number[];      // fréquence globale de chaque action (%)
   h: Record<string, number[]>; // main → % par action (mains de sa range seulement)
+  r?: 1;            // ligne rare : une action du chemin est jouée moins de 0,2 % du temps
 }
 
 export interface SolverGame {
@@ -210,6 +211,32 @@ function toSolverAct(spot: SolverSpot, a: TableAction, stackBB: number): string 
   return raises.sort((x, y) => Math.abs(+x.slice(1) - a.amountBB) - Math.abs(+y.slice(1) - a.amountBB))[0];
 }
 
+const fmtBB = (x: number) => String(Math.round(x * 10) / 10).replace(".", ",");
+
+/** Phrase qui dit comment une mise saisie a été ramenée à l'arbre calculé (null si elle y est déjà). */
+function approxNote(pos: string, a: TableAction, act: string, stackBB: number): string | null {
+  if ((a.type !== "Bet" && a.type !== "Raise") || !(a.amountBB > 0)) return null;
+  const what = `${a.type === "Bet" ? "Mise" : "Relance"} de ${pos} à ${fmtBB(a.amountBB)} bb`;
+  if (isJam(act)) return a.amountBB < stackBB * 0.95 ? `${what} comptée comme tapis.` : null;
+  const size = +act.slice(1);
+  if (isRaise(act) && Math.abs(a.amountBB - size) > size * 0.05) return `${what} comptée comme ${fmtBB(size)} bb (taille calculée la plus proche).`;
+  return null;
+}
+
+export type CoverageLevel = "exact" | "approx" | "rare";
+export interface Coverage { level: CoverageLevel; details: string[] }
+export const RARE_NOTE = "Ligne que la stratégie du solveur ne joue presque jamais : le calcul l'a peu entraînée, conseil indicatif.";
+
+/**
+ * Fiabilité du conseil trouvé : « rare » si la ligne n'est presque jamais jouée par la stratégie,
+ * « approx » si la main saisie a été rapprochée de l'arbre (taille, tapis, places, profondeur), sinon « exact ».
+ */
+export function coverageOf(m: SpotMatch, stackNote?: string | null): Coverage {
+  const details = [...m.notes, ...(stackNote ? [stackNote] : [])];
+  if (m.spot?.r) return { level: "rare", details: [RARE_NOTE, ...details] };
+  return { level: details.length ? "approx" : "exact", details };
+}
+
 function describe(spot: SolverSpot): string {
   const acts = spot.k ? spot.k.split(",").map(s => s.split(":")) : [];
   const aggressive = acts.filter(([, a]) => a !== "F" && a !== "X");
@@ -252,6 +279,8 @@ export function matchSpot(g: SolverGame, seatPos: string[], heroSeat: number, ac
       act = toSolverAct(spot, pre[nextIdx], stackBB);
       used.add(nextIdx);
       if (!act) return { title: "", notes, reason: `Action de ${spot.a} absente de l'arbre calculé.` };
+      const approx = approxNote(spot.a, pre[nextIdx], act, stackBB);
+      if (approx) notes.push(approx);
     } else {
       act = spot.acts.includes("F") ? "F" : spot.acts.includes("X") ? "X" : undefined;
       if (!act) return { title: "", notes, reason: "Ligne incomplète." };

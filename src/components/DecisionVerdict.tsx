@@ -11,6 +11,7 @@ import type { PlayerFile } from "@/lib/playersStore";
 import { saveExploit } from "@/lib/exploitSettings";
 import type { EndgameState } from "@/hooks/use-endgame-solve";
 import type { ActKind } from "@/engines/endgame/tree";
+import type { Coverage } from "@/engines/solverSpots";
 
 /** `guard` : le solveur voulait bluffer contre un récréatif ; on garde le conseil maison (texte de l'explication). */
 export type EndgameView = EndgameState & { note: string | null; guard?: string | null };
@@ -22,6 +23,8 @@ export interface SolverPreflop {
   title?: string;         // « BB face à : tapis CO »
   hand?: string;          // « A8o »
   mix?: { label: string; pct: number }[];
+  /** Fiabilité : ligne exacte, rapprochée ou rare (cash seulement). */
+  coverage?: Coverage;
 }
 
 export interface ExploitView {
@@ -86,6 +89,8 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
 
   // ---------- la décision principale : solveur (préflop), conseiller (postflop) ou moteur de base
   let source = "Moteur de base";
+  let sourceTone = "text-emerald-300 border-emerald-500/40";
+  let sourceHint = "";
   let verb: string;
   let sizeLine = "";
   let mix: { label: string; pct: number }[] = [];
@@ -95,13 +100,22 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
   let context = "";
 
   if (street === "Preflop" && solver) {
-    source = `Solveur GTOpen · ${solver.label}`;
+    const cov = solver.coverage;
+    source = cov?.level === "rare" ? `Solveur · ligne rare · ${solver.label}`
+      : cov?.level === "approx" ? `Solveur · approché · ${solver.label}` : `Solveur GTOpen · ${solver.label}`;
+    sourceTone = cov?.level === "rare" ? "text-amber-300 border-amber-500/50"
+      : cov?.level === "approx" ? "text-sky-300 border-sky-500/50" : "text-emerald-300 border-emerald-500/40";
+    sourceHint = cov?.details.join(" ") ?? "";
     verb = SOLVER_VERB(solver.act);
     sizeLine = solver.act.startsWith("R") ? `Relance à ${solver.act.slice(1)} BB` : solver.act.startsWith("A") ? `Tapis ${stack} BB` : solver.act === "C" ? `Suivre ${toCall} BB` : verb === "FOLD" ? "Coucher" : verb === "CHECK" ? "Checker" : "";
     mix = solver.mix ?? [{ label: verb, pct: solver.pct }];
     context = [solver.title, solverNote].filter(Boolean).join(" · ");
-    handLine = solver.hand ? `${solver.hand} : ${solver.pct} % ${verb.toLowerCase()}` : "";
-    reasons = [solver.pct < 100 ? "Stratégie mixte : le solveur alterne entre ces actions avec cette main." : "Le solveur joue cette main toujours de la même façon ici."];
+    const tag = cov?.level === "rare" ? " · indicatif" : cov?.level === "approx" ? " · approché" : "";
+    handLine = solver.hand ? `${solver.hand} : ${solver.pct} % ${verb.toLowerCase()}${tag}` : "";
+    reasons = [
+      ...(cov?.details.filter(d => d !== solverNote) ?? []),
+      solver.pct < 100 ? "Stratégie mixte : le solveur alterne entre ces actions avec cette main." : "Le solveur joue cette main toujours de la même façon ici.",
+    ];
   } else if ((street === "Turn" || street === "River") && endgame?.status === "done" && endgame.result && !endgame.guard) {
     const r = endgame.result;
     const main = r.actions.reduce((b, a) => (a.freq > b.freq ? a : b), r.actions[0]);
@@ -156,7 +170,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           <Gavel className="w-4 h-4 text-primary" />
           <span className="text-xs uppercase tracking-widest text-muted-foreground">Décision synthétique</span>
           <Badge variant="outline" className="text-[10px] uppercase">{street}</Badge>
-          <Badge variant="outline" className="text-[10px] text-emerald-300 border-emerald-500/40">{source}</Badge>
+          <Badge variant="outline" title={sourceHint || undefined} className={`text-[10px] ${sourceTone}`}>{source}</Badge>
           {endgame?.status === "running" && (street === "Turn" || street === "River") && (
             <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               Solveur : calcul {Math.round(endgame.progress * 100)} %

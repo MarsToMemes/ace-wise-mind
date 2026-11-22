@@ -92,6 +92,24 @@ class ImportTest(unittest.TestCase):
         self.assertIn("toutes les actions", e["branches"])
         self.assertNotIn("0,2 %", e["branches"])
 
+    def test_marque_les_lignes_rares_et_leurs_suites(self):
+        child = {"line": [["UTG", "Raise 2.5"], ["MP", "3-bet 7.5"]], "actor": "UTG", "actions": ["Fold", "Call 7.5"],
+                 "kinds": ["fold", "call"], "freqs": [0.6, 0.4], "hands": {"AA": [0.0, 1.0]}}
+        self.write_raw(raw_table(freqs=(0.999, 0.001), extra_spot=child))
+        imp.import_tables(self.src, self.dst, meta=META, log=lambda *a: None)
+        spots = {s["k"]: s for s in self.read("cash100.json")["spots"]}
+        self.assertNotIn("r", spots[""])                       # premier à parler : jamais rare
+        self.assertEqual(spots["UTG:R2.5"]["r"], 1)             # UTG n'ouvre qu'à 0,1 % : ligne rare
+        self.assertEqual(spots["UTG:R2.5,MP:R7.5"]["r"], 1)     # la suite d'une ligne rare reste rare
+        e = self.read("cash100.manifest.json")["export"]
+        self.assertEqual(e["rareFreq"], 0.002)
+        self.assertIn("0,2 %", e["rareLines"])
+
+    def test_une_ligne_jouee_n_est_pas_rare(self):
+        self.write_raw(raw_table(freqs=(0.8, 0.2)))
+        imp.import_tables(self.src, self.dst, meta=META, log=lambda *a: None)
+        self.assertTrue(all("r" not in s for s in self.read("cash100.json")["spots"]))
+
     def test_aucun_chemin_personnel_dans_la_fiche(self):
         self.write_raw(raw_table())
         imp.import_tables(self.src, self.dst, meta=META, log=lambda *a: None)

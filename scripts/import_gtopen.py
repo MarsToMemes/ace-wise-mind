@@ -38,6 +38,7 @@ GAP_DEFINITION = ("Somme, sur tous les sièges, du gain d'une meilleure réponse
                   "décrit par cette fiche (arbre, rake, modèle d'après-flop). Elle ne mesure pas l'erreur du modèle "
                   "d'après-flop lui-même.")
 BRANCH_MIN_DEFAULT = 0.002  # seuil de run.extract quand la sortie brute ne le précise pas
+RARE_FREQ = 0.002  # sous ce seuil, une action n'est presque jamais jouée : la ligne qui suit est « rare »
 
 
 def export_for(raw):
@@ -52,6 +53,9 @@ def export_for(raw):
         "handsListed": "mains atteintes à plus de 0,1 % dans ce nœud",
         "branchMinFreq": m,
         "branches": first + " ; au plus 4 relances ; rien n'est développé après le call d'un 3-bet ou plus",
+        "rareFreq": RARE_FREQ,
+        "rareLines": "« r »: 1 marque une ligne dont une action a une fréquence globale sous 0,2 % : la stratégie ne "
+                     "la joue presque jamais, le calcul l'a peu entraînée, le conseil y est indicatif",
         "importer": "scripts/import_gtopen.py",
     }
 
@@ -80,15 +84,30 @@ def kind_of(label):
 
 
 def convert(d):
-    """Sortie brute → table compacte du site (format inchangé)."""
+    """Sortie brute → table compacte du site (« r »: 1 en plus sur les lignes rares)."""
     gid = d["id"]
-    spots = []
+    spots, raw_by_key = [], {}
     for s in d["spots"]:
         acts = [short(l, k) for l, k in zip(s["actions"], s["kinds"])]
         # clé de ligne : actions déjà jouées, au même format court
         key = ",".join(f"{p}:{short(lbl, kind_of(lbl))}" for p, lbl in s["line"])
+        raw_by_key[key] = (acts, s["freqs"])
         h = {hand: [round(x * 100) for x in probs] for hand, probs in s["hands"].items()}
         spots.append({"k": key, "a": s["actor"], "acts": acts, "f": [round(x * 100, 1) for x in s["freqs"]], "h": h})
+    # ligne rare : une action du chemin a une fréquence globale sous RARE_FREQ (« r »: 1, absent sinon)
+    rare = {}
+    def is_rare(key):
+        if not key: return False
+        if key not in rare:
+            parent, _, last = key.rpartition(",")
+            acts, freqs = raw_by_key.get(parent, ([], []))
+            act = last.split(":", 1)[1]
+            f = freqs[acts.index(act)] if act in acts else 0
+            rare[key] = f < RARE_FREQ or is_rare(parent)
+        return rare[key]
+    for sp in spots:
+        if is_rare(sp["k"]):
+            sp["r"] = 1
     cfg = d["config"]
     kind = re.match(r"[a-z]+", gid).group(0)
     return {"id": gid, "kind": kind, "stack": cfg["stack"], "ante": cfg.get("ante", 0), "positions": cfg["positions"],
