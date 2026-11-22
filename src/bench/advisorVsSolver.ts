@@ -61,7 +61,11 @@ export function summarize(rows: Comparison[], key: (r: Comparison) => string = r
   }));
 }
 
-export interface CompareOptions { river: number; turn: number; seed?: number; iterations?: number; samples?: number }
+export interface CompareOptions {
+  river: number; turn: number; seed?: number; iterations?: number; samples?: number;
+  /** Turn : permet au solveur une relance au pot face à une mise (par défaut il n'a que le tapis). */
+  turnRaise?: boolean;
+}
 
 export function compareAdvisorSolver(g: SolverGame, o: CompareOptions): Comparison[] {
   const out: Comparison[] = [];
@@ -69,14 +73,14 @@ export function compareAdvisorSolver(g: SolverGame, o: CompareOptions): Comparis
   let k = 0;
   for (const street of plan) {
     for (let guard = 0; guard < 50; guard++) {
-      const row = one(g, street, (o.seed ?? 1) * 100003 + k++, o.iterations ?? 250, o.samples ?? 600);
+      const row = one(g, street, (o.seed ?? 1) * 100003 + k++, o.iterations ?? 250, o.samples ?? 600, !!o.turnRaise);
       if (row) { out.push(row); break; }
     }
   }
   return out;
 }
 
-function one(g: SolverGame, street: "Turn" | "River", seed: number, iterations: number, samples: number): Comparison | null {
+function one(g: SolverGame, street: "Turn" | "River", seed: number, iterations: number, samples: number, turnRaise = false): Comparison | null {
   const r = rng(seed);
   const [opener, caller] = PAIRS[Math.floor(r() * PAIRS.length)];
   const oi = SIX.indexOf(opener), ci = SIX.indexOf(caller);
@@ -126,7 +130,7 @@ function one(g: SolverGame, street: "Turn" | "River", seed: number, iterations: 
     opponents: 1, prevVillain: lines[v].find(e => e.street === prevSt)?.act, prevHero: lines[hero].find(e => e.street === prevSt)?.act,
     villainCheckedThisStreet: d === 1, samples, rake: CASH_RAKE,
   }));
-  const res = solveEndgame({ street, board, startPot: pot, stack, ranges, hero, heroCards, path, maxIter: iterations, timeBudgetMs: 1e9, targetPct: 0, rake: CASH_RAKE });
+  const res = solveEndgame({ street, board, startPot: pot, stack, ranges, hero, heroCards, path, maxIter: iterations, timeBudgetMs: 1e9, targetPct: 0, rake: CASH_RAKE, sizes: street === "Turn" && turnRaise ? { raise: true } : undefined });
   if (!res || !res.heroInRange || !res.actions.length) return null;
   const i = mapHouseAction(adv, res.actions, facing);
   if (i < 0) return null;
