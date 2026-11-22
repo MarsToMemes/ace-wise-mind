@@ -60,6 +60,7 @@ import { useEndgameSolve } from "@/hooks/use-endgame-solve";
 import { bluffGuard } from "@/engines/endgame/guard";
 import { useSolverBase } from "@/hooks/use-solver-base";
 import { cashCoverage, CASH_DEPTHS } from "@/engines/solverSpots";
+import { CASH_RAKE } from "@/core/rake";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
 import { analyzeBoard } from "@/engines/boardTexture";
@@ -432,6 +433,7 @@ const Index = () => {
       villainCheckedThisStreet: vSeat >= 0 && actionHistory.some(a => a.street === currentStreet && a.seatIdx === vSeat && a.type === "Check"),
       villainAggressive,
       adjust: exploitSettings.mode ? exploit.adjust : undefined,
+      rake: analyzerMode === "cash" ? CASH_RAKE : null,
     });
 
     // solveur de fin de main : turn et river, en tête-à-tête ; ranges du DÉBUT de la street (le solveur rejoue la street)
@@ -456,18 +458,19 @@ const Index = () => {
           hero: heroPl, heroCards: [hole[0], hole[1]],
           path: actionHistory.filter(a => a.street === currentStreet && (a.seatIdx === userIdx || a.seatIdx === vSeat))
             .map(a => ({ player: (a.seatIdx === userIdx ? heroPl : 1 - heroPl) as 0 | 1, kind: kind[a.type], to: a.amountBB })),
+          rake: analyzerMode === "cash" ? CASH_RAKE : null,
         };
       }
     }
     return { advice, endgame, endgameNote };
-  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState, potOpts]);
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode]);
   const postflopAdvice = postflopCtx?.advice ?? null;
   const endgameKey = useMemo(() => {
     const e = postflopCtx?.endgame;
     if (!e) return "";
     let h = 0;
     for (const r of e.ranges) for (const c of r) { const str = c.cards[0] + c.cards[1] + c.w.toFixed(3); for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; }
-    return JSON.stringify([e.street, e.board, e.startPot, e.stack, e.hero, e.heroCards, e.path, h]);
+    return JSON.stringify([e.street, e.board, e.startPot, e.stack, e.hero, e.heroCards, e.path, e.rake, h]);
   }, [postflopCtx]);
   const endgame = useEndgameSolve(postflopCtx?.endgame ?? null, endgameKey);
   // garde-fou : contre un récréatif (fiche), pas de bluff du solveur → conseil maison
@@ -845,6 +848,7 @@ const Index = () => {
       endgame={{ ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
       format={solverFormat}
       solverNote={cashCover.note}
+      rake={analyzerMode === "cash" ? CASH_RAKE : null}
       exploit={{
         mode: exploitSettings.mode,
         items: exploit.items,

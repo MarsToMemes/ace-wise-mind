@@ -112,9 +112,9 @@ describe("checkInvariants repère une fiche abîmée", () => {
 });
 
 describe("conventions de rake documentées", () => {
-  it("chaque moteur dit comment il compte le rake (aujourd'hui : seulement la table préflop)", () => {
+  it("en cash, les trois moteurs comptent le même rake", () => {
     expect(ENGINE_RAKE.preflopSolver).toMatchObject({ pct: 5, capBB: 3 });
-    expect(ENGINE_RAKE.postflopAdvisor.pct).toBe(0);
-    expect(ENGINE_RAKE.endgameSolver.pct).toBe(0);
+    expect(ENGINE_RAKE.postflopAdvisor).toMatchObject({ pct: 5, capBB: 3, noFlopNoDrop: true });
+    expect(ENGINE_RAKE.endgameSolver).toMatchObject({ pct: 5, capBB: 3, noFlopNoDrop: true });
   });
 });

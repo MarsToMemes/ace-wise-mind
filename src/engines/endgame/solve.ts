@@ -5,6 +5,7 @@ import type { Combo } from "@/engines/rangeVsRange";
 import { relStrength } from "@/engines/postflopRanges";
 import { detectDraws } from "@/lib/pokerEngine";
 import { Solver } from "@/engines/endgame/cfr";
+import type { RakeRule } from "@/core/rake";
 import type { ActKind, ActNode, EndStreet, PathAct, Action } from "@/engines/endgame/tree";
 
 export interface EndgameInput {
@@ -16,6 +17,7 @@ export interface EndgameInput {
   hero: 0 | 1;
   heroCards: [string, string];
   path: PathAct[];              // actions déjà jouées sur la street
+  rake?: RakeRule | null;       // rake cash retiré du pot gagné (absent en tournoi)
   maxIter?: number;
   timeBudgetMs?: number;
   targetPct?: number;           // précision visée, % du pot
@@ -67,7 +69,7 @@ export function solveEndgame(inp: EndgameInput): EndgameResult | null {
     const maxW = ranges[hero].reduce((m, c) => Math.max(m, c.w), 0) || 1;
     ranges[hero] = [...ranges[hero], { cards: inp.heroCards, w: maxW * 0.001 }];
   }
-  const s = new Solver({ street: inp.street, board: inp.board, startPot: inp.startPot, stack: inp.stack, ranges, path: inp.path });
+  const s = new Solver({ street: inp.street, board: inp.board, startPot: inp.startPot, stack: inp.stack, ranges, path: inp.path, rake: inp.rake });
   const target = s.pathNode;
   const hi = s.hs[hero].key.get(hk);
   if (!target || target.player !== hero || hi === undefined || !s.hs[vil].n) return null;

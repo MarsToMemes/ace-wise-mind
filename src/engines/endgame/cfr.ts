@@ -2,6 +2,7 @@
 // Gains d'un joueur = jetons reçus du pot − jetons qu'il a mis dans le sous-jeu ;
 // la somme des deux vaut toujours le pot de départ (jeu à somme constante).
 
+import { rakeOf, type RakeRule } from "@/core/rake";
 import { rank7 } from "@/engines/handEval7";
 import { FULL_DECK, type Combo } from "@/engines/rangeVsRange";
 import { buildTree, type ActNode, type EndStreet, type Node, type PathAct, type Sizes } from "@/engines/endgame/tree";
@@ -110,6 +111,8 @@ export interface SolverOptions {
   ranges: [Combo[], Combo[]];
   path?: PathAct[];
   sizes?: Sizes;
+  /** Rake retiré du pot gagné (cash). Absent : aucun (tournoi). */
+  rake?: RakeRule | null;
 }
 
 /** Solveur d'un sous-jeu turn ou river en tête-à-tête. */
@@ -119,6 +122,7 @@ export class Solver {
   readonly nodes: ActNode[];
   readonly hs: [HandSet, HandSet];
   readonly startPot: number;
+  readonly rake: RakeRule | null;
   iterations = 0;
   private same: [Int32Array, Int32Array];
   private regret: Float32Array[];
@@ -131,6 +135,7 @@ export class Solver {
     const t = buildTree({ street: o.street, startPot: o.startPot, stack: o.stack, board: o.board, path: o.path, sizes: o.sizes });
     this.root = t.root; this.pathNode = t.pathNode; this.nodes = t.nodes;
     this.startPot = o.startPot;
+    this.rake = o.rake ?? null;
     this.hs = [makeHandSet(o.ranges[0], o.board), makeHandSet(o.ranges[1], o.board)];
     this.same = [crossIndex(this.hs[0], this.hs[1]), crossIndex(this.hs[1], this.hs[0])];
     this.regret = this.nodes.map(n => new Float32Array(n.actions.length * this.hs[n.player].n));
@@ -173,13 +178,16 @@ export class Solver {
   private terminal(n: Node, i: 0 | 1, reach: Float32Array, ctx: number): Float32Array | null {
     const o = (1 - i) as 0 | 1;
     if (n.t === "fold") {
-      const u = n.folder === i ? -n.c[i] : this.startPot + n.c[o];
+      // la mise non payée est rendue : le rake porte sur le pot égalisé
+      const r = rakeOf(this.startPot + 2 * Math.min(n.c[0], n.c[1]), this.rake);
+      const u = n.folder === i ? -n.c[i] : this.startPot + n.c[o] - r;
       return foldCFV(this.hs[i], this.hs[o], reach, u, this.same[i]);
     }
     if (n.t === "show") {
       const sa = ctx >= 0 ? this.riverStr[ctx][i] : this.hs[i].str!;
       const sb = ctx >= 0 ? this.riverStr[ctx][o] : this.hs[o].str!;
-      return showdownCFV(this.hs[i], this.hs[o], reach, this.startPot + n.c[o], (this.startPot + n.c[0] + n.c[1]) / 2 - n.c[i], -n.c[i], this.same[i], sa, sb);
+      const r = rakeOf(this.startPot + n.c[0] + n.c[1], this.rake);
+      return showdownCFV(this.hs[i], this.hs[o], reach, this.startPot + n.c[o] - r, (this.startPot + n.c[0] + n.c[1] - r) / 2 - n.c[i], -n.c[i], this.same[i], sa, sb);
     }
     return null;
   }
@@ -259,9 +267,12 @@ export class Solver {
     return den > 0 ? num / den : 0;
   }
 
-  /** Écart à l'équilibre, en % du pot de départ (0 = parfait). */
+  /**
+   * Écart à l'équilibre, en % du pot de départ (0 = parfait) : gain moyen d'une meilleure réponse sur la stratégie
+   * de chaque joueur. Avec le rake, la somme des gains n'est plus constante : on la mesure joueur par joueur.
+   */
   exploitabilityPct(): number {
-    const e = (this.value(0, 1) + this.value(1, 1) - this.startPot) / 2;
+    const e = (this.value(0, 1) - this.value(0, 2) + this.value(1, 1) - this.value(1, 2)) / 2;
     return Math.max(0, (e / this.startPot) * 100);
   }
 

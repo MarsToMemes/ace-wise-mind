@@ -3,6 +3,7 @@
 // position, SPR et ligne jouée. Donne l'action, la taille en % du pot et en bb, la fréquence,
 // le rôle de la main, les raisons et le plan. Ce n'est pas un solveur postflop.
 
+import { rakeOf, type RakeRule } from "@/core/rake";
 import { Combo } from "@/engines/rangeVsRange";
 import { PostStreet, LineAct, rangeAdvantage, handPercentile, handEquityMulti, scaleEqThreshold, relStrength } from "@/engines/postflopRanges";
 import { detectDraws } from "@/lib/pokerEngine";
@@ -36,6 +37,8 @@ export interface PostflopInput {
   villainAggressive?: boolean;
   adjust?: Partial<Adjust>;
   samples?: number;
+  /** Rake cash retiré du pot gagné. Absent : aucun (tournoi). */
+  rake?: RakeRule | null;
 }
 
 export interface PostflopAdvice {
@@ -98,7 +101,8 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
 
   // ------------------------------------------------------------------ face à une mise
   if (toCallBB > 0) {
-    const required = toCallBB / (potBB + toCallBB) + (adj.callThresholdDelta ?? 0) / 100;
+    const finalPot = potBB + toCallBB;
+    const required = toCallBB / (finalPot - rakeOf(finalPot, inp.rake)) + (adj.callThresholdDelta ?? 0) / 100;
     const reqPct = Math.round(required * 1000) / 10;
     const checkRaise = !ip && inp.villainCheckedThisStreet === false;
     reasons.push(`Ton équité ${nOpp > 1 ? `contre les ${nOpp} adversaires` : "contre sa range"} : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);

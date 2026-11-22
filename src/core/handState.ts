@@ -9,6 +9,7 @@
  * Limites connues (lot 1) : pas de règle de « relance non rouverte » après un tapis incomplet ;
  * un pot annexe est calculé mais marqué non pris en charge pour le conseil.
  */
+import { CASH_RAKE } from "@/core/rake";
 import type { PlayerAction } from "@/components/ActionMenu";
 import { seatLabel, type TableSize } from "@/components/PokerTable";
 import { RANKS, SUITS } from "@/lib/pokerEngine";
@@ -35,8 +36,8 @@ export const ENGINE_RAKE: Record<"preflopSolver" | "postflopAdvisor" | "endgameS
     note: "Table cash 100 bb (GTOpen) : 5 % plafonné à 3 bb, pris sur les pots qui voient le flop. "
       + "Paramètre de calcul non inscrit dans public/solver/cash100.json.",
   },
-  postflopAdvisor: { pct: 0, capBB: null, noFlopNoDrop: null, note: "Conseiller postflop : aucun rake compté." },
-  endgameSolver: { pct: 0, capBB: null, noFlopNoDrop: null, note: "Solveur de fin de main : aucun rake compté." },
+  postflopAdvisor: { ...CASH_RAKE, noFlopNoDrop: true, note: "Conseiller postflop : rake cash (src/core/rake.ts) compté dans la cote ; aucun en tournoi." },
+  endgameSolver: { ...CASH_RAKE, noFlopNoDrop: true, note: "Solveur de fin de main : rake cash (src/core/rake.ts) retiré du pot gagné ; aucun en tournoi." },
 };
 
 /** Ce que l'analyseur fournit. */
