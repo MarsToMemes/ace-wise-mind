@@ -124,7 +124,8 @@
    "PREFLOP_PRUNE": "0",
    "PREFLOP_LEAF_BLOCKING": "on"
   },
-  "settingsNote": "Réglages du serveur, absents de la config : élagage CPU coupé (exigé par le modèle leafnet) ; comptabilité des pots 4-bettés corrigée (PREFLOP_LEAF_BLOCKING=on, réglage de recherche que la documentation de GTOpen dit non encore comparé sur des solves complets)."
+  "settingsNote": "Réglages du serveur, absents de la config : élagage CPU coupé (exigé par le modèle leafnet) ; comptabilité des pots 4-bettés corrigée (PREFLOP_LEAF_BLOCKING=on, réglage de recherche que la documentation de GTOpen dit non encore comparé sur des solves complets).",
+  "license": "Apache-2.0"
  },
  "run": {
   "dates": "2026-11-22",
@@ -134,7 +135,7 @@
   "export": "ré-extraction du 2026-11-22 depuis la solution en mémoire, sans nouveau calcul (seuil d'élagage 0)"
  },
  "notes": [
-  "Licence de GTOpen non établie : aucun fichier de licence trouvé dans la copie utilisée.",
+  "Licence de GTOpen : Apache 2.0 (déclarée sur le dépôt GitHub MatthewPDingle/GTOpen ; la copie locale du commit 370e1a19b ne contenait pas le fichier LICENSE).",
   "Remplace la table « balanced » du 20 nov. (978 itérations), dont les petits pots 4-bettés ignoraient le tapis restant.",
   "Modèle « leafnet » v2 : valeurs d'après-flop apprises sur des flops résolus, pour les pots à deux seulement ; les pots multiway gardent le modèle balanced.",
   "Arbre : après un 4-bet, la seule relance proposée est le tapis (seuil de tapis 0,35 au lieu de 0,4).",

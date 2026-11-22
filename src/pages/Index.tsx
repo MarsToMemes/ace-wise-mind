@@ -60,7 +60,9 @@ import type { EndgameInput } from "@/engines/endgame/solve";
 import { useEndgameSolve } from "@/hooks/use-endgame-solve";
 import { bluffGuard } from "@/engines/endgame/guard";
 import { useSolverBase } from "@/hooks/use-solver-base";
-import { cashCoverage, CASH_DEPTHS } from "@/engines/solverSpots";
+import { cashCoverage, CASH_DEPTHS, getSolverBaseGame } from "@/engines/solverSpots";
+import { lineRanges, type LinePotType } from "@/engines/lineRanges";
+import { loadMyRanges } from "@/engines/myRanges";
 import { CASH_RAKE } from "@/core/rake";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
@@ -382,8 +384,26 @@ const Index = () => {
       const w = getRange(slot).weights;
       return expandRange(Object.keys(w).length ? w : topPercentRange(fallbackPct), board);
     };
-    let heroRange = combos(heroIsPfr ? slots.pfr : slots.caller, 30);
-    const villainBase = combos(heroIsPfr ? slots.caller : slots.pfr, 35);
+    // ranges d'entrée : celles de la ligne préflop jouée (table du solveur cash), sauf si tu as réglé la tienne
+    // dans « Mes ranges » ; à défaut, les situations types (pot simple / 3-betté, tête-à-tête)
+    const baseGame = analyzerMode === "cash" ? getSolverBaseGame() : null;
+    const lr = baseGame ? lineRanges(baseGame, Array.from({ length: tableSize }, (_, i) => posOf(i)), actionHistory, stack) : null;
+    const mine = loadMyRanges();
+    const fromLine = (seat: number, slot: string) => {
+      if (!lr || seat < 0 || (mine[slot] && Object.keys(mine[slot]).length)) return null;
+      const w = lr.bySeat[seat];
+      const top = w ? Math.max(0, ...Object.values(w)) : 0;
+      // poids relatifs ramenés à 1 pour la main la plus présente (les filtres suivants ont des seuils absolus)
+      return top > 0 ? expandRange(Object.fromEntries(Object.entries(w).map(([h, x]) => [h, x / top])), board) : null;
+    };
+    const heroSlot = heroIsPfr ? slots.pfr : slots.caller, villainSlot = heroIsPfr ? slots.caller : slots.pfr;
+    const heroLineRange = fromLine(userIdx, heroSlot), villainLineRange = fromLine(vSeat, villainSlot);
+    let heroRange = heroLineRange ?? combos(heroSlot, 30);
+    const villainBase = villainLineRange ?? combos(villainSlot, 35);
+    const POT_FR: Record<LinePotType, string> = { limp: "pot limpé", srp: "pot simple", "3bet": "pot 3-betté", "4bet": "pot 4-betté" };
+    const rangeSource = heroLineRange && villainLineRange && lr
+      ? `ligne jouée · ${POT_FR[lr.potType]}${lr.rare ? " · ligne rare" : ""}`
+      : "situations types";
     let villainRange = removeDead(villainBase, hole);
     // ligne de chacun aux streets précédentes (le « filtre » sur les ranges)
     const streets: PostStreet[] = ["Flop", "Turn", "River"];
@@ -419,7 +439,7 @@ const Index = () => {
       const p = posOf(seat);
       const slot = seat === lastRaiser || !p ? slotsFor(raiserPos, villainPos, potType).pfr : slotsFor(raiserPos, p, potType).caller;
       const first = actsFirstPostflop(p || villainPos, heroPos);
-      return thisStreet(filterByLine(removeDead(combos(slot, 35), hole), board, lineOf(seat, first)), seat);
+      return thisStreet(filterByLine(removeDead(fromLine(seat, slot) ?? combos(slot, 35), hole), board, lineOf(seat, first)), seat);
     });
     const prev = cur > 0 ? streets[cur - 1] : null;
     const vf = exploit.villainFile;
@@ -463,8 +483,8 @@ const Index = () => {
         };
       }
     }
-    return { advice, endgame, endgameNote };
-  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode]);
+    return { advice, endgame, endgameNote, rangeSource };
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode, tableSize]);
   const postflopAdvice = postflopCtx?.advice ?? null;
   const endgameKey = useMemo(() => {
     const e = postflopCtx?.endgame;
@@ -874,6 +894,7 @@ const Index = () => {
       format={solverFormat}
       solverNote={cashCover.note}
       rake={analyzerMode === "cash" ? CASH_RAKE : null}
+      rangeSource={postflopCtx?.rangeSource ?? null}
       exploit={{
         mode: exploitSettings.mode,
         items: exploit.items,

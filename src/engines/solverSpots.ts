@@ -210,7 +210,7 @@ export function pickGame(index: SolverIndexEntry[], kind: string, stackBB: numbe
   return [...list].sort((a, b) => Math.abs(a.stack - stackBB) - Math.abs(b.stack - stackBB))[0];
 }
 
-function toSolverAct(spot: SolverSpot, a: TableAction, stackBB: number): string | undefined {
+export function toSolverAct(spot: SolverSpot, a: TableAction, stackBB: number): string | undefined {
   const has = (x: string) => spot.acts.includes(x);
   if (a.type === "Fold") return has("F") ? "F" : undefined;
   if (a.type === "Check") return has("X") ? "X" : spot.acts.find(isCall);
@@ -226,7 +226,7 @@ function toSolverAct(spot: SolverSpot, a: TableAction, stackBB: number): string 
 const fmtBB = (x: number) => String(Math.round(x * 10) / 10).replace(".", ",");
 
 /** Phrase qui dit comment une mise saisie a été ramenée à l'arbre calculé (null si elle y est déjà). */
-function approxNote(pos: string, a: TableAction, act: string, stackBB: number): string | null {
+export function approxNote(pos: string, a: TableAction, act: string, stackBB: number): string | null {
   if ((a.type !== "Bet" && a.type !== "Raise") || !(a.amountBB > 0)) return null;
   const what = `${a.type === "Bet" ? "Mise" : "Relance"} de ${pos} à ${fmtBB(a.amountBB)} bb`;
   if (isJam(act)) return a.amountBB < stackBB * 0.95 ? `${what} comptée comme tapis.` : null;

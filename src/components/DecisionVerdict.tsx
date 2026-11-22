@@ -56,6 +56,8 @@ interface Props {
   solverNote?: string | null;
   /** Rake compté par les moteurs (cash) ; absent en tournoi. */
   rake?: RakeRule | null;
+  /** D'où viennent les ranges après le flop (« ligne jouée · pot 4-betté », « situations types »). */
+  rangeSource?: string | null;
 }
 
 const VERB_STYLE = (verb: string) =>
@@ -79,7 +81,7 @@ const bb = (x: number) => `${x >= 0 ? "+" : ""}${(Math.round(x * 10) / 10).toStr
 const SOLVER_VERB = (a: string) =>
   a === "F" ? "FOLD" : a === "X" ? "CHECK" : a === "C" ? "CALL" : a === "L" ? "LIMP" : a.startsWith("A") ? "TAPIS" : a.startsWith("R") ? "RELANCE" : a;
 
-export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat, solverNote, rake }: Props) => {
+export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat, solverNote, rake, rangeSource }: Props) => {
   if (!engine) {
     return (
       <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm">
@@ -268,6 +270,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
       <details data-dock-extra="1" data-dock-area="details" className="rounded-md border border-border/50 px-3 py-2 text-xs">
         <summary className="cursor-pointer text-muted-foreground">Détails du calcul</summary>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+          {rangeSource && street !== "Preflop" && <Detail label="Ranges d'entrée" value={rangeSource} />}
           {rake && <Detail label="Rake compté" value={`${String(rake.pct).replace(".", ",")} %${rake.capBB != null ? ` · max ${String(rake.capBB).replace(".", ",")} bb` : ""}`} />}
           {source === "Solveur de fin de main" && endgame?.result && (
             <>
