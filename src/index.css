@@ -176,3 +176,13 @@
 @media (prefers-reduced-motion: reduce) {
   .voice-bar-on::after { animation: none; opacity: 0.5; }
 }
+
+/* Panneau de décision réduit (ResizableDock) : d'abord sans les détails, puis l'action seule. */
+.dock-fit[data-compact="1"] [data-dock-extra="1"],
+.dock-fit[data-compact="2"] [data-dock-extra] {
+  display: none !important;
+}
+.dock-fit[data-compact] > * {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}

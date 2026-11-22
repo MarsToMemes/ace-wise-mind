@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import { ResizableDock, DOCK_KEY, dockLimits } from "@/components/ResizableDock";
+import { ResizableDock, DOCK_KEY, dockLimits, fitZoom, chooseFit, ZOOM_MIN, ZOOM_MAX } from "@/components/ResizableDock";
 
 // jsdom n'a pas PointerEvent : sans lui, clientY se perd. Équivalent minimal fondé sur MouseEvent.
 if (typeof window.PointerEvent === "undefined") {
@@ -98,5 +98,63 @@ describe("panneau de décision étirable", () => {
     render(<ResizableDock onHeight={h => { seen = h; }}>contenu</ResizableDock>);
     fireEvent.keyDown(handle(), { key: "ArrowUp" });
     expect(seen).toBe(dockLimits().def + 24);
+  });
+});
+
+describe("le contenu suit la hauteur du panneau", () => {
+  // measure(z) : hauteur affichée du contenu quand il est mis à l'échelle z
+  const plain = (h: number) => (z: number) => h * z;
+
+  it("rétrécit le contenu trop haut pour qu'il tienne en entier", () => {
+    expect(fitZoom(plain(300), 240)).toBeCloseTo(0.8, 2);
+  });
+
+  it("agrandit le contenu quand le panneau est plus haut, sans dépasser 125 %", () => {
+    expect(fitZoom(plain(200), 220)).toBeCloseTo(1.1, 2);
+    expect(fitZoom(plain(100), 400)).toBe(ZOOM_MAX);
+  });
+
+  it("ne descend pas sous 70 % : en dessous, le panneau défile", () => {
+    expect(fitZoom(plain(1000), 200)).toBe(ZOOM_MIN);
+  });
+
+  it("tient compte du texte qui se réorganise quand on change d'échelle", () => {
+    // plus petit → plus de place en largeur → moins de lignes : la hauteur baisse plus vite que z
+    const reflow = (z: number) => 300 * z * z;
+    const z = fitZoom(reflow, 192);
+    expect(reflow(z)).toBeLessThanOrEqual(192);
+    expect(reflow(z)).toBeGreaterThan(186);
+  });
+});
+
+describe("panneau très petit : l'essentiel d'abord", () => {
+  // hauteur à l'échelle 1 selon le niveau : 0 = tout, 1 = sans les détails, 2 = l'action seule
+  const sizes = [400, 200, 120];
+  const measure = (level: number, z: number) => sizes[level] * z;
+
+  it("garde tout quand ça tient, même un peu réduit", () => {
+    expect(chooseFit(measure, 300, 2)).toEqual({ level: 0, zoom: 0.75 });
+  });
+
+  it("masque les détails quand tout ne tient plus à 70 %", () => {
+    expect(chooseFit(measure, 180, 2)).toEqual({ level: 1, zoom: 0.9 });
+  });
+
+  it("ne garde que l'action quand le panneau est minuscule", () => {
+    const r = chooseFit(measure, 96, 2);
+    expect(r.level).toBe(2);
+    expect(r.zoom).toBe(0.8);
+  });
+
+  it("au pire, l'action seule à 70 % (le panneau défile)", () => {
+    expect(chooseFit(measure, 40, 2)).toEqual({ level: 2, zoom: ZOOM_MIN });
+  });
+});
+
+describe("pas de texte plus gros dans un panneau plus petit", () => {
+  it("en version réduite, l'échelle ne dépasse pas 100 %", () => {
+    const sizes = [400, 200, 120];
+    // 245 px : tout ne tient pas à 70 % (280), sans les détails ça tiendrait à 122 % → limité à 100 %
+    expect(chooseFit((l, z) => sizes[l] * z, 245, 2)).toEqual({ level: 1, zoom: 1 });
   });
 });

@@ -151,7 +151,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
   return (
     <Card className="glass-panel p-5 border-primary/40 space-y-4">
       {/* En-tête */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div data-dock-extra="2" className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <Gavel className="w-4 h-4 text-primary" />
           <span className="text-xs uppercase tracking-widest text-muted-foreground">Décision synthétique</span>
@@ -179,7 +179,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
         </div>
       </div>
 
-      {context && <p className="text-sm text-muted-foreground">{context}</p>}
+      {context && <p data-dock-extra="2" className="text-sm text-muted-foreground">{context}</p>}
 
       {/* Action + taille */}
       <div className="grid sm:grid-cols-[auto,1fr] gap-4 items-center">
@@ -191,26 +191,26 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           <div className="text-base font-semibold">{sizeLine}</div>
           {handLine && <div className="text-sm text-primary">{handLine}</div>}
           {mix.length > 1 && (
-            <>
+            <div data-dock-extra="2" className="space-y-2">
               <div className="flex h-2.5 rounded-full overflow-hidden">
                 {mix.filter(m => m.pct > 0).map(m => <div key={m.label} style={{ width: `${m.pct}%`, background: MIX_COLOR(m.label) }} />)}
               </div>
               <p className="text-[11px] text-muted-foreground">{mix.filter(m => m.pct > 0).map(m => `${m.label} ${m.pct} %`).join(" · ")}</p>
-            </>
+            </div>
           )}
         </div>
       </div>
 
       {/* Pourquoi */}
       {reasons.length > 0 && (
-        <ul className="space-y-1 text-sm text-foreground/85">
+        <ul data-dock-extra="1" className="space-y-1 text-sm text-foreground/85">
           {reasons.map(r => <li key={r} className="flex gap-1.5"><ArrowRight className="w-3.5 h-3.5 mt-1 text-primary flex-shrink-0" />{r}</li>)}
         </ul>
       )}
 
       {/* Exploits contre l'adversaire */}
       {exploit && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+        <div data-dock-extra="1" className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Swords className="w-4 h-4 text-primary" />
             <span className="font-semibold">Contre</span>
@@ -241,14 +241,14 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
 
       {/* Plan */}
       {plan.length > 0 && (
-        <div className="text-sm">
+        <div data-dock-extra="1" className="text-sm">
           <span className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Target className="w-3.5 h-3.5" />Ensuite</span>
           <ul className="mt-1 space-y-0.5">{plan.map(p => <li key={p}>• {p}</li>)}</ul>
         </div>
       )}
 
       {/* Détails */}
-      <details className="rounded-md border border-border/50 px-3 py-2 text-xs">
+      <details data-dock-extra="1" className="rounded-md border border-border/50 px-3 py-2 text-xs">
         <summary className="cursor-pointer text-muted-foreground">Détails du calcul</summary>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
           {source === "Solveur de fin de main" && endgame?.result && (

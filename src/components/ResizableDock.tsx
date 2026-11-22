@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 
 /** Hauteur du panneau de décision, gardée d'une visite à l'autre. */
 export const DOCK_KEY = "ace.decisionH";
@@ -11,6 +11,40 @@ export function dockLimits() {
   const max = Math.max(min, Math.round(vh * 0.85));
   const def = Math.min(max, Math.max(min, Math.round(vh * 0.36)));
   return { min, max, def };
+}
+
+/** Échelle du contenu : il suit la hauteur du panneau, entre 70 % (en dessous, le panneau défile) et 125 %. */
+export const ZOOM_MIN = 0.7;
+export const ZOOM_MAX = 1.25;
+
+/**
+ * Plus grande échelle à laquelle le contenu tient dans `avail` pixels de haut.
+ * `measure(z)` rend la hauteur affichée du contenu à l'échelle z (le texte peut se réorganiser).
+ */
+export function fitZoom(measure: (z: number) => number, avail: number, max = ZOOM_MAX): number {
+  if (!(avail > 0)) return 1;
+  if (measure(max) <= avail) return max;
+  if (measure(ZOOM_MIN) > avail) return ZOOM_MIN;
+  let lo = ZOOM_MIN, hi = max;
+  for (let i = 0; i < 14; i++) {
+    const mid = (lo + hi) / 2;
+    if (measure(mid) <= avail) lo = mid; else hi = mid;
+  }
+  const z = Math.round(lo * 1000) / 1000;
+  return measure(z) <= avail ? z : Math.max(ZOOM_MIN, z - 0.001);
+}
+
+/**
+ * Panneau trop petit pour tout montrer, même à 70 % : on masque d'abord les détails (niveau 1),
+ * puis tout sauf l'action (niveau 2). Rend le premier niveau qui tient, et son échelle.
+ */
+export function chooseFit(measure: (level: number, z: number) => number, avail: number, maxLevel: number): { level: number; zoom: number } {
+  for (let level = 0; level <= maxLevel; level++) {
+    // version réduite : jamais plus grande que 100 %, sinon le texte grossirait en rétrécissant le panneau
+    const zoom = fitZoom(z => measure(level, z), avail, level === 0 ? ZOOM_MAX : 1);
+    if (level === maxLevel || measure(level, zoom) <= avail) return { level, zoom };
+  }
+  return { level: maxLevel, zoom: ZOOM_MIN };
 }
 
 const clamp = (h: number) => {
@@ -50,6 +84,34 @@ export function ResizableDock({ children, onHeight }: { children: ReactNode; onH
   live.current = height;
 
   useEffect(() => { onHeight?.(height); }, [height, onHeight]);
+
+  // le contenu se met à l'échelle de la hauteur du panneau (sans attendre un rendu React : style posé directement)
+  const fitRef = useRef<HTMLDivElement>(null);
+  const refit = useCallback(() => {
+    const el = fitRef.current;
+    if (!el) return;
+    const at = (level: number, z: number) => {
+      if (level > 0) el.dataset.compact = String(level); else delete el.dataset.compact;
+      el.style.setProperty("zoom", String(z));
+      return el.getBoundingClientRect().height;
+    };
+    // sans blocs marqués « data-dock-extra », pas de niveau compact à essayer
+    const maxLevel = el.querySelector("[data-dock-extra]") ? 2 : 0;
+    const { level, zoom } = chooseFit(at, live.current, maxLevel);
+    at(level, zoom);
+  }, []);
+  useLayoutEffect(refit, [height, children, refit]);
+  useEffect(() => {
+    const el = fitRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    // le contenu change (nouvelle décision, fenêtre plus étroite) : on recalcule.
+    // Pas de boucle : à taille égale, l'échelle trouvée est la même et la taille finale ne change pas.
+    const ro = new ResizeObserver(() => refit());
+    ro.observe(el);
+    const parent = el.parentElement;
+    if (parent) ro.observe(parent);
+    return () => ro.disconnect();
+  }, [refit]);
 
   // l'écran change de taille (rotation, fenêtre) : la hauteur reste dans les bornes
   useEffect(() => {
@@ -114,8 +176,9 @@ export function ResizableDock({ children, onHeight }: { children: ReactNode; onH
           className={`mt-1 h-1.5 w-14 rounded-full transition-[background-color,width] duration-150 ease-out group-hover:w-20 group-hover:bg-primary/80 group-focus-visible:w-20 group-focus-visible:bg-primary ${dragging ? "w-20 bg-primary" : "bg-primary/45"}`}
         />
       </div>
-      <div data-testid="dock-body" style={{ height }} className="overflow-y-auto rounded-2xl">
-        {children}
+      <div data-testid="dock-body" style={{ height }} className="flex flex-col overflow-y-auto overflow-x-hidden rounded-2xl">
+        {/* my-auto : un contenu plus court que le panneau reste centré en hauteur */}
+        <div ref={fitRef} data-testid="dock-fit" className="dock-fit my-auto">{children}</div>
       </div>
     </>
   );
