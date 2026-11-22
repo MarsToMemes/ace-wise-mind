@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, ChevronDown, ChevronUp, X } from "lucide-react";
 import { usePlayers } from "@/hooks/use-players";
-import { upsertPlayer, setMyTable, addStats, addShownHand, setSeatPlayers, removeFromTable, clearTable } from "@/lib/playersStore";
+import { upsertPlayer, setMyTable, addStats, addShownHand, assignSeat, duplicateSeats, removeFromTable, clearTable } from "@/lib/playersStore";
 import { applyQuickEvent, HandFlags, QuickEvent, QUICK_LABEL, PREFLOP_EVENTS, POSTFLOP_EVENTS } from "@/engines/playerStats";
 import { PlayerCard, ProfileBadge } from "@/components/PlayerCard";
 import { PlayersDialog } from "@/components/PlayersDialog";
@@ -168,16 +168,18 @@ export const MyTablePanel = ({ seatLabels = [], heroSeat = -1 }: Props) => {
             Les mains que tu saisis sur la table de l'analyseur seront comptées dans la fiche de chaque joueur quand tu cliques sur « Reset ».
             {!hasSeats && " Place d'abord le bouton (dealer) sur la table."}
           </p>
+          {Object.entries(duplicateSeats(seats)).map(([pid, list]) => players[pid] && (
+            <p key={pid} className="text-xs text-amber-300 mt-2">
+              {players[pid].name} est sur deux sièges ({list.map(s => s + 1).join(" et ")}) : mets « — » sur celui où il n'est pas.
+              Ses stats ne sont pas comptées tant que ce n'est pas réglé.
+            </p>
+          ))}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
             {Array.from({ length: seatCount }, (_, i) => i).filter(i => i !== heroSeat).map(i => (
               <label key={i} className="text-xs space-y-1 block min-w-0">
                 <span className="text-muted-foreground">Siège {i + 1}{seatLabels[i] ? ` · ${seatLabels[i]}` : ""}</span>
                 <select value={seats[i] ?? ""} className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
-                  onChange={e => {
-                    const next = { ...seats };
-                    if (e.target.value) next[i] = e.target.value; else delete next[i];
-                    setSeatPlayers(next);
-                  }}>
+                  onChange={e => assignSeat(i, e.target.value || null)}>
                   <option value="">—</option>
                   {table.map(pid => players[pid] && <option key={pid} value={pid}>{players[pid].name}</option>)}
                 </select>

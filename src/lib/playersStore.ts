@@ -118,6 +118,27 @@ export const setMyTable = (ids: string[]) => write(TABLE_KEY, ids.slice(0, 9));
 export const getSeatPlayers = (): Record<number, string> => read<Record<number, string>>(SEATS_KEY, {});
 export const setSeatPlayers = (m: Record<number, string>) => write(SEATS_KEY, m);
 
+/** Place un joueur sur un siège (null : vide le siège). Un joueur n'occupe qu'un siège : il quitte l'ancien. */
+export function assignSeat(seat: number, id: string | null) {
+  const next: Record<number, string> = {};
+  for (const [k, pid] of Object.entries(getSeatPlayers())) if (+k !== seat && pid !== id) next[+k] = pid;
+  if (id) next[seat] = id;
+  setSeatPlayers(next);
+}
+
+/** Joueurs placés sur plusieurs sièges (données d'avant la correction) : id → sièges. */
+export function duplicateSeats(m: Record<number, string>): Record<string, number[]> {
+  const by: Record<string, number[]> = {};
+  for (const [k, pid] of Object.entries(m)) (by[pid] ??= []).push(+k);
+  return Object.fromEntries(Object.entries(by).filter(([, s]) => s.length > 1).map(([pid, s]) => [pid, s.sort((a, b) => a - b)]));
+}
+
+/** Sièges dont la main peut être comptée dans une fiche : pas ton siège, pas un joueur placé sur deux sièges. */
+export function creditableSeats(m: Record<number, string>, heroSeat: number): Record<number, string> {
+  const dup = duplicateSeats(m);
+  return Object.fromEntries(Object.entries(m).filter(([k, pid]) => +k !== heroSeat && !dup[pid]).map(([k, pid]) => [+k, pid]));
+}
+
 /** Retire un joueur de « Ma table » et de son siège (sa fiche reste). */
 export function removeFromTable(id: string) {
   setMyTable(getMyTable().filter(x => x !== id));

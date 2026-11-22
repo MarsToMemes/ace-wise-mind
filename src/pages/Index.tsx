@@ -71,7 +71,7 @@ import { actsFirstPostflop } from "@/engines/matchupRanges";
 import { usePlayers } from "@/hooks/use-players";
 import { useExploitSettings } from "@/lib/exploitSettings";
 import { countAnalyzedHand } from "@/engines/playerStats";
-import { getSeatPlayers, addStatsMany, loadPlayers, clearTable, addShownRecord } from "@/lib/playersStore";
+import { getSeatPlayers, addStatsMany, loadPlayers, clearTable, addShownRecord, creditableSeats } from "@/lib/playersStore";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
 import { trackPot, type PotOptions } from "@/lib/potTracker";
@@ -601,7 +601,8 @@ const Index = () => {
 
   // Compte la main saisie dans les fiches des joueurs associés aux sièges.
   const recordHandForPlayers = () => {
-    const seatMap = getSeatPlayers();
+    // ni ton siège, ni un joueur placé sur deux sièges (on ne saurait pas quelle main est la sienne)
+    const seatMap = creditableSeats(getSeatPlayers(), userIdx);
     if (!actionHistory.length || !Object.keys(seatMap).length || dealerIdx < 0) return;
     const positions: Record<number, string> = {};
     for (let i = 0; i < tableSize; i++) positions[i] = seatLabel(i, dealerIdx, tableSize);
