@@ -37,14 +37,23 @@ PERSONAL = re.compile(r"(/Users/|/home/|[A-Za-z]:\\\\Users\\\\)")
 GAP_DEFINITION = ("Somme, sur tous les sièges, du gain d'une meilleure réponse, en bb par main, mesurée dans le jeu "
                   "décrit par cette fiche (arbre, rake, modèle d'après-flop). Elle ne mesure pas l'erreur du modèle "
                   "d'après-flop lui-même.")
-EXPORT = {
-    "freqRoundingPts": 0.1,
-    "handRoundingPts": 1,
-    "handsListed": "mains atteintes à plus de 0,1 % dans ce nœud",
-    "branches": "une action n'est développée que si sa fréquence globale atteint 0,2 % ; au plus 4 relances ; "
-                "rien n'est développé après le call d'un 3-bet ou plus",
-    "importer": "scripts/import_gtopen.py",
-}
+BRANCH_MIN_DEFAULT = 0.002  # seuil de run.extract quand la sortie brute ne le précise pas
+
+
+def export_for(raw):
+    """Conventions d'export ; le seuil d'élagage vient de la sortie brute (« branch_min »)."""
+    m = raw.get("branch_min", BRANCH_MIN_DEFAULT)
+    pct = f"{m * 100:g}".replace(".", ",")
+    first = ("toutes les actions sont développées, même celles que la stratégie ne joue jamais" if m <= 0
+             else f"une action n'est développée que si sa fréquence globale atteint {pct} %")
+    return {
+        "freqRoundingPts": 0.1,
+        "handRoundingPts": 1,
+        "handsListed": "mains atteintes à plus de 0,1 % dans ce nœud",
+        "branchMinFreq": m,
+        "branches": first + " ; au plus 4 relances ; rien n'est développé après le call d'un 3-bet ou plus",
+        "importer": "scripts/import_gtopen.py",
+    }
 
 
 def short(label, kind):
@@ -144,7 +153,7 @@ def manifest_for(raw, table, table_bytes, meta):
             "gapIteration": raw.get("gap_iteration"), "stopReason": raw.get("stop_reason"),
             "gapDefinition": GAP_DEFINITION,
         },
-        "export": EXPORT,
+        "export": export_for(raw),
         "config": cfg,
         "generator": (meta or {}).get("generator"),
         "run": (meta or {}).get("run"),

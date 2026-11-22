@@ -77,6 +77,21 @@ class ImportTest(unittest.TestCase):
         self.assertEqual(m["config"], CONFIG)  # config brute gardée telle quelle
         self.assertEqual(m["generator"]["commit"], "370e1a19b")
 
+    def test_la_fiche_dit_le_seuil_d_elagage_par_defaut(self):
+        self.write_raw(raw_table())
+        imp.import_tables(self.src, self.dst, meta=META, log=lambda *a: None)
+        e = self.read("cash100.manifest.json")["export"]
+        self.assertEqual(e["branchMinFreq"], 0.002)
+        self.assertIn("0,2 %", e["branches"])
+
+    def test_la_fiche_dit_le_seuil_d_elagage_de_l_extraction(self):
+        self.write_raw({**raw_table(), "branch_min": 0})
+        imp.import_tables(self.src, self.dst, meta=META, log=lambda *a: None)
+        e = self.read("cash100.manifest.json")["export"]
+        self.assertEqual(e["branchMinFreq"], 0)
+        self.assertIn("toutes les actions", e["branches"])
+        self.assertNotIn("0,2 %", e["branches"])
+
     def test_aucun_chemin_personnel_dans_la_fiche(self):
         self.write_raw(raw_table())
         imp.import_tables(self.src, self.dst, meta=META, log=lambda *a: None)
