@@ -132,6 +132,11 @@
    "result": "DONK BET · Donk bet 33 % = 4.5 BB"
   },
   {
+   "id": "po-turn-value-facing",
+   "what": "Turn, JJ sur 2-7-2-T face à une mise",
+   "result": "CALL · Call 7 BB · requis 30.4 %"
+  },
+  {
    "id": "po-flop-air-facing-rake",
    "what": "Flop, air face à une mise, rake cash",
    "result": "FOLD · Coucher · requis 21.1 %"
