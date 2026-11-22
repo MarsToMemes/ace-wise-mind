@@ -117,6 +117,11 @@
    "result": "CHECK · Check (main à abattage)"
   },
   {
+   "id": "po-river-value-oop-overbet",
+   "what": "River, AT value hors de position, gros avantage de mains fortes",
+   "result": "CHECK · Check (check-call)"
+  },
+  {
    "id": "po-flop-air-facing-rake",
    "what": "Flop, air face à une mise, rake cash",
    "result": "FOLD · Coucher · requis 21.1 %"

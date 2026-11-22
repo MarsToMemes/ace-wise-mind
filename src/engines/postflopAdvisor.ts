@@ -225,6 +225,13 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     return mk("check", "CHECK", "Check", 100, [{ label: "Check", pct: 100 }]);
   }
 
+  // river, hors de position, en premier : l'overbet se joue avec le haut de ta range et des bluffs ; une value moyenne
+  // checke pour payer (banc maison / solveur : overbet joué 0 % du temps ici, check meilleur qu'une mise de 75 %)
+  if (role === "value" && kind === "overbet" && !ip && street === "River") {
+    reasons.unshift("Ta range a l'avantage des mains fortes, mais ta main n'en fait pas partie : l'overbet est pour le haut de ta range. Check, et paie s'il mise.");
+    plan.push("S'il mise : paie (ta main bat ses bluffs et une partie de sa value).");
+    return mk("check", "CHECK", "Check (check-call)", 70, [{ label: "Check", pct: 70 }, { label: "Mise 33 %", pct: 30 }]);
+  }
   if (role === "nuts" || role === "value") {
     const p = Math.max(80, rangeFreq);
     reasons.unshift(nOpp > 1 ? `Ta main est devant les ${nOpp} adversaires (${stats.handEquity} % d'équité, part équitable ${Math.round(100 / (nOpp + 1))} %) : mise pour la value.` : `Ta main est devant sa range (${stats.handEquity} % d'équité) : mise pour la value.`);
