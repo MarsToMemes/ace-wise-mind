@@ -74,3 +74,15 @@ describe("coverageOf", () => {
     expect(coverageOf(m).level).toBe("approx");
   });
 });
+
+describe("ligne préflop non calculée", () => {
+  it("dit quelle ligne manque, sans les folds", () => {
+    const m = matchSpot(G, SEATS, 1, [A(0, "Raise", 2.5), A(1, "Raise", 7.5), A(0, "Call")], 100);
+    expect(m.spot).toBeUndefined();
+    expect(m.missing).toBe(true);
+    expect(m.line).toBe("UTG relance 2,5 · MP relance 7,5 · UTG paye");
+  });
+  it("une main pas encore saisie n'est pas une ligne manquante", () => {
+    expect(matchSpot(G, ["", ""], 0, [], 100).missing).toBeFalsy();
+  });
+});

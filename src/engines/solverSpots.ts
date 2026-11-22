@@ -168,6 +168,18 @@ export interface SpotMatch {
   title: string;
   notes: string[];
   reason?: string;
+  /** true : la main saisie suit une ligne absente des calculs (pas une saisie incomplète). */
+  missing?: boolean;
+  /** Ligne jouée, sans les folds : « UTG relance 2,5 · MP tapis 100 ». */
+  line?: string;
+}
+
+const ACT_FR = (a: string) => (a === "C" ? "paye" : a === "L" ? "limp" : a === "X" ? "check" : isJam(a) ? `tapis ${fmtLine(+a.slice(1))}` : isRaise(a) ? `relance ${fmtLine(+a.slice(1))}` : a);
+const fmtLine = (x: number) => String(Math.round(x * 10) / 10).replace(".", ",");
+
+/** Texte d'une ligne de l'arbre, folds omis. */
+export function lineText(key: string): string {
+  return key ? key.split(",").map(x => x.split(":")).filter(([, a]) => a !== "F").map(([p, a]) => `${p} ${ACT_FR(a)}`).join(" · ") : "";
 }
 
 // --- Cash : profondeurs calculées ---
@@ -261,12 +273,8 @@ export function matchSpot(g: SolverGame, seatPos: string[], heroSeat: number, ac
   for (let guard = 0; guard < 40; guard++) {
     const spot = findSpot(g, key);
     if (!spot) {
-      return {
-        title: "", notes,
-        reason: used.size === 0
-          ? "Tout le monde se serait couché avant toi : saisis sur la table l'action d'au moins un joueur."
-          : "Cette ligne n'a pas été calculée (trop rare dans la stratégie du solveur).",
-      };
+      if (used.size === 0) return { title: "", notes, reason: "Tout le monde se serait couché avant toi : saisis sur la table l'action d'au moins un joueur." };
+      return { title: "", notes, reason: "Cette ligne n'a pas été calculée (trop rare dans la stratégie du solveur).", missing: true, line: lineText(key) };
     }
     const remainingOthers = pre.some((a, i) => !used.has(i) && seatPos[a.seatIdx] !== heroPos);
     const nextIdx = pre.findIndex((a, i) => !used.has(i) && seatPos[a.seatIdx] === spot.a);
@@ -278,7 +286,11 @@ export function matchSpot(g: SolverGame, seatPos: string[], heroSeat: number, ac
     if (nextIdx >= 0) {
       act = toSolverAct(spot, pre[nextIdx], stackBB);
       used.add(nextIdx);
-      if (!act) return { title: "", notes, reason: `Action de ${spot.a} absente de l'arbre calculé.` };
+      if (!act) {
+        const a = pre[nextIdx];
+        const what = a.type === "Call" ? "paye" : a.type === "Check" ? "check" : a.type === "Fold" ? "se couche" : `relance ${fmtLine(a.amountBB)}`;
+        return { title: "", notes, reason: `Action de ${spot.a} absente de l'arbre calculé.`, missing: true, line: [lineText(spot.k), `${spot.a} ${what}`].filter(Boolean).join(" · ") };
+      }
       const approx = approxNote(spot.a, pre[nextIdx], act, stackBB);
       if (approx) notes.push(approx);
     } else {

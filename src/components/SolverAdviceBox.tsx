@@ -32,9 +32,11 @@ interface Props {
   format?: Format;
   /** Calcule sans rien afficher (le conseil est montré dans la décision synthétique). */
   headless?: boolean;
+  /** Ligne préflop jouée mais absente des calculs (texte), ou null. */
+  onMiss?: (line: string | null) => void;
 }
 
-export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, defaultFormat, onAdvice, format: formatProp, headless }: Props) => {
+export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, defaultFormat, onAdvice, format: formatProp, headless, onMiss }: Props) => {
   const [index, setIndex] = useState<SolverIndexEntry[]>([]);
   const [formatState, setFormat] = useState<Format>(() => {
     try { return (localStorage.getItem(FORMAT_KEY) as Format) || defaultFormat; } catch { return defaultFormat; }
@@ -85,6 +87,11 @@ export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, def
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topKey]);
 
+  const missLine = result?.missing ? result.line ?? "" : "";
+  useEffect(() => {
+    onMiss?.(missLine || null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missLine]);
   if (headless) return null;
   return (
     <Card className="glass-panel p-5 space-y-3 border-emerald-500/40">

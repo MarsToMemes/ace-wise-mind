@@ -39,6 +39,7 @@ import { DecisionVerdict } from "@/components/DecisionVerdict";
 import { ResizableDock } from "@/components/ResizableDock";
 import { HandHistory } from "@/components/HandHistory";
 import { saveHand, type SavedHand } from "@/lib/handHistory";
+import { gapsOf, recordGaps, heroJustActed, endsOnHeroDecision, type Gap } from "@/lib/gapLog";
 import { loadSeat, saveSeat, nextHandSeat, type TableSeat } from "@/lib/tableSeat";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
@@ -482,6 +483,24 @@ const Index = () => {
     return `Garde-fou : le solveur voulait bluffer, mais ${vf.name} est un ${FAMILY_LABEL[fam].toLowerCase()} qui paie trop pour qu'un bluff rapporte. Conseil maison à la place.`;
   }, [endgame, exploit.villainFile, hole, board]);
 
+  // === Lacunes : conseils moins fiables que le solveur, notées par main dans ce navigateur (onglet « À calculer »)
+  const [preflopMissing, setPreflopMissing] = useState<string | null>(null);
+  const gapsNow = useMemo(() => gapsOf({
+    street: currentStreet, hasHand: hole.length === 2 && userIdx >= 0 && dealerIdx >= 0, stackBB: stack, depthOk: cashCover.ok,
+    preflop: currentStreet === "Preflop" ? solverPreflop : null,
+    preflopMissing: currentStreet === "Preflop" ? preflopMissing : null,
+    postflop: currentStreet !== "Preflop" && !!postflopAdvice,
+    multiway: !!postflopCtx?.endgameNote, guard: !!endgameGuard,
+  }), [currentStreet, hole, userIdx, dealerIdx, stack, cashCover.ok, solverPreflop, preflopMissing, postflopAdvice, postflopCtx, endgameGuard]);
+  // lacunes des décisions de la main en cours : le conseil affiché juste avant chaque action du joueur
+  const handGaps = useRef(new Map<string, Gap>());
+  const gapsSeen = useRef<{ len: number; gaps: Gap[] }>({ len: 0, gaps: [] });
+  useEffect(() => {
+    const prev = gapsSeen.current;
+    if (heroJustActed(prev.len, actionHistory, userIdx)) for (const g of prev.gaps) handGaps.current.set(g.key, g);
+    gapsSeen.current = { len: actionHistory.length, gaps: gapsNow };
+  }, [actionHistory, gapsNow, userIdx]);
+
   // Pseudo + profil court affichés au-dessus de chaque siège associé à une fiche
   const seatNames = useMemo(() => {
     const TONE: Record<Family, string> = {
@@ -599,11 +618,17 @@ const Index = () => {
    *  Une main rouverte depuis l'historique est mise à jour, et n'est pas comptée une seconde fois. */
   const finishHand = () => {
     if (analyzerMode === "cash") {
-      saveHand(
+      const saved = saveHand(
         { tableSize, dealerIdx, userIdx, hole, flop, turn, river, folded, stack, pot, call, actions: actionHistory, shown: shownCards },
         { replaceId: reviewId ?? undefined },
       );
+      if (saved) {
+        // main laissée au moment où le joueur devait agir : le conseil affiché compte aussi
+        if (endsOnHeroDecision(actionHistory, userIdx)) for (const g of gapsNow) handGaps.current.set(g.key, g);
+        recordGaps([...handGaps.current.values()], saved.id);
+      }
     }
+    handGaps.current = new Map();
     if (!reviewId) recordHandForPlayers();
     setReviewId(null);
   };
@@ -931,6 +956,7 @@ const Index = () => {
                 stackBB={stack}
                 defaultFormat={solverFormat}
                 onAdvice={setSolverPreflop}
+                onMiss={setPreflopMissing}
               />
               <div className="grid lg:grid-cols-2 gap-8 items-start">
               <div className="space-y-6">
