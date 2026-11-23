@@ -5,7 +5,7 @@ import { Network } from "lucide-react";
 import { handLabel } from "@/engines/cashPreflopEngine";
 import {
   SolverGame, SolverIndexEntry, loadSolverIndex, loadSolverGame, pickGame, matchSpot, adviceForHand, actLabel,
-  isJam, isRaise, TableAction, cashCoverage, coverageOf, Coverage, RARE_NOTE,
+  isJam, isRaise, TableAction, cashCoverage, coverageOf, Coverage, RARE_NOTE, loadSolverVersion,
 } from "@/engines/solverSpots";
 
 type Format = "mtt" | "cash";
@@ -27,7 +27,7 @@ interface Props {
   stackBB: number;
   defaultFormat: Format;
   /** Remonte le conseil complet (pour la décision synthétique). */
-  onAdvice?: (a: { act: string; pct: number; label: string; title?: string; hand?: string; mix?: { label: string; pct: number }[]; coverage?: Coverage } | null) => void;
+  onAdvice?: (a: { act: string; pct: number; label: string; title?: string; hand?: string; mix?: { label: string; pct: number }[]; coverage?: Coverage; version?: string } | null) => void;
   /** Format contrôlé par le parent (sinon mémorisé localement). */
   format?: Format;
   /** Calcule sans rien afficher (le conseil est montré dans la décision synthétique). */
@@ -60,9 +60,14 @@ export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, def
     return pickGame(index, "mtt", stackBB);
   }, [index, format, stackBB, blindBattle]);
 
+  const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
     setGame(null);
-    if (entry) loadSolverGame(entry.id).then(setGame).catch(() => setGame(null));
+    setVersion(null);
+    if (entry) {
+      loadSolverGame(entry.id).then(setGame).catch(() => setGame(null));
+      loadSolverVersion(entry.id).then(setVersion);
+    }
   }, [entry]);
 
   const result = useMemo(() => {
@@ -77,12 +82,13 @@ export const SolverAdviceBox = ({ hole, seatPos, heroSeat, actions, stackBB, def
   const top = advice?.[0];
   // fiabilité du conseil (cash seulement) : ligne exacte, rapprochée ou rare
   const coverage = result && format === "cash" ? coverageOf(result, cashCoverage(stackBB).note) : undefined;
-  const topKey = top ? `${top.act}:${top.pct}:${entry?.label}:${result?.title}:${hand}:${coverage?.level}:${coverage?.details.join("|")}` : "";
+  const topKey = top ? `${top.act}:${top.pct}:${entry?.label}:${result?.title}:${hand}:${coverage?.level}:${coverage?.details.join("|")}:${version}` : "";
   useEffect(() => {
     onAdvice?.(top ? {
       act: top.act, pct: top.pct, label: entry?.label ?? "", title: result?.title, hand,
       mix: advice!.map(x => ({ label: actLabel(x.act), pct: x.pct })),
       coverage,
+      version: version ?? undefined,
     } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topKey]);

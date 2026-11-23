@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# lot 8 : tables candidates et archives, gardées sur cette machine (npm run promote)
+solver-candidates/
+solver-archive/

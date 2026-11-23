@@ -26,6 +26,8 @@ export interface SolverPreflop {
   mix?: { label: string; pct: number }[];
   /** Fiabilité : ligne exacte, rapprochée ou rare (cash seulement). */
   coverage?: Coverage;
+  /** Date de calcul de la table qui a répondu (« 22 nov. 2026 »). */
+  version?: string;
 }
 
 export interface ExploitView {
@@ -270,6 +272,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
       <details data-dock-extra="1" data-dock-area="details" className="rounded-md border border-border/50 px-3 py-2 text-xs">
         <summary className="cursor-pointer text-muted-foreground">Détails du calcul</summary>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+          {street === "Preflop" && solver?.version && <Detail label="Table préflop" value={`${solver.label} · calculée le ${solver.version}`} />}
           {rangeSource && street !== "Preflop" && <Detail label="Ranges d'entrée" value={rangeSource} />}
           {rake && <Detail label="Rake compté" value={`${String(rake.pct).replace(".", ",")} %${rake.capBB != null ? ` · max ${String(rake.capBB).replace(".", ",")} bb` : ""}`} />}
           {source === "Solveur de fin de main" && endgame?.result && (

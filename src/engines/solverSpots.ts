@@ -38,6 +38,25 @@ export async function loadSolverIndex(): Promise<SolverIndexEntry[]> {
   return r.json();
 }
 
+const MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+/** « 2026-11-22 » → « 22 nov. 2026 » (sinon le texte tel quel). */
+export function versionLabel(d: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+  return m ? `${+m[3]} ${MONTHS[+m[2] - 1]} ${m[1]}` : d;
+}
+
+/** Date de calcul de la table (fiche d'origine), null si la table n'a pas de fiche. */
+export async function loadSolverVersion(id: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${base()}solver/${id}.manifest.json`);
+    if (!r.ok) return null;
+    const m = await r.json();
+    return typeof m?.run?.dates === "string" ? versionLabel(m.run.dates) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function loadSolverGame(id: string): Promise<SolverGame> {
   if (!cache.has(id)) {
     cache.set(id, fetch(`${base()}solver/${id}.json`).then(r => {

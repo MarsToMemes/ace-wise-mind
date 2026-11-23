@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bench": "vite-node --mode production scripts/bench.ts"
+    "bench": "vite-node --mode production scripts/bench.ts",
+    "promote": "vite-node --mode production scripts/promote.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
