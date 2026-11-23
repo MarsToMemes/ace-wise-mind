@@ -58,12 +58,12 @@ export class VRiver3 {
   private order: Int32Array[];       // mains de chaque joueur triées par force croissante
 
   /** terminal : « auto » (défaut) prend le calcul exact quand les ranges sont si petites qu'il est plus rapide. */
-  /** cfr+ (défaut) ou dcfr : Discounted CFR α=1,5 β=0 γ=2 (D18), comme le solveur tête-à-tête. */
+  /** dcfr (défaut, D18) : Discounted CFR α=1,5 β=0 γ=2, comme le solveur tête-à-tête ; cfr+ reste disponible. */
   readonly algo: "cfr+" | "dcfr";
   private disc: [number, number, number] = [1, 1, 1];
 
   constructor(readonly spec: VSpec, opts: { terminal?: "fast" | "exact" | "auto"; algo?: "cfr+" | "dcfr" } = {}) {
-    this.algo = opts.algo ?? "cfr+";
+    this.algo = opts.algo ?? "dcfr";
     const board = new Set(spec.board);
     this.hands = spec.ranges.map(r => r.filter(h => h.w > 0 && !board.has(h.cards[0]) && !board.has(h.cards[1])));
     this.ranks = this.hands.map(r => Int32Array.from(r, h => rank7([...h.cards, ...spec.board])));
@@ -366,6 +366,23 @@ export class VRiver3 {
       this.disc = [p / (p + 1), 0.5, Math.pow((t - 1) / t, 2)];
       for (let i = 0; i < 3; i++) this.walk(this.root, i, this.reach0());
     }
+  }
+
+  /**
+   * Calcul avec contrôles : toutes les `every` itérations, mesure la NashConv exacte de la stratégie moyenne et garde la
+   * meilleure (D18) — on ne publie jamais moins bien que le meilleur point atteint, même si la mesure remonte ensuite.
+   */
+  solve(iterations: number, every = 100) {
+    const checks: { iterations: number; nashConv: number }[] = [];
+    let profile = this.averageProfile(), nashConv = Infinity, at = 0;
+    for (let done = 0; done < iterations;) {
+      const k = Math.min(every, iterations - done);
+      this.run(k); done += k;
+      const avg = this.averageProfile(), nc = this.nashConv(avg);
+      checks.push({ iterations: this.iterations, nashConv: nc });
+      if (nc < nashConv) { nashConv = nc; profile = avg; at = this.iterations; }
+    }
+    return { profile, nashConv, iterations: at, checks };
   }
 
   averageProfile(): VProfile {

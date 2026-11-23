@@ -10,9 +10,22 @@ const micro = fromRiverSpec({ ...MICRO_RIVER, rake: CASH_RAKE });
 const rich: VSpec = { ...micro, bets: [0.33, 0.75, 1.25], raise: true, allin: true, maxAggr: 3, rake: null };
 
 describe("étape 2c : Discounted CFR dans le solveur river à 3", () => {
-  it("CFR+ reste le calcul par défaut ; DCFR se choisit explicitement", () => {
-    expect(new VRiver3(micro).algo).toBe("cfr+");
-    expect(new VRiver3(micro, { algo: "dcfr" }).algo).toBe("dcfr");
+  it("DCFR est le calcul par défaut (D18) ; CFR+ reste disponible", () => {
+    expect(new VRiver3(micro).algo).toBe("dcfr");
+    expect(new VRiver3(micro, { algo: "cfr+" }).algo).toBe("cfr+");
+  });
+
+  it("calcul avec contrôles : garde la stratégie à la plus faible NashConv mesurée (cas tapis court + rake, D15)", () => {
+    const s = { ...micro, stacks: [15, 100, 100] };
+    const v = new VRiver3(s);
+    const res = v.solve(3000, 250);
+    expect(res.checks.length).toBe(12);
+    const best = Math.min(...res.checks.map(c => c.nashConv));
+    expect(res.nashConv).toBe(best);
+    expect(v.nashConv(res.profile)).toBeCloseTo(best, 12);
+    expect(res.nashConv).toBeLessThanOrEqual(v.nashConv(v.averageProfile()) + 1e-12);
+    expect(res.iterations).toBe(res.checks.find(c => c.nashConv === best)!.iterations);
+    expect(res.nashConv).toBeLessThan(0.001 * s.potBB);
   });
 
   it("DCFR : la stratégie trouvée, rejouée dans l'arbre explicite de l'étape 1, a la même NashConv, sous 0,1 % du pot", () => {

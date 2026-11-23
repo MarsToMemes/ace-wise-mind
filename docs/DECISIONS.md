@@ -264,7 +264,7 @@ CFR, les deux atteignent la même précision (les stratégies peuvent différer 
 **Écartés.** Échantillonnage Monte-Carlo (mesure bruitée) ; un calcul « par tri » sans inclusion-exclusion (faux dès
 que des cartes sont partagées).
 
-## D18 — Discounted CFR pour le solveur multiway · mesuré, proposé (CFR+ reste le défaut) · 2026-11-23
+## D18 — Discounted CFR pour le solveur multiway · retenu (validé par l'utilisateur) · 2026-11-23
 
 **Quoi.** Option `algo: "dcfr"` de VRiver3 : Discounted CFR (thèse de N. Brown, §3.1) avec α = 1,5, β = 0, γ = 2,
 exactement comme le solveur tête-à-tête (src/engines/endgame/cfr.ts). Testé dans src/test/multiway2c.test.ts.
@@ -284,6 +284,12 @@ rake) 30 à 50 fois plus précis, sans le faire converger proprement pour autant
 2 000 itérations (0,00007 → 0,00045). Sur de longs calculs, DCFR n'est pas toujours meilleur (cas 40/100/100 à 2 000
 itérations). Conforme à la thèse : DCFR est le plus utile entre 100 et 1 000 itérations, la zone qu'on utilise.
 
-**Proposition (à valider).** Passer DCFR par défaut, et garder pendant le calcul la stratégie qui a la plus faible
-NashConv mesurée (la thèse le fait quand la convergence est bruitée), pour ne jamais publier moins bien que le meilleur
-point atteint.
+**Décision.** DCFR est le calcul par défaut ; CFR+ reste disponible (`algo: "cfr+"`). La méthode `solve(n, every)`
+mesure la NashConv exacte toutes les `every` itérations et garde la stratégie la meilleure (la thèse le fait quand la
+convergence est bruitée) : on ne publie jamais moins bien que le meilleur point atteint. Coût des contrôles : environ
+2 % du temps de calcul. Mesuré : tapis 15/100/100 + rake, 0,00034 bb en fin de calcul mais 0,00007 bb gardé (atteint
+à 2 000 itérations) ; arbre riche 40/100/100 + rake, 0,0086 en fin, 0,0046 gardé ; 100 mains, la dernière est la
+meilleure (0,0084).
+
+**Écartés.** Garder CFR+ (deux fois plus lent pour la même précision) ; Linear CFR (meilleur avec échantillonnage
+Monte-Carlo, qu'on n'utilise pas) ; mesurer à chaque itération (trop cher).
