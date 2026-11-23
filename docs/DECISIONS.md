@@ -293,3 +293,25 @@ meilleure (0,0084).
 
 **Écartés.** Garder CFR+ (deux fois plus lent pour la même précision) ; Linear CFR (meilleur avec échantillonnage
 Monte-Carlo, qu'on n'utilise pas) ; mesurer à chaque itération (trop cher).
+
+## D19 — River à 3 sur de vraies ranges, sans abstraction des combos · retenu · 2026-11-23
+
+**Choix.** `riverSpot3` (src/engines/multiway/riverSpot3.ts) construit le spot : ranges préflop de la ligne jouée
+(lineRanges sur la table du site), étendues en combos hors cartes du board, resserrées au flop et à la turn par les
+filtres du site (filterByLine), joueurs rangés dans l'ordre de parole après le flop, rake cash. Tests :
+src/test/multiway2d.test.ts.
+
+**Mesuré.** CO ouvre, BTN et BB paient, board Kh 9d 4c 7s 2h : 864 / 335 / 50 combos (BB / CO / BTN).
+Tout checké, pot 8 bb : NashConv 0,88 % du pot à 250 itérations, 0,29 % à 500, **0,10 % à 1 000 (≈ 5 min)**,
+0,04 % à 2 000 (≈ 10 min), en baisse régulière.
+
+**Abstraction écartée.** Retirer les combos de poids faible (sous 10 % ou 25 % du plus gros poids) ne retire que 0 à
+14 % du poids, mais change le résultat bien au-delà du bruit du calcul : fréquence de mise de la BB 5,6 % → 9,2 %
+(seuil 25 %) ; écart de valeur jusqu'à 0,39 bb (pot 8) et 2,3 bb (pot 17,6, ligne c-bet payée). Ces combos rares
+comptent (bloqueurs, mains qui paient). L'option `minWeight` reste pour les tests mais vaut 0 par défaut.
+
+**Limites connues.** (1) Les filtres du flop et de la turn sont des règles pensées pour le tête-à-tête : à 3, c'est
+une approximation. Pluribus déduit les ranges de la street suivante de la stratégie calculée (règle de Bayes) : à
+faire quand le solveur de turn existera (étape 4). (2) 5 minutes pour 0,1 % du pot : trop lent pour un conseil en
+direct, assez pour un banc d'essai ou un calcul hors ligne. Pistes mesurables : ignorer les mains de probabilité
+nulle (Pluribus : ×4), mettre en cache les spots déjà résolus.
