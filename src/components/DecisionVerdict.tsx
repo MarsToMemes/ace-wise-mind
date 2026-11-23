@@ -78,6 +78,8 @@ const MIX_COLOR = (label: string) => {
 const ENDGAME_VERB = (k: ActKind, label: string) =>
   k === "check" ? "CHECK" : k === "fold" ? "FOLD" : k === "call" ? "CALL" : k === "allin" ? "TAPIS" : k === "raise" ? "RELANCE"
   : +(label.match(/^Mise (\d+)/)?.[1] ?? 0) > 100 ? "OVERBET" : "MISE";
+/** Pourcentage arrondi à une décimale (la cote brute en a quatorze). */
+const pct1 = (x: number) => Math.round(x * 10) / 10;
 const bb = (x: number) => `${x >= 0 ? "+" : ""}${(Math.round(x * 10) / 10).toString().replace(".", ",")} bb`;
 
 const SOLVER_VERB = (a: string) =>
@@ -162,7 +164,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
       : sz && (sz.heroAction === "Bet" || sz.heroAction === "Raise") ? `${sz.heroAction === "Raise" ? "Relancer" : "Miser"} ${sz.amountBB} BB (${sz.pctMin}–${sz.pctMax} % du pot)`
       : polar && polar.sizing.action === "BET" ? `${polar.sizing.label}` : "—";
     mix = [{ label: verb, pct: 100 }];
-    reasons = [`Équité ${Math.round(engine.equityPct)} %${engine.reqEquity ? ` vs cote ${engine.reqEquity} %` : ""} · board ${engine.texture}.`];
+    reasons = [`Équité ${Math.round(engine.equityPct)} %${engine.reqEquity ? ` vs cote ${pct1(engine.reqEquity)} %` : ""} · board ${engine.texture}.`];
     if (street !== "Preflop") reasons.push("Place le bouton et ton siège sur la table pour un conseil plus précis (ranges et position).");
   }
 
@@ -296,7 +298,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           ) : (
             <>
               <Detail label="Équité (moteur)" value={`${Math.round(engine.equityPct)} %`} />
-              <Detail label="Cote" value={engine.reqEquity ? `${engine.reqEquity} %` : "—"} />
+              <Detail label="Cote" value={engine.reqEquity ? `${pct1(engine.reqEquity)} %` : "—"} />
               <Detail label="Range H" value={`${engine.heroRA}`} />
               <Detail label="Range V" value={`${engine.villainRA}`} />
             </>
