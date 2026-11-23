@@ -115,12 +115,42 @@ export interface HandState {
   toAct: number;
   toCall: number;
   legal: LegalActions | null;
-  /** Pots quand des joueurs sont à tapis pour des montants différents (vide sinon). */
+  /**
+   * Pots tels qu'ils sont maintenant : principal, annexes, et mise rendue (« refund » : partie d'une mise que personne
+   * n'a payée, qui revient à son auteur). eligible : joueurs qui peuvent gagner ce pot (un joueur qui doit encore
+   * parler peut encore les payer tous ; un joueur à tapis seulement ceux qu'il a couverts).
+   */
+  pots: Pot[];
+  /** Pots contestés quand il y en a au moins deux (pots annexes), vide sinon. */
   sidePots: { amount: number; eligible: number[] }[];
   supported: boolean;
   unsupported: string[];
   rake: RakeConvention | null;
   ranges: { seatIdx: number; slot: string; source: string }[];
+}
+
+export interface Pot { amount: number; eligible: number[]; kind: "main" | "side" | "refund" }
+
+/** Découpe ce que chacun a mis en pots, par niveaux de mise ; argent des joueurs couchés compris. */
+export function computePots(seats: SeatState[], bettingOpen: boolean): Pot[] {
+  const levels = [...new Set(seats.map(s => s.investedBB).filter(x => x > EPS))].sort((x, y) => x - y);
+  const out: Pot[] = [];
+  let prev = 0;
+  for (const L of levels) {
+    const amount = r2(seats.reduce((t, s) => t + Math.min(s.investedBB, L) - Math.min(s.investedBB, prev), 0));
+    const contributors = seats.filter(s => s.investedBB > prev + EPS).map(s => s.idx);
+    const eligible = seats.filter(s => !s.folded && (s.investedBB >= L - EPS || (bettingOpen && !s.allIn))).map(s => s.idx);
+    prev = L;
+    if (amount <= EPS) continue;
+    if (!eligible.length) { if (out.length) out[out.length - 1].amount = r2(out[out.length - 1].amount + amount); continue; }
+    const kind: Pot["kind"] = eligible.length === 1 && contributors.length === 1 && contributors[0] === eligible[0] ? "refund" : "side";
+    const last = out[out.length - 1];
+    if (last && last.kind === kind && last.eligible.join() === eligible.join()) last.amount = r2(last.amount + amount);
+    else out.push({ amount, eligible, kind });
+  }
+  const first = out.find(p => p.kind !== "refund");
+  if (first) first.kind = "main";
+  return out;
 }
 
 export interface BuildResult {
@@ -171,6 +201,12 @@ export function buildHandState(input: HandInput): BuildResult {
   let street: Street = "Preflop";
   let currentBet = 0, lastRaise = bb, lastActor = -1;
   let acted = new Set<number>();
+  // Réouverture des enchères suivie par joueur (règle A, docs/DECISIONS.md D2) : la mise en cours et la taille de relance
+  // complète au moment où le joueur a parlé ; il ne peut relancer que si les relances depuis atteignent ce montant.
+  let seenBet = new Map<number, number>(), seenRaise = new Map<number, number>();
+  const canRaise = (i: number) =>
+    !seenBet.has(i) || currentBet - (seenBet.get(i) ?? 0) >= (seenRaise.get(i) ?? bb) - EPS;
+  const noteAction = (i: number) => { seenBet.set(i, currentBet); seenRaise.set(i, lastRaise); };
   if (hasDealer) {
     if (ante > 0) seats.forEach(s => put(s.idx, ante, false));
     put(sbIdx, sb);
@@ -197,6 +233,7 @@ export function buildHandState(input: HandInput): BuildResult {
     street = st;
     seats.forEach(s => { s.streetBB = 0; });
     currentBet = 0; lastRaise = bb; lastActor = -1; acted = new Set();
+    seenBet = new Map(); seenRaise = new Map();
   };
 
   input.actions.forEach((a, k) => {
@@ -237,6 +274,9 @@ export function buildHandState(input: HandInput): BuildResult {
       if (a.type === "Raise" && currentBet <= EPS) err("RAISE_WITHOUT_BET", "Relance impossible : personne n'a misé (c'est une mise).", k);
       if (to > maxTo + EPS) { err("OVER_STACK", `Montant ${to} bb au-delà du tapis (${maxTo} bb au plus).`, k); to = maxTo; }
       const allIn = to >= maxTo - EPS;
+      if (currentBet > EPS && to > currentBet + EPS && !canRaise(s.idx)) {
+        err("RAISE_NOT_REOPENED", `Relance impossible : depuis ta dernière action, les relances (${r2(currentBet - (seenBet.get(s.idx) ?? 0))} bb) n'atteignent pas une relance complète (${r2(seenRaise.get(s.idx) ?? bb)} bb). Payer ou se coucher.`, k);
+      }
       if (currentBet > EPS) {
         if (to <= currentBet + EPS || (to - currentBet < lastRaise - EPS && !allIn)) {
           err("RAISE_BELOW_MIN", `Relance à ${to} bb : il faut au moins ${r2(currentBet + lastRaise)} bb.`, k);
@@ -252,6 +292,7 @@ export function buildHandState(input: HandInput): BuildResult {
         acted = new Set([s.idx]);
       } else acted.add(s.idx);
     }
+    if (a.type !== "Fold") noteAction(s.idx);
     lastActor = s.idx;
   });
 
@@ -276,37 +317,25 @@ export function buildHandState(input: HandInput): BuildResult {
       check: toCall <= EPS,
       call: toCall > EPS ? r2(Math.min(toCall, rem)) : 0,
       bet: currentBet <= EPS && rem > EPS ? { min: r2(Math.min(bb, rem)), max: rem } : null,
-      raise: currentBet > EPS && rem > toCall + EPS
+      raise: currentBet > EPS && rem > toCall + EPS && canRaise(toAct)
         ? { minTo: r2(Math.min(currentBet + lastRaise, s.streetBB + rem)), maxTo: r2(s.streetBB + rem) }
         : null,
     };
   }
 
-  // pots annexes : seulement une fois les mises closes, quand des joueurs sont à tapis pour des montants différents
-  let sidePots: HandState["sidePots"] = [];
-  const live = seats.filter(s => !s.folded);
-  if (toAct < 0 && live.some(s => s.allIn)) {
-    const levels = [...new Set(live.map(s => s.investedBB))].sort((x, y) => x - y);
-    const pots: HandState["sidePots"] = [];
-    let prev = 0;
-    for (const L of levels) {
-      const amount = r2(seats.reduce((sum, s) => sum + Math.min(s.investedBB, L) - Math.min(s.investedBB, prev), 0));
-      const eligible = live.filter(s => s.investedBB >= L - EPS).map(s => s.idx);
-      if (amount > EPS) pots.push({ amount, eligible });
-      prev = L;
-    }
-    if (pots.length >= 2) sidePots = pots;
-  }
+  // pots à tout moment : principal, annexes, mise rendue
+  const pots = computePots(seats, toAct >= 0);
+  const contested = pots.filter(p => p.kind !== "refund");
+  const sidePots: HandState["sidePots"] = contested.length >= 2 ? contested.map(({ amount, eligible }) => ({ amount, eligible })) : [];
 
   const unsupported: string[] = [];
   if (!hasDealer) unsupported.push("NO_DEALER");
-  if (sidePots.length >= 2) unsupported.push("SIDE_POTS");
 
   const state: HandState = {
     variant: "NLHE", format: "cash", tableSize: n, dealerIdx: input.dealerIdx, heroIdx: input.heroIdx, sbIdx, bbIdx,
     blinds: { sb, bb, ante }, stacksAssumed: !Array.isArray(input.stacksBB), seats,
     hole: [...input.hole], board: [...input.board], street, history: [...input.actions],
-    pot, currentBet, lastRaiseBB: lastRaise, toAct, toCall, legal, sidePots,
+    pot, currentBet, lastRaiseBB: lastRaise, toAct, toCall, legal, pots, sidePots,
     supported: unsupported.length === 0, unsupported,
     rake: input.rake ?? null, ranges: input.ranges ?? [],
   };
@@ -341,8 +370,8 @@ export function checkInvariants(s: HandState): Violation[] {
       || (L.raise && L.raise.minTo > L.raise.maxTo + EPS);
     if (bad) v("LEGAL_INCONSISTENT", "Actions légales incohérentes avec le montant à payer.");
   }
-  if (s.sidePots.length && Math.abs(s.sidePots.reduce((t, p) => t + p.amount, 0) - s.pot) > EPS) {
-    v("SIDE_POTS_SUM", "Les pots annexes ne font pas le pot.");
+  if (s.pots.length && Math.abs(s.pots.reduce((t, p) => t + p.amount, 0) - s.pot) > EPS) {
+    v("POTS_SUM", "Les pots (principal, annexes, mise rendue) ne font pas le pot.");
   }
   return out;
 }
