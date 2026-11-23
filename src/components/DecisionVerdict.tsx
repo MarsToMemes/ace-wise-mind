@@ -188,7 +188,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           )}
         </div>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-mono">
-          <span>pot {pot} BB · tapis {stack} BB · SPR {spr === 99 ? "∞" : spr.toFixed(1)}</span>
+          <span>pot {pot} BB · tapis effectif {stack} BB · SPR {spr === 99 ? "∞" : spr.toFixed(1)}</span>
           {street === "Preflop" && onFormat && (
             <span className="flex rounded-md border border-border overflow-hidden font-sans">
               {(["mtt", "cash"] as const).map(f => (

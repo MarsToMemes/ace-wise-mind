@@ -40,7 +40,10 @@ import { ResizableDock } from "@/components/ResizableDock";
 import { HandHistory } from "@/components/HandHistory";
 import { saveHand, type SavedHand } from "@/lib/handHistory";
 import { gapsOf, recordGaps, heroJustActed, endsOnHeroDecision, type Gap } from "@/lib/gapLog";
-import { loadSeat, saveSeat, nextHandSeat, type TableSeat } from "@/lib/tableSeat";
+import { loadSeat, saveSeat, nextHandSeat, seatNumber, type TableSeat } from "@/lib/tableSeat";
+import { loadStacks, saveStacks, handContributions, settleHand, handOutcome, effectiveStack } from "@/lib/tableStacks";
+import { WinnerDialog } from "@/components/WinnerDialog";
+import { StacksPanel } from "@/components/StacksPanel";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
 import { BountyKoPanel } from "@/components/BountyKoPanel";
@@ -100,6 +103,10 @@ const Index = () => {
   const [seatMode, setSeatMode] = useState<SeatMode>(() => (!initSeat ? "dealer" : initSeat.user < 0 ? "user" : "action"));
   const [folded, setFolded] = useState<boolean[]>(() => Array(initSeat?.size ?? 6).fill(false));
   const [stack, setStack] = useState(100);
+  // tapis de chaque siège, suivis d'une main à l'autre à la même table (cash) ; « Nouvelle table » les remet à 100 bb
+  const [seatStacks, setSeatStacks] = useState<number[]>(() => loadStacks(initSeat?.size ?? 6));
+  const [pendingSettle, setPendingSettle] = useState<{ candidates: number[]; leaveTable: boolean } | null>(null);
+  useEffect(() => { saveStacks(seatStacks); }, [seatStacks]);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
   const [actionHistory, setActionHistory] = useState<PlayerAction[]>([]);
@@ -165,6 +172,21 @@ const Index = () => {
     () => Array.from({ length: tableSize }, (_, i) => potState.contribs[i] ?? 0),
     [potState, tableSize],
   );
+  // tapis suivis (cash, table en cours) : tapis de départ de chaque siège, ce qu'il lui reste, tapis effectif pour les conseils
+  const tracked = analyzerMode === "cash" && !reviewId && userIdx >= 0 && seatStacks.length === tableSize;
+  const heroStart = tracked ? seatStacks[userIdx] : stack;
+  const handContrib = useMemo(() => handContributions(actionHistory, potOpts, tableSize), [actionHistory, potOpts, tableSize]);
+  const seatRemaining = tracked ? seatStacks.map((x, i) => Math.max(0, Math.round((x - handContrib[i]) * 10) / 10)) : undefined;
+  const effStack = useMemo(() => {
+    if (!tracked) return stack;
+    const out = new Set(actionHistory.filter(a => a.type === "Fold").map(a => a.seatIdx));
+    folded.forEach((f, i) => { if (f) out.add(i); });
+    const acted = new Set(actionHistory.filter(a => a.type !== "Fold").map(a => a.seatIdx));
+    // préflop : tous ceux qui peuvent encore jouer ; après le flop : ceux qui sont dans le coup
+    const opps = Array.from({ length: tableSize }, (_, i) => i)
+      .filter(i => i !== userIdx && !out.has(i) && (currentStreet === "Preflop" || acted.has(i)));
+    return Math.round(effectiveStack(seatStacks, userIdx, opps) * 10) / 10;
+  }, [tracked, stack, actionHistory, folded, tableSize, userIdx, currentStreet, seatStacks]);
   const lastActions = useMemo(() => {
     const arr: (PlayerAction | null)[] = Array(tableSize).fill(null);
     for (const a of streetActions) arr[a.seatIdx] = a;
@@ -313,7 +335,7 @@ const Index = () => {
   const [solverPreflop, setSolverPreflop] = useState<SolverPreflop | null>(null);
   // l'analyse cash n'utilise que les tables cash (le tournoi a son propre espace)
   const solverFormat = "cash" as const;
-  const cashCover = cashCoverage(stack);
+  const cashCover = cashCoverage(effStack);
   const exploitSettings = useExploitSettings();
   const { players: playerFiles, seats: seatPlayers, table: tablePlayers } = usePlayers();
   const exploit = useMemo(() => {
@@ -387,7 +409,7 @@ const Index = () => {
     // ranges d'entrée : celles de la ligne préflop jouée (table du solveur cash), sauf si tu as réglé la tienne
     // dans « Mes ranges » ; à défaut, les situations types (pot simple / 3-betté, tête-à-tête)
     const baseGame = analyzerMode === "cash" ? getSolverBaseGame() : null;
-    const lr = baseGame ? lineRanges(baseGame, Array.from({ length: tableSize }, (_, i) => posOf(i)), actionHistory, stack) : null;
+    const lr = baseGame ? lineRanges(baseGame, Array.from({ length: tableSize }, (_, i) => posOf(i)), actionHistory, effStack) : null;
     const mine = loadMyRanges();
     const fromLine = (seat: number, slot: string) => {
       if (!lr || seat < 0 || (mine[slot] && Object.keys(mine[slot]).length)) return null;
@@ -446,7 +468,7 @@ const Index = () => {
     const villainAggressive = vf ? estimateStats(vf.counters).af >= 2 : false;
     const advice = advisePostflop({
       street: currentStreet as PostStreet, board, hole, heroRange, villainRange,
-      heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: stack,
+      heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: effStack,
       opponents: exploit.realOpponents,
       otherRanges,
       prevVillain: prev ? villainLine.find(e => e.street === prev)?.act : undefined,
@@ -469,12 +491,12 @@ const Index = () => {
         const before = actionHistory.filter(a => order.indexOf(a.street) < order.indexOf(currentStreet));
         const startPot = trackPot(before, potOpts).pot;
         const heroPut = order.slice(0, order.indexOf(currentStreet)).reduce((t, st) => t + (trackPot(before, potOpts, st as PostStreet | "Preflop").contribs[userIdx] ?? 0), 0);
-        const effStack = Math.max(0, stack - heroPut);
+        const egStack = Math.max(0, effStack - heroPut);
         const heroPl: 0 | 1 = heroFirst ? 0 : 1;
         const villainEg = filterByLine(villainBase, board, villainLine);
         const kind = { Check: "check", Bet: "bet", Raise: "raise", Call: "call", Fold: "fold" } as const;
-        if (effStack > 0 && startPot > 0) endgame = {
-          street: currentStreet, board: board.slice(0, currentStreet === "Turn" ? 4 : 5), startPot, stack: effStack,
+        if (egStack > 0 && startPot > 0) endgame = {
+          street: currentStreet, board: board.slice(0, currentStreet === "Turn" ? 4 : 5), startPot, stack: egStack,
           ranges: heroFirst ? [heroRange, villainEg] : [villainEg, heroRange],
           hero: heroPl, heroCards: [hole[0], hole[1]],
           path: actionHistory.filter(a => a.street === currentStreet && (a.seatIdx === userIdx || a.seatIdx === vSeat))
@@ -484,7 +506,7 @@ const Index = () => {
       }
     }
     return { advice, endgame, endgameNote, rangeSource };
-  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, stack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode, tableSize]);
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, effStack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode, tableSize]);
   const postflopAdvice = postflopCtx?.advice ?? null;
   const endgameKey = useMemo(() => {
     const e = postflopCtx?.endgame;
@@ -506,12 +528,12 @@ const Index = () => {
   // === Lacunes : conseils moins fiables que le solveur, notées par main dans ce navigateur (onglet « À calculer »)
   const [preflopMissing, setPreflopMissing] = useState<string | null>(null);
   const gapsNow = useMemo(() => gapsOf({
-    street: currentStreet, hasHand: hole.length === 2 && userIdx >= 0 && dealerIdx >= 0, stackBB: stack, depthOk: cashCover.ok,
+    street: currentStreet, hasHand: hole.length === 2 && userIdx >= 0 && dealerIdx >= 0, stackBB: effStack, depthOk: cashCover.ok,
     preflop: currentStreet === "Preflop" ? solverPreflop : null,
     preflopMissing: currentStreet === "Preflop" ? preflopMissing : null,
     postflop: currentStreet !== "Preflop" && !!postflopAdvice,
     multiway: !!postflopCtx?.endgameNote, guard: !!endgameGuard,
-  }), [currentStreet, hole, userIdx, dealerIdx, stack, cashCover.ok, solverPreflop, preflopMissing, postflopAdvice, postflopCtx, endgameGuard]);
+  }), [currentStreet, hole, userIdx, dealerIdx, effStack, cashCover.ok, solverPreflop, preflopMissing, postflopAdvice, postflopCtx, endgameGuard]);
   // lacunes des décisions de la main en cours : le conseil affiché juste avant chaque action du joueur
   const handGaps = useRef(new Map<string, Gap>());
   const gapsSeen = useRef<{ len: number; gaps: Gap[] }>({ len: 0, gaps: [] });
@@ -640,7 +662,7 @@ const Index = () => {
   const finishHand = () => {
     if (analyzerMode === "cash") {
       const saved = saveHand(
-        { tableSize, dealerIdx, userIdx, hole, flop, turn, river, folded, stack, pot, call, actions: actionHistory, shown: shownCards },
+        { tableSize, dealerIdx, userIdx, hole, flop, turn, river, folded, stack: heroStart, pot, call, actions: actionHistory, shown: shownCards },
         { replaceId: reviewId ?? undefined },
       );
       if (saved) {
@@ -682,7 +704,27 @@ const Index = () => {
 
   /** Main suivante. À la même table, le bouton passe au siège suivant et tu gardes ta place ;
    *  `leaveTable` (« Nouvelle table ») efface le bouton et ta place. */
-  const startHand = (leaveTable: boolean) => {
+  /** Fin de main : met les tapis à jour (perdent leurs mises, le gagnant prend le pot, rake si flop vu). */
+  const applySettle = (winners: number[]) => {
+    const flopSeen = flop.length === 3 || actionHistory.some(a => a.street !== "Preflop");
+    setSeatStacks(v => settleHand(v, handContrib, winners, { flopSeen }));
+  };
+  /** Libellé d'un siège : numéro comme sur Betclic, position, pseudo. */
+  const stackLabel = (i: number) => [
+    i === userIdx ? `Toi (siège ${seatNumber(i, userIdx, tableSize)})` : `Siège ${seatNumber(i, userIdx, tableSize)}`,
+    dealerIdx >= 0 ? seatLabel(i, dealerIdx, tableSize) : "",
+    i !== userIdx ? seatNames[i]?.name ?? "" : "",
+  ].filter(Boolean).join(" · ");
+
+  const startHand = (leaveTable: boolean, settled = false) => {
+    // tapis suivis : on règle la main avant de passer à la suivante (on demande le gagnant s'il ne se devine pas)
+    if (!settled && !leaveTable && tracked && actionHistory.length > 0) {
+      const o = handOutcome({ size: tableSize, hero: userIdx, heroCards: hole, board, shown: shownCards, folded, actions: actionHistory });
+      if (o.kind === "ask") { setPendingSettle({ candidates: o.candidates, leaveTable }); return; }
+      if (o.kind === "auto") applySettle(o.winners);
+      else toast.info("Main pas finie : tapis inchangés. Corrige-les dans « Tapis des joueurs » si besoin.");
+    }
+    if (leaveTable) setSeatStacks(Array(tableSize).fill(100));
     finishHand();
     setHole([]); setFlop([]); setTurn(null); setRiver(null);
     setAiResult(null); setAiError(null);
@@ -770,6 +812,7 @@ const Index = () => {
 
   const handleSizeChange = (s: TableSize) => {
     setTableSize(s);
+    setSeatStacks(Array(s).fill(100));
     setDealerIdx(-1); setUserIdx(-1); setSeatMode("dealer");
     setFolded(Array(s).fill(false));
     setActionHistory([]);
@@ -888,7 +931,7 @@ const Index = () => {
       polar={polarization}
       pot={dynamicPot}
       toCall={userToCall}
-      stack={stack}
+      stack={effStack}
       solver={currentStreet === "Preflop" ? solverPreflop : null}
       postflop={postflopAdvice}
       endgame={{ ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
@@ -975,7 +1018,7 @@ const Index = () => {
                 seatPos={Array.from({ length: tableSize }, (_, i) => (dealerIdx >= 0 ? labelToPosition(seatLabel(i, dealerIdx, tableSize)) : ""))}
                 heroSeat={userIdx}
                 actions={actionHistory}
-                stackBB={stack}
+                stackBB={effStack}
                 defaultFormat={solverFormat}
                 onAdvice={setSolverPreflop}
                 onMiss={setPreflopMissing}
@@ -1021,14 +1064,15 @@ const Index = () => {
                     seatNames={seatNames}
                     street={currentStreet}
                     potBB={dynamicPot}
-                    stackBB={stack}
+                    stackBB={heroStart}
+                    seatStacksBB={seatRemaining}
                     board={board}
                     hole={hole}
                     heroHand={hole.length === 2 && board.length >= 3 ? engine?.category : undefined}
                   />
                   <VoiceInput table={voiceTable} onApply={applyVoice} onUndo={undoVoice} canUndo={voiceUndo.length > 0}
                     onNewHand={reset} />
-                  {(river || actionHistory.some(a => a.amountBB >= stack * 0.9)) && dealerIdx >= 0 && (
+                  {(river || actionHistory.some(a => a.amountBB >= effStack * 0.9)) && dealerIdx >= 0 && (
                     <ShowdownPanel
                       seats={showdownSeats(actionHistory, folded, userIdx)
                         .map(i => ({ seat: i, label: seatLabel(i, dealerIdx, tableSize), name: seatPlayers[i] ? playerFiles[seatPlayers[i]]?.name : undefined }))}
@@ -1059,6 +1103,15 @@ const Index = () => {
                         )}
                       </div>
                     </div>
+                  )}
+                  {tracked && dealerIdx >= 0 && (
+                    <StacksPanel stacks={seatStacks} labelOf={stackLabel} onChange={setSeatStacks}
+                      order={Array.from({ length: tableSize }, (_, i) => i).sort((a, b) => seatNumber(a, userIdx, tableSize) - seatNumber(b, userIdx, tableSize))} />
+                  )}
+                  {pendingSettle && (
+                    <WinnerDialog candidates={pendingSettle.candidates} labelOf={stackLabel}
+                      onPick={w => { const l = pendingSettle.leaveTable; applySettle(w); setPendingSettle(null); startHand(l, true); }}
+                      onSkip={() => { const l = pendingSettle.leaveTable; setPendingSettle(null); startHand(l, true); }} />
                   )}
                 </Card>
 
@@ -1113,7 +1166,7 @@ const Index = () => {
                           <div role="radiogroup" aria-label={t("field.stack")} className="flex rounded-md border border-border overflow-hidden text-sm">
                             {CASH_DEPTHS.map(d => (
                               <button key={d.bb} type="button" role="radio" aria-checked={stack === d.bb} disabled={!d.ready}
-                                onClick={() => setStack(d.bb)} title={d.ready ? undefined : "Pas encore calculé"}
+                                onClick={() => { setStack(d.bb); if (tracked) setSeatStacks(v => v.map((x, i) => (i === userIdx ? d.bb : x))); }} title={d.ready ? undefined : "Pas encore calculé"}
                                 className={`flex-1 px-2 py-1.5 ${stack === d.bb ? "bg-primary text-primary-foreground" : "hover:bg-secondary"} disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent`}>
                                 {d.bb}
                               </button>
