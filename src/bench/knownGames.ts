@@ -4,11 +4,17 @@ import { Solver } from "@/engines/endgame/cfr";
 import type { ActNode } from "@/engines/endgame/tree";
 import { parseRangeText } from "@/engines/myRanges";
 import { expandRange } from "@/engines/rangeVsRange";
+import { kuhn } from "@/engines/multiway/kuhn";
+import { CFR } from "@/engines/multiway/cfr";
+import { expectedValues, nashConv } from "@/engines/multiway/bestResponse";
+import { river3, MICRO_RIVER, type RiverSpec } from "@/engines/multiway/river3";
+import { CASH_RAKE } from "@/core/rake";
 
-export interface CheckResult { name: string; expected: number; got: number; tolerance: number; ok: boolean }
+/** unit : « pct » (part, affichée en %) ou « jetons » (jetons par main). */
+export interface CheckResult { name: string; expected: number; got: number; tolerance: number; ok: boolean; unit?: "pct" | "jetons" }
 
-const check = (name: string, expected: number, got: number, tolerance: number): CheckResult =>
-  ({ name, expected, got, tolerance, ok: Math.abs(got - expected) <= tolerance });
+const check = (name: string, expected: number, got: number, tolerance: number, unit: CheckResult["unit"] = "pct"): CheckResult =>
+  ({ name, expected, got, tolerance, ok: Math.abs(got - expected) <= tolerance, unit });
 
 /**
  * River polarisée : OOP a soit le brelan (AK sur K-K-8-4-2), soit l'air (65) ; IP n'a que QQ (attrapeur de bluffs).
@@ -42,3 +48,40 @@ export function polarRiver(b: number, iterations = 1500): [CheckResult, CheckRes
 }
 
 export const knownGames = (): CheckResult[] => [0.5, 1, 2].flatMap(b => polarRiver(b));
+
+/**
+ * Poker de Kuhn à 2 et 3 joueurs, résolus par le solveur multiway (src/engines/multiway) : valeur exacte connue à
+ * 2 joueurs (-1/18), NashConv exacte (0 = équilibre), et à 3 joueurs la valeur -1/48 du joueur 2 publiée par
+ * Szafron, Gibson, Sturtevant (2013) pour leur famille d'équilibres (comparaison).
+ */
+export function kuhnChecks(iterations = 5000): CheckResult[] {
+  const out: CheckResult[] = [];
+  for (const n of [2, 3]) {
+    const g = kuhn(n);
+    const s = new CFR(g);
+    s.run(iterations);
+    const p = s.averageProfile();
+    const ev = expectedValues(g, p);
+    if (n === 2) out.push(check("Kuhn à 2 joueurs : valeur du joueur 1 (exacte : -1/18)", -1 / 18, ev[0], 1e-3, "jetons"));
+    out.push(check(`Kuhn à ${n} joueurs : NashConv (0 = équilibre)`, 0, nashConv(g, p), 1e-3, "jetons"));
+    if (n === 3) out.push(check("Kuhn à 3 joueurs : valeur du joueur 2 (publiée : -1/48)", -1 / 48, ev[1], 1e-3, "jetons"));
+  }
+  return out;
+}
+
+/**
+ * River à 3 joueurs miniature (vraies cartes) : NashConv exacte, seuil 0,1 % du pot (docs/DECISIONS.md D14).
+ * Le cas tapis court + rake, qui ne converge pas, n'est pas présenté comme un équilibre (voir D15).
+ */
+export function river3Checks(iterations = 3000): CheckResult[] {
+  const cases: [string, RiverSpec][] = [
+    ["River à 3 miniature, tapis égaux, rake cash : NashConv (bb)", { ...MICRO_RIVER, rake: CASH_RAKE }],
+    ["River à 3 miniature, tapis court (15), sans rake : NashConv (bb)", { ...MICRO_RIVER, stacks: [15, 100, 100], rake: null }],
+  ];
+  return cases.map(([name, spec]) => {
+    const g = river3(spec);
+    const s = new CFR(g);
+    s.run(iterations);
+    return check(name, 0, nashConv(g, s.averageProfile()), 0.001 * spec.potBB, "jetons");
+  });
+}

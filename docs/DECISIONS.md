@@ -165,3 +165,60 @@ fournisseurs interchangeables (calcul à la demande ou lecture de solutions pré
 Chaque solution est versionnée avec ses hypothèses (ranges, tailles, rake, profondeur d'arbre) et la nature de chaque
 métrique. Au-delà de deux joueurs, aucune garantie de convergence n'est supposée : toute affirmation de force est
 adossée à une mesure.
+
+---
+
+## D12 — Algorithme du solveur multiway : CFR+ à mises à jour alternées · adoptée · 2026-11-23
+
+**Décision.** `src/engines/multiway/cfr.ts` : CFR+ (regrets positifs gardés, moyenne pondérée par l'itération), un
+parcours par joueur à chaque itération. **La stratégie reste fixe pendant tout le parcours** : les regrets d'un
+ensemble d'information visité plusieurs fois (plusieurs distributions de cartes) sont cumulés puis appliqués à la fin.
+
+**Raison.** Méthode standard, simple, vérifiable. La première version mettait les regrets à jour à la première visite :
+sur le Kuhn à 2 joueurs, la NashConv stagnait à 0,0022 après 20 000 itérations ; corrigée, 0,000013.
+
+**Limite assumée.** Au-delà de 2 joueurs, CFR n'est **pas garanti** de converger vers un équilibre : la qualité se
+mesure (D11, D13), elle ne se suppose pas.
+
+**Alternatives écartées pour l'instant.** CFR échantillonné (Monte-Carlo) : utile pour les gros arbres (étapes 4 à 6),
+inutile et moins précis sur les petits jeux de validation.
+
+## D13 — Meilleure réponse exacte et NashConv · adoptée · 2026-11-23
+
+**Décision.** `src/engines/multiway/bestResponse.ts` : pour chaque joueur, les autres fixés, la meilleure réponse est
+choisie par **ensemble d'information** (le joueur ne voit pas les cartes adverses), en pesant chaque nœud par la
+probabilité d'y arriver due au hasard et aux autres joueurs ; NashConv = somme sur les joueurs du gain de la meilleure
+réponse moins la valeur actuelle. Mesure exacte dans le jeu fini décrit, rien de plus (D11).
+
+**Tests.** Petit jeu à information cachée fait à la main (valeurs 0,4 et 0,2 calculées à la main), NashConv nulle à
+l'équilibre connu.
+
+## D14 — Seuils de validation de l'étape 1 · proposés · 2026-11-23
+
+| Jeu | Critère dur | Constaté |
+|---|---|---|
+| Kuhn à 2 joueurs | valeur du joueur 1 à ±0,001 de −1/18 ; NashConv < 0,001 jeton par main | −0,05556 ; 0,000013 (20 000 itérations) |
+| Kuhn à 3 joueurs | NashConv < 0,001 jeton par main | 0,0000018 (5 000 itérations) ; 0,00000036 (20 000). Comparaisons : J1 ne mise jamais en premier ; J2 = −1,000/48 ; J1 et J3 expliqués par un même β = 0,14 |
+| River à 3 miniature (60 distributions) | NashConv < 0,1 % du pot (0,03 bb), en baisse avec les itérations | tapis égaux, rake cash : 0,00005 bb (5 000 itérations) ✓ ; tapis court 15, sans rake : 0,00001 ✓ ; **tapis court 15 + rake : ne converge pas** (voir D15) ✗ |
+
+Les propriétés publiées de l'équilibre (Kuhn à 2 : mise du valet à α ≤ 1/3, du roi à 3α, check de la dame ; Kuhn à
+3 : joueur 1 qui checke, valeur −1/48 du joueur 2) sont des **comparaisons**, pas des critères durs : un équilibre
+trouvé peut être hors de la famille publiée.
+
+## D15 — Non-convergence constatée : tapis court + rake, à 3 joueurs · constat · 2026-11-23
+
+**Constat.** River à 3 miniature avec tapis 15 / 100 / 100 et rake cash : la NashConv exacte oscille au lieu de
+baisser (CFR+ : 0,006 à 1 000 itérations, 0,036 à 5 000, 0,017 à 20 000 ; CFR classique : entre 0,02 et 0,05). Le
+même jeu **sans rake** converge (0,00000 à 20 000), et **tapis égaux avec rake** aussi (0,00005).
+
+**Lecture.** Le rake dépend du déroulé de la main : le jeu n'est plus à somme constante. À 3 joueurs, CFR n'a alors
+aucune garantie et peut tourner en rond ; c'est ce qu'on observe. Ce n'est pas un défaut du code (même jeu sans rake :
+convergence parfaite).
+
+**Conséquence.** Dans cette configuration, aucune stratégie n'est présentée comme un équilibre ; on ne publie que la
+mesure (NashConv, ici 0,02 à 0,16 % du pot). Pistes à évaluer plus tard, chacune mesurée : autres variantes (CFR
+escompté, moyennes différentes), plus d'itérations avec arrêt sur la meilleure NashConv, ou un rake traité à part.
+
+**Autre limite notée.** Une situation que la stratégie n'atteint jamais (ex. J2 après une mise de J0 payée par J1,
+alors que J1 ne paie jamais) garde une stratégie peu entraînée : sans effet sur la NashConv, mais à ne pas lire comme un
+conseil.

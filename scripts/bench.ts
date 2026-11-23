@@ -4,7 +4,7 @@
 // Lit seulement les fichiers du dépôt ; n'envoie rien, n'installe rien.
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
-import { knownGames, type CheckResult } from "@/bench/knownGames";
+import { knownGames, kuhnChecks, river3Checks, type CheckResult } from "@/bench/knownGames";
 import { sanityChecks } from "@/bench/sanity";
 import { computeDecisions, diffDecisions, type Reference } from "@/bench/driftCases";
 import { checkSolverTable } from "@/core/solverTableCheck";
@@ -23,9 +23,10 @@ const say = (s = "") => lines.push(s);
 say("Bulletin Ace Analyst");
 say("====================");
 say();
-say("1. Jeux à solution connue (solveur de fin de main)");
-const known: CheckResult[] = knownGames();
-for (const k of known) say(`   ${mark(k.ok)} ${k.name} : attendu ${f2(k.expected)}, obtenu ${f2(k.got)} (tolérance ${f2(k.tolerance)})`);
+say("1. Jeux à solution connue (solveur de fin de main, solveur multiway)");
+const known: CheckResult[] = [...knownGames(), ...kuhnChecks(), ...river3Checks()];
+const fmt = (k: CheckResult, x: number) => (k.unit === "jetons" ? `${x.toFixed(5).replace(".", ",")}${k.name.includes("(bb)") ? " bb" : " jeton"}` : f2(x));
+for (const k of known) say(`   ${mark(k.ok)} ${k.name} : attendu ${fmt(k, k.expected)}, obtenu ${fmt(k, k.got)} (tolérance ${fmt(k, k.tolerance)})`);
 say();
 say("   Mains évidentes (table préflop cash 100 bb)");
 const sane = sanityChecks(g);
