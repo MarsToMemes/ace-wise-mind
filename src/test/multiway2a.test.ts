@@ -53,5 +53,5 @@ describe("river à 3 par vecteurs : arbre riche (plusieurs tailles, relances, ta
     const v = new VRiver3({ ...rich, stacks: [100, 100, 100], rake: null });
     v.run(1500);
     expect(v.nashConv(v.averageProfile())).toBeLessThan(0.001 * rich.potBB);
-  });
+  }, 60000); // ~3 s seul, plus quand toute la suite tourne en parallèle
 });
