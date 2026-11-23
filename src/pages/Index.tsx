@@ -41,8 +41,9 @@ import { HandHistory } from "@/components/HandHistory";
 import { saveHand, type SavedHand } from "@/lib/handHistory";
 import { gapsOf, recordGaps, heroJustActed, endsOnHeroDecision, type Gap } from "@/lib/gapLog";
 import { loadSeat, saveSeat, nextHandSeat, seatNumber, type TableSeat } from "@/lib/tableSeat";
-import { loadStacks, saveStacks, handContributions, settleHand, handOutcome, effectiveStack } from "@/lib/tableStacks";
-import { WinnerDialog } from "@/components/WinnerDialog";
+import { loadStacks, saveStacks, effectiveStack } from "@/lib/tableStacks";
+import { settleLive, replayLive, type LiveHand } from "@/lib/liveHand";
+import { WinnerDialog, type PotToAsk } from "@/components/WinnerDialog";
 import { StacksPanel } from "@/components/StacksPanel";
 import { RangeExplorer } from "@/components/RangeExplorer";
 import { BoardCbetPanel } from "@/components/BoardCbetPanel";
@@ -105,7 +106,7 @@ const Index = () => {
   const [stack, setStack] = useState(100);
   // tapis de chaque siège, suivis d'une main à l'autre à la même table (cash) ; « Nouvelle table » les remet à 100 bb
   const [seatStacks, setSeatStacks] = useState<number[]>(() => loadStacks(initSeat?.size ?? 6));
-  const [pendingSettle, setPendingSettle] = useState<{ candidates: number[]; leaveTable: boolean } | null>(null);
+  const [pendingSettle, setPendingSettle] = useState<{ pots: PotToAsk[]; leaveTable: boolean } | null>(null);
   useEffect(() => { saveStacks(seatStacks); }, [seatStacks]);
   const [pot, setPot] = useState(10);
   const [call, setCall] = useState(0);
@@ -175,8 +176,14 @@ const Index = () => {
   // tapis suivis (cash, table en cours) : tapis de départ de chaque siège, ce qu'il lui reste, tapis effectif pour les conseils
   const tracked = analyzerMode === "cash" && !reviewId && userIdx >= 0 && seatStacks.length === tableSize;
   const heroStart = tracked ? seatStacks[userIdx] : stack;
-  const handContrib = useMemo(() => handContributions(actionHistory, potOpts, tableSize), [actionHistory, potOpts, tableSize]);
-  const seatRemaining = tracked ? seatStacks.map((x, i) => Math.max(0, Math.round((x - handContrib[i]) * 10) / 10)) : undefined;
+  // la main en cours, rejouée par le moteur de règles commun (docs/DECISIONS.md D1) : tapis restants, pots, règlement
+  const liveHand = useMemo<LiveHand>(() => ({
+    tableSize, dealerIdx, userIdx, stacks: seatStacks, hole, board, actions: actionHistory, folded, shown: shownCards,
+  }), [tableSize, dealerIdx, userIdx, seatStacks, hole, board, actionHistory, folded, shownCards]);
+  const seatRemaining = useMemo(
+    () => (tracked ? replayLive(liveHand).state.seats.map(s => Math.round(s.remainingBB * 10) / 10) : undefined),
+    [tracked, liveHand],
+  );
   const effStack = useMemo(() => {
     if (!tracked) return stack;
     const out = new Set(actionHistory.filter(a => a.type === "Fold").map(a => a.seatIdx));
@@ -704,11 +711,6 @@ const Index = () => {
 
   /** Main suivante. À la même table, le bouton passe au siège suivant et tu gardes ta place ;
    *  `leaveTable` (« Nouvelle table ») efface le bouton et ta place. */
-  /** Fin de main : met les tapis à jour (perdent leurs mises, le gagnant prend le pot, rake si flop vu). */
-  const applySettle = (winners: number[]) => {
-    const flopSeen = flop.length === 3 || actionHistory.some(a => a.street !== "Preflop");
-    setSeatStacks(v => settleHand(v, handContrib, winners, { flopSeen }));
-  };
   /** Libellé d'un siège : numéro comme sur Betclic, position, pseudo. */
   const stackLabel = (i: number) => [
     i === userIdx ? `Toi (siège ${seatNumber(i, userIdx, tableSize)})` : `Siège ${seatNumber(i, userIdx, tableSize)}`,
@@ -719,10 +721,12 @@ const Index = () => {
   const startHand = (leaveTable: boolean, settled = false) => {
     // tapis suivis : on règle la main avant de passer à la suivante (on demande le gagnant s'il ne se devine pas)
     if (!settled && !leaveTable && tracked && actionHistory.length > 0) {
-      const o = handOutcome({ size: tableSize, hero: userIdx, heroCards: hole, board, shown: shownCards, folded, actions: actionHistory });
-      if (o.kind === "ask") { setPendingSettle({ candidates: o.candidates, leaveTable }); return; }
-      if (o.kind === "auto") applySettle(o.winners);
-      else toast.info("Main pas finie : tapis inchangés. Corrige-les dans « Tapis des joueurs » si besoin.");
+      const r = settleLive(liveHand, { rake: CASH_RAKE });
+      if (r.kind === "ask") { setPendingSettle({ pots: r.pots, leaveTable }); return; }
+      if (r.kind === "settled") setSeatStacks(r.stacksAfter);
+      else toast.info(r.kind === "incomplete"
+        ? "Main pas finie : tapis inchangés. Corrige-les dans « Tapis des joueurs » si besoin."
+        : "Actions impossibles dans cette main : tapis inchangés. Corrige-les dans « Tapis des joueurs » si besoin.");
     }
     if (leaveTable) setSeatStacks(Array(tableSize).fill(100));
     finishHand();
@@ -1109,8 +1113,13 @@ const Index = () => {
                       order={Array.from({ length: tableSize }, (_, i) => i).sort((a, b) => seatNumber(a, userIdx, tableSize) - seatNumber(b, userIdx, tableSize))} />
                   )}
                   {pendingSettle && (
-                    <WinnerDialog candidates={pendingSettle.candidates} labelOf={stackLabel}
-                      onPick={w => { const l = pendingSettle.leaveTable; applySettle(w); setPendingSettle(null); startHand(l, true); }}
+                    <WinnerDialog pots={pendingSettle.pots} labelOf={stackLabel}
+                      onPick={choices => {
+                        const l = pendingSettle.leaveTable;
+                        const r = settleLive(liveHand, { rake: CASH_RAKE, choices });
+                        if (r.kind === "settled") setSeatStacks(r.stacksAfter);
+                        setPendingSettle(null); startHand(l, true);
+                      }}
                       onSkip={() => { const l = pendingSettle.leaveTable; setPendingSettle(null); startHand(l, true); }} />
                   )}
                 </Card>

@@ -6,15 +6,29 @@ import { StacksPanel } from "@/components/StacksPanel";
 const labelOf = (s: number) => (s === 3 ? "Toi" : `Siège ${s + 1}`);
 
 describe("fenêtre « Qui a gagné ? »", () => {
-  it("un gagnant, le partage, ou ne rien changer", () => {
+  it("un seul pot : un clic sur le gagnant suffit ; partage et « ne rien changer » restent possibles", () => {
     const onPick = vi.fn(), onSkip = vi.fn();
-    render(<WinnerDialog candidates={[3, 5]} labelOf={labelOf} onPick={onPick} onSkip={onSkip} />);
+    render(<WinnerDialog pots={[{ pot: 0, amount: 5.5, eligible: [3, 5], main: true }]} labelOf={labelOf} onPick={onPick} onSkip={onSkip} />);
     fireEvent.click(screen.getByRole("button", { name: "Siège 6" }));
-    expect(onPick).toHaveBeenLastCalledWith([5]);
+    expect(onPick).toHaveBeenLastCalledWith({ 0: [5] });
     fireEvent.click(screen.getByRole("button", { name: /partag/i }));
-    expect(onPick).toHaveBeenLastCalledWith([3, 5]);
+    expect(onPick).toHaveBeenLastCalledWith({ 0: [3, 5] });
     fireEvent.click(screen.getByRole("button", { name: /ne pas changer/i }));
     expect(onSkip).toHaveBeenCalled();
+  });
+
+  it("pot principal et pot annexe : un gagnant par pot, puis valider", () => {
+    const onPick = vi.fn();
+    render(<WinnerDialog pots={[{ pot: 0, amount: 90, eligible: [0, 1, 2], main: true }, { pot: 1, amount: 100, eligible: [1, 2], main: false }]}
+      labelOf={labelOf} onPick={onPick} onSkip={() => {}} />);
+    expect(screen.getByText(/Pot principal · 90 bb/)).toBeInTheDocument();
+    expect(screen.getByText(/Pot annexe · 100 bb/)).toBeInTheDocument();
+    const valider = screen.getByRole("button", { name: /valider/i });
+    expect(valider).toBeDisabled();
+    fireEvent.click(screen.getAllByRole("button", { name: "Siège 1" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Siège 2" })[1]);
+    fireEvent.click(valider);
+    expect(onPick).toHaveBeenLastCalledWith({ 0: [0], 1: [1] });
   });
 });
 
