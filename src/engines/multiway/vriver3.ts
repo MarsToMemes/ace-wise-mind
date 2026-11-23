@@ -33,7 +33,7 @@ export const fromRiverSpec = (s: RiverSpec): VSpec => ({
 });
 
 type Act = { t: "act"; id: number; player: number; hist: string; actions: string[]; children: VNode[] };
-type End = { t: "end"; refund: number[]; invested: number[]; pots: { net: number; elig: number[] }[] };
+type End = { t: "end"; refund: number[]; invested: number[]; pots: { net: number; elig: number[] }[]; coef?: [number, number, number][][] };
 type VNode = Act | End;
 export type VProfile = Map<number, Float64Array>;
 
@@ -52,8 +52,13 @@ export class VRiver3 {
   private regret = new Map<number, Float64Array>();
   private sum = new Map<number, Float64Array>();
   iterations = 0;
+  private readonly terminalMode: "fast" | "exact";
+  private c1: Int32Array[];          // index (0-51) des deux cartes de chaque main
+  private c2: Int32Array[];
+  private order: Int32Array[];       // mains de chaque joueur triées par force croissante
 
-  constructor(readonly spec: VSpec) {
+  /** terminal : « auto » (défaut) prend le calcul exact quand les ranges sont si petites qu'il est plus rapide. */
+  constructor(readonly spec: VSpec, opts: { terminal?: "fast" | "exact" | "auto" } = {}) {
     const board = new Set(spec.board);
     this.hands = spec.ranges.map(r => r.filter(h => h.w > 0 && !board.has(h.cards[0]) && !board.has(h.cards[1])));
     this.ranks = this.hands.map(r => Int32Array.from(r, h => rank7([...h.cards, ...spec.board])));
@@ -66,6 +71,13 @@ export class VRiver3 {
       if (!this.ok(0, 1, i, j)) continue;
       for (let k = 0; k < this.N(2); k++) if (this.ok(0, 2, i, k) && this.ok(1, 2, j, k)) this.Z += this.hands[0][i].w * this.hands[1][j].w * this.hands[2][k].w;
     }
+    const ci = (c: string) => "23456789TJQKA".indexOf(c[0]) * 4 + "cdhs".indexOf(c[1]);
+    this.c1 = this.hands.map(r => Int32Array.from(r, h => ci(h.cards[0])));
+    this.c2 = this.hands.map(r => Int32Array.from(r, h => ci(h.cards[1])));
+    this.order = this.ranks.map(rk => Int32Array.from(rk.keys()).sort((x, y) => rk[x] - rk[y]));
+    const mode = opts.terminal ?? "auto";
+    const pairs = Math.max(this.N(0) * this.N(1), this.N(0) * this.N(2), this.N(1) * this.N(2));
+    this.terminalMode = mode === "auto" ? (pairs <= 150 ? "exact" : "fast") : mode;
     this.root = this.build();
   }
 
@@ -156,7 +168,16 @@ export class VRiver3 {
     return v;
   }
 
-  /** Valeur contrefactuelle de chaque main de i (pondérée par les mains adverses et leur probabilité d'arriver ici). */
+  private terminal(e: End, i: number, reach: Float64Array[]) {
+    return this.terminalMode === "fast" ? this.cfvFast(e, i, reach) : this.cfv(e, i, reach);
+  }
+  /** Pour les tests : valeur d'une fin de main par le calcul rapide ou par le calcul exact « toutes les combinaisons ». */
+  terminalCfv(endIdx: number, i: number, reach: Float64Array[], method: "fast" | "exact") {
+    const e = this.ends[endIdx];
+    return method === "fast" ? this.cfvFast(e, i, reach) : this.cfv(e, i, reach);
+  }
+
+  /** Valeur contrefactuelle exacte, toutes les combinaisons de mains adverses (O(N³)) : sert de référence. */
   private cfv(e: End, i: number, reach: Float64Array[]): Float64Array {
     const [a, b] = [0, 1, 2].filter(p => p !== i);
     const out = new Float64Array(this.N(i));
@@ -179,6 +200,112 @@ export class VRiver3 {
     return out;
   }
 
+  // ---------------------------------------------------------------- calcul rapide des fins de main (docs/DECISIONS.md D17)
+  // Pour le joueur i, adversaires a et b (ordre des indices). On note F(x ; Sa, Sb) la somme, sur les mains y de a dans
+  // Sa et z de b dans Sb compatibles entre elles et avec x, de reach_a(y)·reach_b(z). Chaque ensemble est « toutes les
+  // mains » (A), « plus faibles que x » (L) ou « pas plus fortes que x » (E). Toute fin de main s'écrit comme une
+  // combinaison de ces F (coefs) ; chaque F se calcule en O(52) par main grâce à l'inclusion-exclusion sur les cartes,
+  // en parcourant les mains par force croissante.
+  private coefs(e: End, i: number): [number, number, number][] {
+    e.coef ??= [];
+    const cached = e.coef[i];
+    if (cached) return cached;
+    const [a, b] = [0, 1, 2].filter(p => p !== i);
+    const m = new Map<number, number>();
+    const add = (ta: number, tb: number, c: number) => m.set(ta * 3 + tb, (m.get(ta * 3 + tb) ?? 0) + c);
+    add(2, 2, e.refund[i] - e.invested[i]);
+    for (const pot of e.pots) {
+      if (!pot.elig.includes(i)) continue;
+      const ha = pot.elig.includes(a), hb = pot.elig.includes(b), n = pot.net;
+      // part de i : 1 s'il bat tout le monde, 1/2 ou 1/3 en cas d'égalité ; avec L = « plus faible », E = « pas plus fort »
+      if (ha && hb) { add(0, 0, n / 3); add(1, 0, n / 6); add(0, 1, n / 6); add(1, 1, n / 3); }
+      else if (ha) { add(0, 2, n / 2); add(1, 2, n / 2); }
+      else if (hb) { add(2, 0, n / 2); add(2, 1, n / 2); }
+      else add(2, 2, n);
+    }
+    const list: [number, number, number][] = [...m].filter(([, c]) => c !== 0).map(([k, c]) => [Math.floor(k / 3), k % 3, c]);
+    e.coef[i] = list;
+    return list;
+  }
+
+  // tampons réutilisés : emplacements 0-2 = joueur a (L, E, A), 3-5 = joueur b
+  private fW = new Float64Array(6);
+  private fC = Array.from({ length: 6 }, () => new Float64Array(52));
+  private fP = Array.from({ length: 6 }, () => new Float64Array(52 * 52));
+  private fRq = new Float64Array(3);
+  private fRc = Array.from({ length: 3 }, () => new Float64Array(52));
+
+  private cfvFast(e: End, i: number, reach: Float64Array[]): Float64Array {
+    const terms = this.coefs(e, i);
+    const [a, b] = [0, 1, 2].filter(p => p !== i);
+    const { fW: W, fC: C, fP: P, fRq: Rq, fRc: Rc } = this;
+    W.fill(0); Rq.fill(0);
+    C.forEach(x => x.fill(0)); Rc.forEach(x => x.fill(0));
+    const ra = reach[a], rb = reach[b], a1 = this.c1[a], a2 = this.c2[a], b1 = this.c1[b], b2 = this.c2[b];
+    // les tables 52×52 sont nettoyées à la fin, seulement là où des mains ont été posées (tout effacer à chaque fois
+    // rendrait le calcul plus lent que l'exact sur de petites ranges)
+    const clean = () => {
+      for (let y = 0; y < ra.length; y++) for (let t = 0; t < 3; t++) { P[t][a1[y] * 52 + a2[y]] = 0; P[t][a2[y] * 52 + a1[y]] = 0; }
+      for (let z = 0; z < rb.length; z++) for (let t = 3; t < 6; t++) { P[t][b1[z] * 52 + b2[z]] = 0; P[t][b2[z] * 52 + b1[z]] = 0; }
+    };
+    const put = (slot: number, c1: number, c2: number, w: number) => {
+      W[slot] += w; C[slot][c1] += w; C[slot][c2] += w; P[slot][c1 * 52 + c2] += w; P[slot][c2 * 52 + c1] += w;
+    };
+    const putA = (t: number, y: number) => {
+      const w = ra[y]; if (w === 0) return;
+      put(t, a1[y], a2[y], w);
+      const q = w * P[5][a1[y] * 52 + a2[y]];
+      Rq[t] += q; Rc[t][a1[y]] += q; Rc[t][a2[y]] += q;
+    };
+    const putB = (t: number, z: number) => { const w = rb[z]; if (w !== 0) put(3 + t, b1[z], b2[z], w); };
+    for (let z = 0; z < rb.length; z++) putB(2, z);
+    for (let y = 0; y < ra.length; y++) putA(2, y);
+
+    const out = new Float64Array(this.N(i));
+    const x1s = this.c1[i], x2s = this.c2[i];
+    const D = new Float64Array(terms.length);
+    const evalGroup = (xs: ArrayLike<number>, from: number, to: number) => {
+      terms.forEach(([ta, tb], k) => { let d = 0; const Ca = C[ta], Cb = C[3 + tb]; for (let c = 0; c < 52; c++) d += Ca[c] * Cb[c]; D[k] = d; });
+      for (let g = from; g < to; g++) {
+        const x = xs[g], x1 = x1s[x], x2 = x2s[x], kx = x1 * 52 + x2;
+        let v = 0;
+        for (let k = 0; k < terms.length; k++) {
+          const [ta, tb, coef] = terms[k];
+          const Ca = C[ta], Pa = P[ta], Cb = C[3 + tb], Pb = P[3 + tb], tr = Math.min(ta, tb);
+          const A = W[ta] - Ca[x1] - Ca[x2] + Pa[kx];
+          const T1 = A * (W[3 + tb] - Cb[x1] - Cb[x2] + Pb[kx]);
+          let s1 = 0, s2 = 0, t4 = 0;
+          const o1 = x1 * 52, o2 = x2 * 52;
+          for (let d = 0; d < 52; d++) {
+            s1 += Pa[o1 + d] * Cb[d]; s2 += Pa[o2 + d] * Cb[d];
+            if (d !== x1 && d !== x2) t4 += (Pb[o1 + d] + Pb[o2 + d]) * (Ca[d] - Pa[o1 + d] - Pa[o2 + d]);
+          }
+          const T2 = D[k] - (Ca[x1] * Cb[x1] + s1) - (Ca[x2] * Cb[x2] + s2) + Pa[kx] * (Cb[x1] + Cb[x2]);
+          const T3 = Rq[tr] - Rc[tr][x1] - Rc[tr][x2] + Pa[kx] * Pb[kx];
+          v += coef * (T1 - T2 + T3 + t4);
+        }
+        out[x] = v;
+      }
+    };
+    if (terms.every(([ta, tb]) => ta === 2 && tb === 2)) { evalGroup(Int32Array.from(out.keys()), 0, out.length); clean(); return out; }
+
+    const oi = this.order[i], oa = this.order[a], ob = this.order[b];
+    const ri = this.ranks[i], rka = this.ranks[a], rkb = this.ranks[b];
+    let aL = 0, aE = 0, bL = 0, bE = 0;
+    for (let g = 0; g < oi.length;) {
+      const v = ri[oi[g]];
+      let h = g; while (h < oi.length && ri[oi[h]] === v) h++;
+      while (aL < oa.length && rka[oa[aL]] < v) putA(0, oa[aL++]);
+      while (aE < oa.length && rka[oa[aE]] <= v) putA(1, oa[aE++]);
+      while (bL < ob.length && rkb[ob[bL]] < v) putB(0, ob[bL++]);
+      while (bE < ob.length && rkb[ob[bE]] <= v) putB(1, ob[bE++]);
+      evalGroup(oi, g, h);
+      g = h;
+    }
+    clean();
+    return out;
+  }
+
   private strategy(n: Act, table: Map<number, Float64Array>, normalize: (row: number[]) => number[]): Float64Array {
     const N = this.N(n.player), A = n.actions.length, t = table.get(n.id), out = new Float64Array(A * N);
     for (let x = 0; x < N; x++) {
@@ -194,7 +321,7 @@ export class VRiver3 {
 
   // ---------------------------------------------------------------- CFR+
   private walk(n: VNode, i: number, reach: Float64Array[]): Float64Array {
-    if (n.t === "end") return this.cfv(n, i, reach);
+    if (n.t === "end") return this.terminal(n, i, reach);
     const N = this.N(n.player), A = n.actions.length, sigma = this.current(n);
     if (n.player !== i) {
       const tot = new Float64Array(this.N(i));
@@ -244,7 +371,7 @@ export class VRiver3 {
 
   // ---------------------------------------------------------------- mesures exactes
   private evalWalk(n: VNode, i: number, reach: Float64Array[], prof: VProfile, br: boolean): Float64Array {
-    if (n.t === "end") return this.cfv(n, i, reach);
+    if (n.t === "end") return this.terminal(n, i, reach);
     const N = this.N(n.player), sigma = prof.get(n.id)!;
     if (n.player !== i) {
       const tot = new Float64Array(this.N(i));

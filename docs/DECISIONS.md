@@ -243,3 +243,23 @@ pas de jetons et que le rake ne dépasse pas le plafond.
 **Écartés.** Échantillonnage (Monte-Carlo CFR) : plus rapide par itération, mais mesure bruitée ; on garde l'exact tant
 que le temps le permet. Calcul accéléré des fins de main par tri des forces (comme à 2 joueurs) : à faire plus tard
 si la mesure montre que c'est le goulot, avec le même test d'équivalence.
+
+## D17 — Calcul rapide des fins de main à 3 joueurs · retenu · 2026-11-23
+
+**Choix.** Pour une main x du joueur i, toute fin de main s'écrit comme une combinaison de sommes F(x ; Sa, Sb) sur les
+mains des deux adversaires, chacune prise parmi « toutes », « plus faibles que x » ou « pas plus fortes que x » (la part
+de pot en cas d'égalité à trois vaut ⅓·LL + ⅙·(EL + LE) + ⅓·EE). Chaque F se calcule en O(52) par main grâce à
+l'inclusion-exclusion sur les cartes partagées, en parcourant les mains par force croissante. Le solveur choisit seul :
+calcul exact « toutes les combinaisons » quand les ranges sont minuscules (moins de 150 paires d'adversaires), calcul
+rapide sinon.
+
+**Preuve.** Sur 3 boards (pairé, full au board, quinte et couleur possibles), plus de 300 fins de main par board et des
+probabilités tirées au hasard, le calcul rapide égale le calcul exact à 10⁻⁷ près (src/test/multiway2b.test.ts). Avec
+CFR, les deux atteignent la même précision (les stratégies peuvent différer : avec des regrets à égalité à zéro, un
+écart de 10⁻¹³ suffit à changer la stratégie du moment).
+
+**Mesuré (arbre riche + rake, pot 30 bb, 1 000 itérations).** 40 mains : 37 s (131 s avant) ; 100 mains : 81 s ;
+200 mains : 150 s ; 400 mains : 317 s, NashConv 0,027 bb (sous le seuil de 0,03 bb).
+
+**Écartés.** Échantillonnage Monte-Carlo (mesure bruitée) ; un calcul « par tri » sans inclusion-exclusion (faux dès
+que des cartes sont partagées).
