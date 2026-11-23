@@ -222,3 +222,24 @@ escompté, moyennes différentes), plus d'itérations avec arrêt sur la meilleu
 **Autre limite notée.** Une situation que la stratégie n'atteint jamais (ex. J2 après une mise de J0 payée par J1,
 alors que J1 ne paie jamais) garde une stratégie peu entraînée : sans effet sur la NashConv, mais à ne pas lire comme un
 conseil.
+
+## D16 — River à 3 « par vecteurs de mains » · retenu · 2026-11-23
+
+**Choix.** Étape 2 : un seul arbre d'enchères public ; à chaque nœud, une stratégie par main du joueur qui parle ; aux
+fins de main, valeur exacte sur la distribution jointe (D9 : produit des poids, aucune carte partagée), en bouclant
+sur les paires de mains adverses compatibles. CFR+ alterné comme en D12. Règles d'enchères : plusieurs tailles de
+mise (fraction du pot), relance au pot, tapis, nombre maximal de mises et relances par street, réouverture suivie par
+joueur (règle A), pots annexes, mise rendue et rake au prorata via le moteur de règles (D4-D5).
+
+**Pourquoi.** L'arbre explicite de l'étape 1 crée un nœud par distribution de mains : il grossit trop vite dès que les
+ranges dépassent quelques mains. Ici, l'arbre ne dépend que des enchères ; les mains sont des vecteurs.
+
+**Preuve d'équivalence.** Sur la river miniature, le nouveau solveur donne les mêmes ensembles d'information, les mêmes
+valeurs (à 10⁻⁸ près) avec une stratégie uniforme, et sa stratégie, rejouée dans l'arbre explicite de l'étape 1, y
+donne la même valeur et la même NashConv (src/test/multiway2a.test.ts). Sur un arbre riche (3 tailles, relance, tapis,
+tapis 40/100/100, rake), on vérifie sur toutes les fins de main et toutes les distributions que les gains ne créent
+pas de jetons et que le rake ne dépasse pas le plafond.
+
+**Écartés.** Échantillonnage (Monte-Carlo CFR) : plus rapide par itération, mais mesure bruitée ; on garde l'exact tant
+que le temps le permet. Calcul accéléré des fins de main par tri des forces (comme à 2 joueurs) : à faire plus tard
+si la mesure montre que c'est le goulot, avec le même test d'équivalence.
