@@ -263,3 +263,27 @@ CFR, les deux atteignent la même précision (les stratégies peuvent différer 
 
 **Écartés.** Échantillonnage Monte-Carlo (mesure bruitée) ; un calcul « par tri » sans inclusion-exclusion (faux dès
 que des cartes sont partagées).
+
+## D18 — Discounted CFR pour le solveur multiway · mesuré, proposé (CFR+ reste le défaut) · 2026-11-23
+
+**Quoi.** Option `algo: "dcfr"` de VRiver3 : Discounted CFR (thèse de N. Brown, §3.1) avec α = 1,5, β = 0, γ = 2,
+exactement comme le solveur tête-à-tête (src/engines/endgame/cfr.ts). Testé dans src/test/multiway2c.test.ts.
+
+**Mesuré (NashConv en bb, pot 30 bb, seuil 0,03 bb).**
+
+| Situation | Itérations | CFR+ | DCFR |
+|---|---|---|---|
+| Micro, tapis égaux, rake | 200 | 0,0054 | 0,0023 |
+| Micro, tapis 15/100/100 + rake (cas D15) | 2 000 / 5 000 / 20 000 | 0,0153 / 0,0185 / 0,0100 | 0,00007 / 0,00045 / 0,00034 |
+| Arbre riche, tapis égaux | 500 | 0,035 | 0,011 |
+| Arbre riche, 40/100/100 + rake | 500 / 2 000 | 0,036 / 0,0027 | 0,0081 / 0,0086 |
+| 100 mains, arbre riche + rake | 500 / 1 000 | 0,059 / 0,020 | 0,026 / 0,0084 |
+
+**Lecture.** DCFR atteint le seuil environ deux fois plus tôt sur tous les cas, et rend le cas D15 (tapis court +
+rake) 30 à 50 fois plus précis, sans le faire converger proprement pour autant : la NashConv remonte un peu après
+2 000 itérations (0,00007 → 0,00045). Sur de longs calculs, DCFR n'est pas toujours meilleur (cas 40/100/100 à 2 000
+itérations). Conforme à la thèse : DCFR est le plus utile entre 100 et 1 000 itérations, la zone qu'on utilise.
+
+**Proposition (à valider).** Passer DCFR par défaut, et garder pendant le calcul la stratégie qui a la plus faible
+NashConv mesurée (la thèse le fait quand la convergence est bruitée), pour ne jamais publier moins bien que le meilleur
+point atteint.

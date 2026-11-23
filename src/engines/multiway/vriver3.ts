@@ -58,7 +58,12 @@ export class VRiver3 {
   private order: Int32Array[];       // mains de chaque joueur triées par force croissante
 
   /** terminal : « auto » (défaut) prend le calcul exact quand les ranges sont si petites qu'il est plus rapide. */
-  constructor(readonly spec: VSpec, opts: { terminal?: "fast" | "exact" | "auto" } = {}) {
+  /** cfr+ (défaut) ou dcfr : Discounted CFR α=1,5 β=0 γ=2 (D18), comme le solveur tête-à-tête. */
+  readonly algo: "cfr+" | "dcfr";
+  private disc: [number, number, number] = [1, 1, 1];
+
+  constructor(readonly spec: VSpec, opts: { terminal?: "fast" | "exact" | "auto"; algo?: "cfr+" | "dcfr" } = {}) {
+    this.algo = opts.algo ?? "cfr+";
     const board = new Set(spec.board);
     this.hands = spec.ranges.map(r => r.filter(h => h.w > 0 && !board.has(h.cards[0]) && !board.has(h.cards[1])));
     this.ranks = this.hands.map(r => Int32Array.from(r, h => rank7([...h.cards, ...spec.board])));
@@ -339,8 +344,15 @@ export class VRiver3 {
     for (let x = 0; x < N; x++) for (let a = 0; a < A; a++) v[x] += sigma[a * N + x] * vals[a][x];
     const reg = this.regret.get(n.id) ?? new Float64Array(A * N), sum = this.sum.get(n.id) ?? new Float64Array(A * N);
     for (let a = 0; a < A; a++) for (let x = 0; x < N; x++) {
-      reg[a * N + x] = Math.max(0, reg[a * N + x] + vals[a][x] - v[x]);
-      sum[a * N + x] += this.iterations * reach[i][x] * sigma[a * N + x];
+      const k = a * N + x, r = vals[a][x] - v[x];
+      if (this.algo === "dcfr") {
+        const old = reg[k];
+        reg[k] = (old > 0 ? old * this.disc[0] : old * this.disc[1]) + r;
+        sum[k] = sum[k] * this.disc[2] + reach[i][x] * sigma[k];
+      } else {
+        reg[k] = Math.max(0, reg[k] + r);
+        sum[k] += this.iterations * reach[i][x] * sigma[k];
+      }
     }
     this.regret.set(n.id, reg); this.sum.set(n.id, sum);
     return v;
@@ -350,7 +362,8 @@ export class VRiver3 {
 
   run(iterations: number) {
     for (let k = 0; k < iterations; k++) {
-      this.iterations++;
+      const t = ++this.iterations, p = Math.pow(t - 1, 1.5);
+      this.disc = [p / (p + 1), 0.5, Math.pow((t - 1) / t, 2)];
       for (let i = 0; i < 3; i++) this.walk(this.root, i, this.reach0());
     }
   }
