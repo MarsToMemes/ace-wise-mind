@@ -454,3 +454,21 @@ c'est la mesure qui fait foi.
 **À venir.** 5 et 6 joueurs : même solveur, mais deux puis trois ranges énumérées ; coût à mesurer, probablement des
 heures puis des jours par spot. Pistes d'accélération à mesurer : ne recalculer, d'une main énumérée à l'autre, que
 les mains adverses qui partagent ses cartes ; choisir les ranges énumérées qui minimisent le coût.
+
+**Accélération (2026-11-24).** Par terme, table M[c][e] = Σd Pb[c,d]·Pa[e,d] tenue à jour à chaque main ajoutée : plus
+de boucle de 52 cartes par main du joueur qui apprend (utilisée quand il a plus de 120 mains). Un oubli dans la
+première version (mise à jour manquante d'un côté) a été attrapé par un test exerçant ce chemin ; test ajouté qui le
+force sur tous les types de pots à 4 et 5 joueurs, contre l'énumération complète.
+
+**Coût mesuré, vrais spots (menu Pluribus, ranges de la ligne, tout checké, 10 cœurs) :**
+- 4 joueurs (SB/BB/CO/BTN, 183/762/335/50 combos, 705 fins) : 3,3 s par itération au départ ; calcul complet 26 min.
+- 5 joueurs (SB/BB/UTG/MP/BTN, 275/763/275/60/6, 2 841 fins) : 254 s par itération au départ (les suivantes sont plus
+  rapides : stratégies plus tranchées) → **de l'ordre de 1 à 4 jours** pour 1 400 itérations.
+- 6 joueurs (564/826/275/60/3/52, 9 937 fins) : borne haute 25 000 min par itération sur un cœur → **des mois** :
+  hors de portée de cette machine avec cette méthode.
+
+**Pistes pour 5 et 6 joueurs (à décider avec l'utilisateur).** (1) Lancer le calcul à 5 joueurs en tâche de fond
+(jours, Mac allumé). (2) Méthode rapide exacte pour TROIS adversaires à la fois (inclusion-exclusion à trois mains) :
+diviserait le coût par la taille d'une range (×50 à ×800), effort important et résultat incertain. (3) Menu de mises
+plus petit à partir de 5 joueurs (161 et 385 fins au lieu de 2 841 et 9 937). (4) Calcul dans le cloud : payant,
+interdit sans accord écrit.

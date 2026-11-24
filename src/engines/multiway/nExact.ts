@@ -32,6 +32,10 @@ export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float
   }
   const K = [...keys], nT = K.length, TA = K.map(k => Math.floor(k / 3)), TB = K.map(k => k % 3);
   const V = K.map(() => new Float64Array(52)), U = K.map(() => new Float64Array(52)), D = new Float64Array(nT);
+  // M[c][e] = Σd Pb[c,d]·Pa[e,d] par terme : rend la dernière somme de 52 cartes par main inutile (gros intérêt quand
+  // le joueur qui apprend a beaucoup de mains)
+  const useM = h.hands[i].length > ((globalThis as { __forceM?: number }).__forceM ?? 120);
+  const M = useM ? K.map(() => new Float64Array(2704)) : [];
   let live = false;
   const put = (slot: number, c1: number, c2: number, w: number) => {
     W[slot] += w; C[slot][c1] += w; C[slot][c2] += w; P[slot][c1 * 52 + c2] += w; P[slot][c2 * 52 + c1] += w;
@@ -45,6 +49,7 @@ export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float
       Vk[c1] += w * Cb[c2]; Vk[c2] += w * Cb[c1];
       for (let c = 0; c < 52; c++) Uk[c] += w * (Pb[c * 52 + c1] + Pb[c * 52 + c2]);
       D[k] += w * (Cb[c1] + Cb[c2]);
+      if (useM) { const Mk = M[k]; for (let c = 0; c < 52; c++) { Mk[c * 52 + c1] += w * Pb[c * 52 + c2]; Mk[c * 52 + c2] += w * Pb[c * 52 + c1]; } }
     }
     put(t, c1, c2, w);
     const q = w * P[5][c1 * 52 + c2];
@@ -59,6 +64,7 @@ export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float
       for (let c = 0; c < 52; c++) Vk[c] += w * (Pa[c * 52 + c1] + Pa[c * 52 + c2]);
       Uk[c1] += w * Ca[c2]; Uk[c2] += w * Ca[c1];
       D[k] += w * (Ca[c1] + Ca[c2]);
+      if (useM) { const Mk = M[k]; for (let e = 0; e < 52; e++) { Mk[c1 * 52 + e] += w * Pa[e * 52 + c2]; Mk[c2 * 52 + e] += w * Pa[e * 52 + c1]; } }
     }
     put(3 + t, c1, c2, w);
   };
@@ -75,6 +81,14 @@ export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float
       Vk[c] = sv; Uk[c] = su;
     }
     D[k] = d;
+    if (useM) {
+      const Mk = M[k];
+      for (let c = 0; c < 52; c++) for (let e = 0; e < 52; e++) {
+        let m = 0; const oc = c * 52, oe = e * 52;
+        for (let d2 = 0; d2 < 52; d2++) m += Pb[oc + d2] * Pa[oe + d2];
+        Mk[oc + e] = m;
+      }
+    }
   }
   live = true;
 
@@ -106,7 +120,8 @@ export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float
         const T2 = D[k] - (Ca[x1] * Cb[x1] + Vk[x1]) - (Ca[x2] * Cb[x2] + Vk[x2]) + pa * (Cb[x1] + Cb[x2]);
         const T3 = Rq[tr] - Rc[tr][x1] - Rc[tr][x2] + pa * pb;
         let hs = 0;
-        for (let d = 0; d < 52; d++) hs += (Pb[o1 + d] + Pb[o2 + d]) * (Pa[o1 + d] + Pa[o2 + d]);
+        if (useM) { const Mk = M[k]; hs = Mk[o1 + x1] + Mk[o1 + x2] + Mk[o2 + x1] + Mk[o2 + x2]; }
+        else for (let d = 0; d < 52; d++) hs += (Pb[o1 + d] + Pb[o2 + d]) * (Pa[o1 + d] + Pa[o2 + d]);
         const t4 = Uk[x1] + Uk[x2] - pb * (Ca[x1] + Ca[x2]) - hs + 2 * pb * pa;
         v += cf * (T1 - T2 + T3 + t4);
       }

@@ -38,8 +38,38 @@ describe("D25 : fins de main exactes à n joueurs", () => {
     expect(worst).toBeLessThan(1e-8);
   }, 120000);
 
+  it("chemin accéléré forcé partout (tous les types de pots, 4 et 5 joueurs) : égal à l'énumération complète", () => {
+    (globalThis as { __forceM?: number }).__forceM = 0;
+    try {
+      for (const [n, sizes] of [[4, [9, 7, 8, 6]], [5, [6, 5, 7, 4, 5]]] as const) {
+        const t = tree(n), h = new HandTable(BOARD, ranges(n, [...sizes], 61 + n)), r = rng(29);
+        let worst = 0;
+        for (const e of t.ends) for (let i = 0; i < n; i++) {
+          if (r() > 0.2) continue;
+          const reach = h.hands.map(hs => Float64Array.from(hs, () => (r() < 0.15 ? 0 : r())));
+          const a = exactCfvFast(h, e, i, reach), b = exactCfvN(h, e, i, reach);
+          a.forEach((v, x) => { worst = Math.max(worst, Math.abs(v - b[x])); });
+        }
+        expect(worst).toBeLessThan(1e-8);
+      }
+    } finally { delete (globalThis as { __forceM?: number }).__forceM; }
+  }, 300000);
+
+  it("joueur qui apprend avec beaucoup de mains (chemin accéléré) : égal à l'énumération complète, 4 joueurs", () => {
+    const t = tree(4), h = new HandTable(BOARD, ranges(4, [150, 8, 6, 7], 51)), r = rng(23);
+    let worst = 0, checked = 0;
+    for (const e of t.ends) {
+      if (r() > 0.2) continue;
+      const reach = h.hands.map(hs => Float64Array.from(hs, () => (r() < 0.1 ? 0 : r())));
+      const a = exactCfvFast(h, e, 0, reach), b = exactCfvN(h, e, 0, reach);
+      a.forEach((v, x) => { worst = Math.max(worst, Math.abs(v - b[x])); }); checked++;
+    }
+    expect(checked).toBeGreaterThan(15);
+    expect(worst).toBeLessThan(1e-8);
+  }, 300000);
+
   it("3 joueurs : égal au calcul rapide du solveur à 3 joueurs (déjà validé)", () => {
-    const rs = ranges(3, [40, 30, 25], 5), h = new HandTable(BOARD, rs), t = tree(3), r = rng(2);
+    const rs = ranges(3, [140, 30, 25], 5), h = new HandTable(BOARD, rs), t = tree(3), r = rng(2);
     const v = new VRiver3({ board: BOARD, potBB: 20, stacks: [100, 12, 45], rake: CASH_RAKE, bets: [0.5, 1], raise: true, allin: true, maxAggr: 2,
       ranges: rs.map(x => x.map(cards => ({ cards, w: 1 }))) }, { terminal: "fast" });
     let worst = 0;
