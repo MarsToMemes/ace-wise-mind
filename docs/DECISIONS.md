@@ -472,3 +472,13 @@ force sur tous les types de pots à 4 et 5 joueurs, contre l'énumération compl
 diviserait le coût par la taille d'une range (×50 à ×800), effort important et résultat incertain. (3) Menu de mises
 plus petit à partir de 5 joueurs (161 et 385 fins au lieu de 2 841 et 9 937). (4) Calcul dans le cloud : payant,
 interdit sans accord écrit.
+
+**Piste « trois adversaires à la fois » étudiée puis écartée (2026-11-24).** Calcul : l'inclusion-exclusion à trois
+mains fait apparaître des contractions de tables 52×52 dépendant de la main x (retrait de ses cartes), pour chacune
+des 27 combinaisons de seuils « plus faibles / égales / toutes » des trois adversaires : au moins 27 × 2 704
+opérations par main. Mesuré : borne basse 38 ms par appel (800 mains), contre 1 ms par main énumérée avec la méthode
+actuelle (deux adversaires libres de 760 et 560 mains). Elle ne paie que si la range qu'elle évite d'énumérer dépasse
+~40 combos (borne basse ; plutôt 100 à 400 en pratique) ; dans les vrais spots multiway, les ranges énumérées sont
+justement les petites (3, 6, 52, 60). Gain au mieux ×1,6 à 5 et 6 joueurs. **L'estimation « ×50 à ×800 » annoncée
+avant cette étude était fausse.** Restent pour 5 et 6 joueurs exacts : calcul long (5 joueurs : 1 à 4 jours sur cette
+machine) ; 6 joueurs hors de portée ici (des mois) ; calcul dans le cloud seulement avec accord écrit (payant).
