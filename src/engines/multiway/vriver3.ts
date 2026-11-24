@@ -9,7 +9,7 @@ import { rakeOf, type RakeRule } from "@/core/rake";
 import { rank7 } from "@/engines/handEval7";
 import type { RiverSpec } from "@/engines/multiway/river3";
 import { HandTable, indepCfvN } from "@/engines/multiway/nTerminal";
-import type { TEnd } from "@/engines/multiway/betTree";
+import { buildBetTree, type TEnd, type PathAct } from "@/engines/multiway/betTree";
 
 export interface VCombo { cards: [string, string]; w: number }
 export interface VSpec {
@@ -27,6 +27,10 @@ export interface VSpec {
   /** Nombre maximal de mises et relances sur la street. */
   maxAggr: number;
   rake: RakeRule | null;
+  /** Étape A1 (main réelle) : mises d'avant la river par joueur, argent des joueurs couchés, actions déjà jouées. */
+  invested0?: number[];
+  dead?: number[];
+  path?: PathAct[];
 }
 
 export const fromRiverSpec = (s: RiverSpec): VSpec => ({
@@ -96,74 +100,13 @@ export class VRiver3 {
   private ok = (p: number, q: number, i: number, j: number) => this.comp[p][q][i * this.N(q) + j] === 1;
 
   // ---------------------------------------------------------------- arbre d'enchères public
+  /** Même arbre que le solveur à n joueurs (betTree.ts) : vraies mises d'avant la river, argent mort, actions jouées. */
   private build(): VNode {
-    const s = this.spec, n = 3;
-    type St = { contrib: number[]; folded: boolean[]; acted: Set<number>; bet: number; full: number; aggr: number; seenBet: number[]; seenFull: number[]; hist: string };
-    const rem = (st: St, p: number) => s.stacks[p] - st.contrib[p];
-    const next = (st: St, from: number): number => {
-      for (let k = 1; k <= n; k++) {
-        const p = (from + k) % n;
-        if (!st.folded[p] && rem(st, p) > EPS && (!st.acted.has(p) || st.contrib[p] < st.bet - EPS)) return p;
-      }
-      return -1;
-    };
-    const end = (st: St): End => {
-      const seats = [0, 1, 2].map(p => ({
-        idx: p, investedBB: s.potBB / n + st.contrib[p], folded: st.folded[p], allIn: rem(st, p) <= EPS,
-      })) as SeatState[];
-      const pots = computePots(seats, false);
-      const contested = pots.filter(x => x.kind !== "refund");
-      const T = contested.reduce((t, x) => t + x.amount, 0);
-      const rake = s.rake && T > 0 ? rakeOf(T, s.rake) : 0;
-      const refund = [0, 0, 0];
-      pots.filter(x => x.kind === "refund").forEach(x => { refund[x.eligible[0]] += x.amount; });
-      const node: End = { t: "end", eid: this.ends.length, refund, invested: seats.map(x => x.investedBB), pots: contested.map(x => ({ net: x.amount - (T > 0 ? (rake * x.amount) / T : 0), elig: x.eligible })) };
-      this.ends.push(node);
-      return node;
-    };
-    const go = (st: St, p: number): VNode => {
-      if (p < 0 || st.folded.filter(f => !f).length <= 1) return end(st);
-      const pot = s.potBB + st.contrib.reduce((a, b) => a + b, 0);
-      const r = rem(st, p), toCall = Math.max(0, st.bet - st.contrib[p]);
-      const options: { tok: string; to: number; type: "f" | "x" | "c" | "agg" }[] = [];
-      const canAgg = st.aggr < s.maxAggr && r > toCall + EPS &&
-        (st.seenBet[p] < 0 || st.bet - st.seenBet[p] >= st.seenFull[p] - EPS);
-      const allInTo = st.contrib[p] + r;
-      if (toCall <= EPS) {
-        options.push({ tok: "p", to: st.contrib[p], type: "x" });
-        if (canAgg) s.bets.forEach((f, k) => {
-          const to = Math.min(r1(f * pot), allInTo);
-          if (to >= allInTo - EPS && s.allin) return;              // couvert par le tapis
-          if (!options.some(o => Math.abs(o.to - to) < EPS)) options.push({ tok: s.bets.length === 1 ? "b" : `b${k}`, to, type: "agg" });
-        });
-      } else {
-        options.push({ tok: "f", to: st.contrib[p], type: "f" });
-        options.push({ tok: "c", to: Math.min(st.bet, allInTo), type: "c" });
-        if (canAgg && s.raise) {
-          const to = Math.min(st.bet + pot + toCall, allInTo);
-          if (!(to >= allInTo - EPS && s.allin)) options.push({ tok: "r", to, type: "agg" });
-        }
-      }
-      if (canAgg && s.allin && allInTo > st.bet + EPS) options.push({ tok: "a", to: allInTo, type: "agg" });
-
-      const node: Act = { t: "act", id: this.acts.length, player: p, hist: st.hist, actions: options.map(o => o.tok), children: [] };
-      this.acts.push(node);
-      this.byHist.set(`${p}|${st.hist}`, node);
-      node.children = options.map(o => {
-        const nx: St = { ...st, contrib: [...st.contrib], folded: [...st.folded], acted: new Set(st.acted), seenBet: [...st.seenBet], seenFull: [...st.seenFull], hist: st.hist + o.tok };
-        if (o.type === "f") { nx.folded[p] = true; nx.acted.add(p); return go(nx, next(nx, p)); }
-        nx.contrib[p] = o.to;
-        if (o.type === "agg") {
-          const inc = o.to - st.bet;
-          if (inc >= st.full - EPS || st.bet <= EPS) nx.full = st.bet <= EPS ? o.to : inc;
-          nx.bet = o.to; nx.aggr = st.aggr + 1; nx.acted = new Set([p]);
-        } else nx.acted.add(p);
-        nx.seenBet[p] = nx.bet; nx.seenFull[p] = nx.full;
-        return go(nx, next(nx, p));
-      });
-      return node;
-    };
-    return go({ contrib: [0, 0, 0], folded: [false, false, false], acted: new Set(), bet: 0, full: 1, aggr: 0, seenBet: [-1, -1, -1], seenFull: [1, 1, 1], hist: "" }, 0);
+    const s = this.spec;
+    const t = buildBetTree({ n: 3, potBB: s.potBB, stacks: s.stacks, bets: s.bets, raise: s.raise, allin: s.allin, maxAggr: s.maxAggr,
+      rake: s.rake, invested0: s.invested0, dead: s.dead, path: s.path });
+    this.acts = t.acts as Act[]; this.ends = t.ends as End[]; this.byHist = t.byHist as Map<string, Act>;
+    return t.root as VNode;
   }
 
   // ---------------------------------------------------------------- valeurs aux fins de main

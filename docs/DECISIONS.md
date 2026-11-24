@@ -496,3 +496,36 @@ réutilisés d'un appel à l'autre (moins de mémoire à nettoyer).
 10 ouvriers 25 s. Le gain plafonne vers ×2,6 sur cette puce (4 cœurs rapides, 6 cœurs économes, fréquence qui baisse
 quand tous travaillent) : la limite est matérielle. Conséquence : 5 joueurs estimé à **3 à 10 jours** sur cette machine
 (au lieu de 1 à 4), les itérations suivantes étant plus rapides que les premières.
+
+## D27 — Étape A1 : du spot saisi sur le site au spot river multiway (2 à 4 joueurs) · retenu · 2026-11-24
+
+**Contexte.** Décision de l'utilisateur : arrêter le calcul à 5 joueurs et concentrer l'effort sur les mains à 2, 3 et
+4 joueurs (river, puis turn et flop). Première brique : construire, à partir de la main saisie, le spot que le solveur
+exact calcule.
+
+**Choix.** `riverSpotFromHand` (handSpot.ts) :
+- **Joueurs, pot, tapis** : la main est rejouée jusqu'à la fin de la turn par le moteur de règles du site (`replayLive`).
+  Chaque joueur garde **ce qu'il a vraiment mis** (`invested0`) ; l'argent des joueurs couchés reste au pot **à son
+  niveau** (`dead`, sièges couchés fictifs pour les pots annexes) ; un joueur déjà à tapis reste dans le coup sans
+  parler. Avant, l'arbre supposait des mises égales (pot ÷ n), ce qui faussait les pots annexes.
+- **Ordre de parole** : SB, BB, UTG… BTN (distance au bouton), comme sur une vraie table.
+- **Ranges** : ligne préflop jouée (`lineRanges`), puis le filtre de chaque street (`filterByLine`) ; un check qui
+  ferme la street est un « check derrière ». Mêmes règles que le conseil tête-à-tête. Si ta main n'est pas dans ta
+  range, elle est ajoutée avec un petit poids et c'est signalé.
+- **Actions déjà jouées sur la river** : insérées dans l'arbre avec leur **vraie taille** (`path`) ; une taille à 5 %
+  du pot près d'une taille de l'arbre lui est rattachée, un tapis au tapis. Le solveur calcule toute la river depuis
+  son début (les ranges se resserrent par la stratégie elle-même, règle de Bayes), et on lit ta décision au nœud atteint.
+- **Menus** : complet (33 / 75 / 125 %, relance au pot, tapis, 3 agressions) à 2 et 3 joueurs ; celui de Pluribus
+  (50 / 100 %, relance au pot, tapis, 2 agressions) à 4 joueurs (D22).
+- **Refus clairs** : pas encore la river, plus de 4 joueurs, ce n'est pas à toi de parler, action impossible.
+- **Un seul arbre** : le moteur rapide à 3 joueurs utilise désormais l'arbre de betTree.ts au lieu de sa copie (mêmes
+  gains que le moteur général, testé) ; l'empreinte de la mémoire des spots tient compte des trois nouveaux champs.
+
+**Écarté.** Arrondir la vraie taille à la plus proche de l'arbre (erreur de prix pouvant dépasser 20 % du pot) ;
+partir des ranges resserrées par les actions de la river (double comptage : la stratégie calculée les resserre déjà) ;
+garder deux constructeurs d'arbre (risque de divergence, déjà constatée : 14 fins de main contre 19 sur un spot à tapis
+court et argent mort).
+
+**Tests.** multiwayA1.test.ts (10 tests) : gains contre le moteur de règles du site (70 cas), vraie taille insérée,
+rattachement, chemin impossible, mains réelles à 3 et 4 joueurs, tapis court, refus, moteur rapide = moteur général,
+empreintes distinctes. Toute la suite multiway passe (références au bit près comprises).
