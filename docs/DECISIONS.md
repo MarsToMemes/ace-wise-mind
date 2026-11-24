@@ -598,3 +598,35 @@ de mains ; traduction (montants, 100 %, se coucher = 0, range) ; choix du solveu
 checke la river, CO mise 10 bb, toi au BTN avec Q♣Q♦ : conseil maison (call / fold) et « précision 5,6 % du pot · 2 s »
 pendant le calcul, puis « Solveur multiway (3 joueurs) » : fold (call −4,6 bb, relance −5,1 bb, tapis −5,6 bb),
 précision 0,09 % du pot en 15,7 s ; même spot rouvert : rendu par la mémoire.
+
+## D30 — Turn à 3 joueurs : méthode « turn seule » mesurée contre le vrai jeu turn + river · mesures · 2026-11-24
+
+**Le calcul exact turn + river ne tient pas dans un navigateur.** Turn type à 3 (K♥9♦4♣7♠, CO ouvre, BTN et BB paient,
+checks au flop) : 886 / 339 / 50 mains ; 112 à 358 lignes de mise de la turn vont à la river, chacune suivie de 48
+rivers : 5 000 à 17 000 parties de river à garder en mémoire (1,6 à 5 Go), 80 à 260 s par itération complète.
+
+**Méthode testée : « turn seule »** (profondeur limitée, comme Pluribus) : CFR sur les mises de la turn ; au bout de la
+turn, abattage moyen sur toutes les rivers (`vturn.ts`, feuilles « showdown »). Référence : le vrai jeu turn + river
+(`vturn.ts`, feuilles « exact », chaque river avec ses mises), résolu hors navigateur. Un joueur couché à la turn garde
+ses cartes dans le paquet (joueurs « déjà couchés » dans l'arbre de mises, `out`).
+
+**Mesure** (ranges réduites aux 120 mains les plus fréquentes, turn 50 / 100 % + tapis, river 66 % + tapis, référence
+à 0,17-0,19 % du pot) : ce que coûte, dans le vrai jeu, de suivre le conseil « turn seule » au nœud de la décision.
+
+| Décision | Perte moyenne | Pire main | Même action principale |
+|---|---|---|---|
+| BB parle en premier (K♥9♦4♣7♠ et J♠T♠5♦8♣) | 0 bb | 0 | 100 % (check) |
+| BTN face à une mise de 50 % de CO (sans relance) | 0,008 bb (0,10 % du pot) | 0,37 bb | 74 % |
+| CO décide de miser après le check de la BB | 0,013 bb (0,16 %) | 0,27 bb | 86 % |
+| BTN décide de miser après deux checks (J♠T♠5♦8♣) | 0,013 bb (0,17 %) | 1,02 bb | 62 % |
+| BTN face à une mise de 50 %, relance possible | non mesurable : CO ne mise jamais 50 % ici (0,00 %) | — | — |
+
+**Vitesse** (vraies ranges 886 / 339 / 50, BTN face à une mise avec relance possible, 1 cœur, contrôles de précision
+toutes les 25 itérations compris) : 1 % du pot en 478 s (48 rivers) ou 200 s (16 rivers tirées par itération) ; 0,5 %
+en 622 s ou 327 s. Avec des ranges réduites, le tirage ralentissait au contraire. Calcul réparti pas encore écrit :
+gain attendu ×3 à ×6 (non mesuré).
+
+**Limite trouvée (vaut aussi pour la river en ligne).** Quand la ligne jouée n'arrive presque jamais dans le jeu
+calculé (une mise qu'aucune main ne fait), résoudre depuis le début de la street ne dit rien de fiable à ce nœud : la
+stratégie n'y apprend rien (ici, la référence perdait 0,35 bb par main à ce nœud, sans bouger d'une itération à
+l'autre). Il faut le détecter (probabilité d'arriver au nœud) et le dire, ou résoudre à partir du nœud.

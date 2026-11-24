@@ -75,3 +75,23 @@ describe("B1 : jeu turn + river", () => {
     expect(res.nashConv).toBeLessThan(0.02 * SPEC.potBB);
   }, 120000);
 });
+
+describe("B1 : rivers tirées au hasard (méthode « turn seule »)", () => {
+  it("en tirant les 48 rivers, mêmes résultats au bit près que sans tirage", () => {
+    const a = new VTurnN(SPEC, { leaves: "showdown" }), b = new VTurnN(SPEC, { leaves: "showdown", sample: 48 });
+    a.run(30); b.run(30);
+    const pa = a.averageProfile(), pb = b.averageProfile();
+    for (const [id, s] of pa) expect(Array.from(pb.get(id)!)).toEqual(Array.from(s));
+  });
+  it("en tirant 8 rivers par itération, 6 fois moins de rivers évaluées", () => {
+    const a = new VTurnN(SPEC, { leaves: "showdown" }), b = new VTurnN(SPEC, { leaves: "showdown", sample: 8 });
+    a.run(2); b.run(2);
+    expect(b.riverEvals * 6).toBe(a.riverEvals);
+  });
+  it("en tirant 8 rivers par itération, le calcul converge (précision mesurée sur toutes les rivers)", () => {
+    const v = new VTurnN(SPEC, { leaves: "showdown", sample: 8 });
+    const r = v.solve(600, 200);
+    // le tirage ralentit la convergence (≈ 1,1 % du pot à 600 itérations ici) : sa valeur se mesure (D30)
+    expect(r.nashConv).toBeLessThan(0.02 * SPEC.potBB);
+  }, 60000);
+});

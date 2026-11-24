@@ -32,9 +32,17 @@ export class VTurnN {
   private K: number;
   private subs = new Map<string, VRiverN>();
   private Z = 0;
+  /** Rivers tirées pour l'itération en cours (toutes si pas de tirage) et facteur qui garde les valeurs sans biais. */
+  private active: number[] = [];
+  private factor = 1;
+  private seed = 1;
+  readonly sample: number;
+  /** Nombre de rivers évaluées pendant les itérations (mesure du travail). */
+  riverEvals = 0;
   iterations = 0;
 
-  constructor(readonly spec: TurnSpec, opts: { leaves: "exact" | "showdown" }) {
+  /** sample : nombre de rivers tirées au hasard à chaque itération (sans biais ; la précision se mesure sur toutes). */
+  constructor(readonly spec: TurnSpec, opts: { leaves: "exact" | "showdown"; sample?: number }) {
     this.n = spec.ranges.length;
     this.leaves = opts.leaves;
     const b = new Set(spec.board);
@@ -48,8 +56,10 @@ export class VTurnN {
       const back = this.hands.map(r => Int32Array.from(r.flatMap((c, x) => (c.cards.includes(card) ? [] : [x]))));
       return { card, back, h: new HandTable([...spec.board, card], this.hands.map(r => r.filter(c => !c.cards.includes(card)).map(c => c.cards))) };
     });
+    this.sample = Math.min(opts.sample ?? this.rivers.length, this.rivers.length);
+    this.active = this.rivers.map((_, k) => k);
     const unit: TEnd = { t: "end", eid: -1, refund: new Array(this.n).fill(1), invested: new Array(this.n).fill(0), folded: new Array(this.n).fill(false), pots: [] };
-    const m = this.showdown(unit, 0, this.weights);
+    const m = this.showdown(unit, 0, this.weights, false);
     this.Z = this.weights[0].reduce((t, w, x) => t + w * m[x], 0);
   }
 
@@ -81,19 +91,23 @@ export class VTurnN {
     return exactCfvFast(h, e, i, rc);
   }
   /** Abattage au bout de la turn, valeur moyenne sur toutes les rivers. */
-  private showdown(e: TEnd, i: number, reach: Float64Array[]) {
-    const out = new Float64Array(this.hands[i].length);
-    for (const R of this.rivers) {
+  private showdown(e: TEnd, i: number, reach: Float64Array[], sampled: boolean) {
+    const out = new Float64Array(this.hands[i].length), f = sampled ? this.factor : 1;
+    for (const ri of sampled ? this.active : this.rivers.map((_, k) => k)) {
+      const R = this.rivers[ri];
+      if (sampled) this.riverEvals++;
       const v = this.cfv(R.h, e, i, this.toRiver(R, reach)), b = R.back[i];
-      for (let k = 0; k < b.length; k++) out[b[k]] += v[k] / this.K;
+      for (let k = 0; k < b.length; k++) out[b[k]] += (v[k] * f) / this.K;
     }
     return out;
   }
   /** Valeur d'une fin de turn : abattage, ou chaque river avec ses mises (mise à jour des regrets, ou évaluation). */
   private leaf(e: TEnd, i: number, reach: Float64Array[], ev?: { br: boolean; subProf: Map<string, VProfile> }) {
-    if (this.leaves === "showdown" || e.folded[i] || e.folded.filter(f => !f).length < 2) return this.showdown(e, i, reach);
-    const out = new Float64Array(this.hands[i].length);
-    this.rivers.forEach((R, ri) => {
+    if (this.leaves === "showdown" || e.folded[i] || e.folded.filter(f => !f).length < 2) return this.showdown(e, i, reach, !ev);
+    const out = new Float64Array(this.hands[i].length), f = ev ? 1 : this.factor;
+    (ev ? this.rivers.map((_, k) => k) : this.active).forEach(ri => {
+      const R = this.rivers[ri];
+      if (!ev) this.riverEvals++;
       const v = this.sub(e, ri), rc = this.toRiver(R, reach), key = v.keyOf(v.root);
       let vals: Float64Array;
       if (ev) {
@@ -103,7 +117,7 @@ export class VTurnN {
         vals = v.evalKey(key, i, rc, p, ev.br);
       } else { v.setIteration(this.iterations); vals = v.walkKey(key, i, rc); }
       const b = R.back[i];
-      for (let k = 0; k < b.length; k++) out[b[k]] += vals[k] / this.K;
+      for (let k = 0; k < b.length; k++) out[b[k]] += (vals[k] * f) / this.K;
     });
     return out;
   }
@@ -147,8 +161,22 @@ export class VTurnN {
     for (let k = 0; k < iterations; k++) {
       const t = ++this.iterations, p = Math.pow(t - 1, 1.5);
       this.disc = [p / (p + 1), 0.5, Math.pow((t - 1) / t, 2)];
+      this.draw();
       for (let i = 0; i < this.n; i++) this.walk(this.root, i, this.weights.map(w => Float64Array.from(w)));
     }
+  }
+  /** Tire les rivers de l'itération (sans remise ; générateur fixe : calcul reproductible). */
+  private draw() {
+    const R = this.rivers.length, k = this.sample;
+    if (k >= R) { this.active = this.rivers.map((_, j) => j); this.factor = 1; return; }
+    const idx = this.rivers.map((_, j) => j);
+    for (let j = 0; j < k; j++) {
+      this.seed = (this.seed * 1103515245 + 12345) % 2147483648;
+      const r = j + Math.floor((this.seed / 2147483648) * (R - j));
+      [idx[j], idx[r]] = [idx[r], idx[j]];
+    }
+    this.active = idx.slice(0, k).sort((a, b) => a - b);
+    this.factor = R / k;
   }
   averageProfile(): VProfile {
     const out: VProfile = new Map();
@@ -229,7 +257,7 @@ export class VTurnN {
     }
     const target = this.tree.acts[nodeId], sp = new Map<string, VProfile>();
     const unit: TEnd = { t: "end", eid: -1, refund: new Array(this.n).fill(1), invested: new Array(this.n).fill(0), folded: new Array(this.n).fill(false), pots: [] };
-    const mass = this.showdown(unit, player, reach);
+    const mass = this.showdown(unit, player, reach, false);
     const vals = target.children.map(c => this.evalWalk(c, player, reach, prof, false, sp));
     return Array.from({ length: this.hands[player].length }, (_, x) => vals.map(va => (mass[x] > 0 ? va[x] / mass[x] + target.put[player] : 0)));
   }
