@@ -648,3 +648,25 @@ contrôles de précision toutes les 25 itérations compris) :
 
 Gain ≈ ×3,7 (plafond matériel de cette puce, D26). Avec les vraies ranges, tirer 16 rivers par itération est le bon
 réglage (avec des ranges réduites, le tirage ralentissait : D30).
+
+## D32 — Turn à 3 joueurs dans la Décision synthétique, et garde-fou des lignes rares · retenu · 2026-11-24
+
+**Choix.**
+- **Turn à 3 joueurs** (`turnSpotFromHand`, `route.ts`) : spot construit à partir de la main saisie comme à la river
+  (D27), ranges de la ligne préflop puis du flop ; menu de la turn 50 / 100 % du pot, relance au pot, tapis (celui
+  qui a été mesuré, D30). Calcul « turn seule » au fil de l'eau sur tous les cœurs, 16 rivers tirées par itération,
+  mémoire des spots (le tirage des rivers est sauvé avec l'état : un calcul repris tire les mêmes rivers). Temps
+  maximum 90 s (60 s à la river) ; un contrôle toutes les 25 itérations pour afficher vite la précision.
+- **Précision à ta décision** (`localPct`), à la turn et à la river : ce que perd en moyenne ta range au nœud où tu
+  joues en suivant la stratégie, par rapport à la meilleure action. Au-delà de 1 % du pot, la ligne jouée est jugée
+  rare (le calcul n'y apprend rien, D30) : conseil maison, avec la raison.
+- **Action mise en avant** (`display.ts`, multiway seulement) : la plus jouée, sauf si elle rapporte nettement moins
+  que la meilleure (plus de 0,1 bb ou 0,5 % du pot) : le calcul n'a pas fini de régler ta main, la plus rentable est
+  mise en avant avec l'explication ; « presque indifférent » quand les deux meilleures se valent.
+
+**Aperçu** (site local, CO ouvre, BTN et BB paient, checks au flop ; turn : BB checke, CO mise 4 bb dans 12 ; BTN avec
+J♣T♣) : précision 9,2 % du pot à 17 s, 0,98 % à 52 s, 0,48 % à 90 s ; premier affichage « Tapis 65 % » alors que la
+relance rapportait plus (+0,8 contre +0,5 bb) : d'où l'action mise en avant. Calcul repris : 0,26 % du pot, précision
+à ta décision 0,11 %, tapis 91 % et le plus rentable (+1,3 bb), en 98 s.
+
+**Écarté.** Une turn à 4 joueurs et plus (non mesurée) ; le calcul exact turn + river dans le navigateur (D30).
