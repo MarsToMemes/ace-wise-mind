@@ -31,7 +31,7 @@ export class MemoryStore implements SpotStore {
 export function spotKey(spec: VSpec, algo = "dcfr"): string {
   const r9 = (x: number) => Math.round(x * 1e9) / 1e9;
   const txt = JSON.stringify([algo, spec.board, spec.potBB, spec.stacks, spec.bets, spec.raise, spec.allin, spec.maxAggr, spec.rake,
-    spec.invested0 ?? null, spec.dead ?? null, spec.path ?? null,
+    spec.invested0 ?? null, spec.dead ?? null, spec.path ?? null, spec.out ?? null,
     spec.ranges.map(r => r.map(c => `${c.cards[0]}${c.cards[1]}:${r9(c.w)}`))]);
   let h1 = 0x811c9dc5, h2 = 0x01000193;
   for (let k = 0; k < txt.length; k++) { const c = txt.charCodeAt(k); h1 = Math.imul(h1 ^ c, 16777619); h2 = Math.imul(h2 ^ c, 2246822519); }

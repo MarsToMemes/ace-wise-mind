@@ -29,7 +29,7 @@ export class VRiverN {
     this.h = new HandTable(spec.board, kept.map(r => r.map(c => c.cards)));
     this.weights = kept.map(r => Float64Array.from(r, c => c.w));
     this.tree = buildBetTree({ n: this.n, potBB: spec.potBB, stacks: spec.stacks, bets: spec.bets, raise: spec.raise, allin: spec.allin, maxAggr: spec.maxAggr, rake: spec.rake,
-      invested0: spec.invested0, dead: spec.dead, path: spec.path });
+      invested0: spec.invested0, dead: spec.dead, path: spec.path, out: spec.out });
     this.root = this.tree.root;
     this.algo = opts.algo ?? "dcfr";
     this.terminalMode = opts.terminal ?? "exact";

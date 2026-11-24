@@ -31,6 +31,8 @@ export interface VSpec {
   invested0?: number[];
   dead?: number[];
   path?: PathAct[];
+  /** Joueurs déjà couchés avant la street (étape B1). */
+  out?: boolean[];
 }
 
 export const fromRiverSpec = (s: RiverSpec): VSpec => ({
@@ -104,7 +106,7 @@ export class VRiver3 {
   private build(): VNode {
     const s = this.spec;
     const t = buildBetTree({ n: 3, potBB: s.potBB, stacks: s.stacks, bets: s.bets, raise: s.raise, allin: s.allin, maxAggr: s.maxAggr,
-      rake: s.rake, invested0: s.invested0, dead: s.dead, path: s.path });
+      rake: s.rake, invested0: s.invested0, dead: s.dead, path: s.path, out: s.out });
     this.acts = t.acts as Act[]; this.ends = t.ends as End[]; this.byHist = t.byHist as Map<string, Act>;
     return t.root as VNode;
   }

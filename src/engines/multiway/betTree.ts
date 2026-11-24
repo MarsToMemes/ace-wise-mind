@@ -23,6 +23,8 @@ export interface BetTreeSpec {
   dead?: number[];
   /** Actions déjà jouées sur la river (vraies tailles : `to` = total mis sur la street). */
   path?: PathAct[];
+  /** Joueurs déjà couchés avant cette street (étape B1) : ils ne parlent pas, ne gagnent rien ; leur argent reste au pot. */
+  out?: boolean[];
 }
 
 export interface PathAct { player: number; kind: "check" | "bet" | "raise" | "call" | "fold" | "allin"; to?: number }
@@ -150,9 +152,9 @@ export function buildBetTree(s: BetTreeSpec): BetTree {
     });
     return node;
   };
-  const firstToAct = () => { for (let p = 0; p < n; p++) if (s.stacks[p] > EPS) return p; return -1; };
+  const firstToAct = () => { for (let p = 0; p < n; p++) if (s.stacks[p] > EPS && !s.out?.[p]) return p; return -1; };
   const root = go({
-    contrib: new Array(n).fill(0), folded: new Array(n).fill(false), acted: new Set(), bet: 0, full: 1, aggr: 0,
+    contrib: new Array(n).fill(0), folded: s.out ? [...s.out] : new Array(n).fill(false), acted: new Set(), bet: 0, full: 1, aggr: 0,
     seenBet: new Array(n).fill(-1), seenFull: new Array(n).fill(1), hist: "", k: 0,
   }, firstToAct());
   return { root, acts, ends, byHist, pathNode, pathError };
