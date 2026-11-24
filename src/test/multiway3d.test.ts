@@ -140,7 +140,7 @@ describe("D25 : solveur exact à n joueurs", () => {
   }, 120000);
 });
 
-import { VRiver3Parallel, inProcessPool } from "@/engines/multiway/vparallel";
+import { VRiver3Parallel, VRiverNTerminalParallel, inProcessPool } from "@/engines/multiway/vparallel";
 import { MemoryStore, solveSpot } from "@/engines/multiway/spotCache";
 
 describe("D25 : 4 joueurs, calcul réparti et mémoire des spots", () => {
@@ -169,4 +169,19 @@ describe("D25 : 4 joueurs, calcul réparti et mémoire des spots", () => {
     const again = await solveSpot(spec, { store, target: 1 });
     expect(again.fromCache).toBe(true);
   }, 120000);
+
+  it("calcul réparti par fin de main (D26) : mêmes résultats au bit près, 4 et 5 joueurs", async () => {
+    for (const [n, sizes] of [[4, [7, 6, 7, 6]], [5, [5, 4, 5, 4, 3]]] as const) {
+      const sp: VSpec = { board: BOARD, potBB: 20, stacks: [100, 12, 45, 100, 30].slice(0, n), rake: CASH_RAKE, bets: [0.5, 1], raise: true, allin: true, maxAggr: 2,
+        ranges: ranges(n, [...sizes], 71 + n).map(x => x.map(cards => ({ cards, w: 1 }))) };
+      const seq = new VRiverN(sp), par = new VRiverNTerminalParallel(sp, inProcessPool(4));
+      await par.init();
+      seq.run(6); await par.run(6);
+      const a = seq.averageProfile(), b = par.averageProfile();
+      let worst = 0;
+      a.forEach((s2, id) => s2.forEach((x, k) => { worst = Math.max(worst, Math.abs(x - b.get(id)![k])); }));
+      expect(worst).toBe(0);
+      expect(await par.nashConv(a)).toBeCloseTo(seq.nashConv(a), 10);
+    }
+  }, 300000);
 });

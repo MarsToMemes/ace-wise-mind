@@ -18,6 +18,9 @@ export interface PotView { net: number; ea: boolean; eb: boolean; fb: number; fc
 // tampons réutilisés d'un appel à l'autre (les tables 52×52 ne sont nettoyées que là où des mains ont été posées)
 const BW = new Float64Array(6), BC = Array.from({ length: 6 }, () => new Float64Array(52)), BP = Array.from({ length: 6 }, () => new Float64Array(2704));
 const BRq = new Float64Array(3), BRc = Array.from({ length: 3 }, () => new Float64Array(52));
+// tables par terme (au plus 9 termes), réutilisées : évite de créer ~200 Ko de tableaux à chaque main énumérée
+const BV = Array.from({ length: 9 }, () => new Float64Array(52)), BU = Array.from({ length: 9 }, () => new Float64Array(52));
+const BM = Array.from({ length: 9 }, () => new Float64Array(2704)), BD = new Float64Array(9), BCoef = new Float64Array(9);
 
 export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float64Array, rb: Float64Array, base: number, pots: PotView[]): Float64Array {
   const W = BW, C = BC, P = BP, Rq = BRq, Rc = BRc;
@@ -31,11 +34,14 @@ export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float
     else if (pt.eb) [6, 7].forEach(k => keys.add(k));
   }
   const K = [...keys], nT = K.length, TA = K.map(k => Math.floor(k / 3)), TB = K.map(k => k % 3);
-  const V = K.map(() => new Float64Array(52)), U = K.map(() => new Float64Array(52)), D = new Float64Array(nT);
+  const V = BV.slice(0, nT), U = BU.slice(0, nT), D = BD;
+  for (let k = 0; k < nT; k++) { V[k].fill(0); U[k].fill(0); }
+  D.fill(0);
   // M[c][e] = Σd Pb[c,d]·Pa[e,d] par terme : rend la dernière somme de 52 cartes par main inutile (gros intérêt quand
   // le joueur qui apprend a beaucoup de mains)
   const useM = h.hands[i].length > ((globalThis as { __forceM?: number }).__forceM ?? 120);
-  const M = useM ? K.map(() => new Float64Array(2704)) : [];
+  const M = useM ? BM.slice(0, nT) : [];
+  for (const m of M) m.fill(0);
   let live = false;
   const put = (slot: number, c1: number, c2: number, w: number) => {
     W[slot] += w; C[slot][c1] += w; C[slot][c2] += w; P[slot][c1 * 52 + c2] += w; P[slot][c2 * 52 + c1] += w;
@@ -93,7 +99,7 @@ export function pairCfv(h: HandTable, i: number, a: number, b: number, ra: Float
   live = true;
 
   // coefficients des termes pour une main de force v
-  const coef = new Float64Array(nT), idx = new Map(K.map((k, j) => [k, j]));
+  const coef = BCoef, idx = new Map(K.map((k, j) => [k, j]));
   const add = (ta: number, tb: number, c: number) => { coef[idx.get(ta * 3 + tb)!] += c; };
   const coefsFor = (v: number) => {
     coef.fill(0); add(2, 2, base);

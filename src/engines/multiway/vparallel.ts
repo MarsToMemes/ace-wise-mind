@@ -20,12 +20,15 @@ export type WorkerMsg =
   | { type: "eval"; i: number; br: boolean; which: "avg" | "best"; jobs: Job[] }
   | { type: "snapshot" }
   | { type: "profile"; which: "avg" | "best" }
+  | { type: "tinit"; spec: VSpec }
+  | { type: "tvals"; jobs: { eid: number; i: number; reach: Float64Array[] }[] }
   | { type: "export" }
   | { type: "import"; state: SolverState };
 
 /** Ce que fait un ouvrier ; partagé par toutes les façons de le lancer (même fil, Web Worker, worker_threads). */
 export class WorkerCore {
   private v?: Engine;
+  private vn?: VRiverN;
   private ids: number[] = [];
   private avg?: VProfile;
   private best?: VProfile;
@@ -47,6 +50,11 @@ export class WorkerCore {
       case "snapshot":
         this.best = this.avg ??= this.v!.averageProfile(this.ids);
         return null;
+      case "tinit":
+        this.vn = new VRiverN(m.spec);
+        return null;
+      case "tvals":
+        return m.jobs.map(j => this.vn!.terminalValues(j.eid, j.i, j.reach));
       case "export":
         return this.v!.exportState(this.ids);
       case "import":
@@ -228,4 +236,96 @@ export class VRiver3Parallel {
     }
     return { profile: await this.averageProfile("best"), nashConv, iterations: at, checks };
   }
+}
+
+/**
+ * Calcul réparti par fin de main (D26) : le fil principal parcourt tout l'arbre et garde tous les regrets ; chaque fin
+ * de main de chaque parcours est confiée à un ouvrier. Les morceaux sont petits et nombreux (des milliers par parcours),
+ * donc la charge se répartit d'elle-même sur tous les cœurs, quelle que soit la forme de l'arbre. Mêmes opérations dans
+ * le même ordre que le calcul d'un seul tenant : mêmes résultats au bit près (testé).
+ */
+export class VRiverNTerminalParallel {
+  readonly v: VRiverN;
+  constructor(readonly spec: VSpec, readonly pool: VPool, opts: { algo?: "cfr+" | "dcfr" } = {}) { this.v = new VRiverN(spec, opts); }
+  get iterations() { return this.v.iterations; }
+  async init() { await Promise.all(Array.from({ length: this.pool.size }, (_, w) => this.pool.call(w, { type: "tinit", spec: this.spec }))); }
+
+  /** Descente complète : probabilités d'arrivée à chaque fin de main ; prof = profil évalué (sinon stratégie du moment). */
+  private collect(i: number, prof?: VProfile) {
+    const v = this.v, jobs: { eid: number; i: number; reach: Float64Array[] }[] = [];
+    type F = { kind: "end"; k: number } | { kind: "node"; n: any; rp: Float64Array; sigma: Float64Array; kids: F[] };
+    const down = (node: any, reach: Float64Array[]): F => {
+      if (node.t === "end") { jobs.push({ eid: node.eid, i, reach }); return { kind: "end", k: jobs.length - 1 }; }
+      const p = node.player, N = v.handCount(p), sigma = prof ? prof.get(node.id)! : v.strategyNow(node), rp = reach[p];
+      const kids = node.children.map((c: any, a: number) => {
+        if (prof && p === i) return down(c, reach);
+        const r = reach.slice(), w = new Float64Array(N);
+        for (let x = 0; x < N; x++) w[x] = rp[x] * sigma[a * N + x];
+        r[p] = w;
+        return down(c, r);
+      });
+      return { kind: "node", n: node, rp, sigma, kids };
+    };
+    const frame = down(v.root, v.rootReach());
+    return { frame, jobs };
+  }
+
+  /**
+   * Distribue les fins de main par petits paquets : chaque ouvrier reprend un paquet dès qu'il a fini le précédent, si
+   * bien que les cœurs rapides en font plus que les cœurs économes. Les valeurs reviennent dans l'ordre des fins de main.
+   */
+  private async compute(jobs: { eid: number; i: number; reach: Float64Array[] }[]): Promise<Float64Array[]> {
+    const S = this.pool.size, size = Math.max(1, Math.min(16, Math.ceil(jobs.length / (S * 8))));
+    const out = new Array<Float64Array>(jobs.length);
+    let next = 0;
+    const worker = async (w: number) => {
+      while (next < jobs.length) {
+        const from = next; next = Math.min(jobs.length, next + size);
+        const res = await this.pool.call(w, { type: "tvals", jobs: jobs.slice(from, next) }) as Float64Array[];
+        res.forEach((v, j) => { out[from + j] = v; });
+      }
+    };
+    await Promise.all(Array.from({ length: S }, (_, w) => worker(w)));
+    return out;
+  }
+
+  private ascend(f: any, i: number, vals: Float64Array[], mode: "update" | "ev" | "br", prof?: VProfile): Float64Array {
+    if (f.kind === "end") return vals[f.k];
+    const v = this.v, kids = f.kids.map((k: any) => this.ascend(k, i, vals, mode, prof)), p = f.n.player;
+    if (p !== i) {
+      const tot = new Float64Array(v.handCount(i));
+      for (const c of kids) for (let x = 0; x < tot.length; x++) tot[x] += c[x];
+      return tot;
+    }
+    if (mode === "update") return v.applyUpdate(f.n, i, f.rp, f.sigma, kids);
+    const N = v.handCount(i), out = new Float64Array(N), sig = prof!.get(f.n.id)!;
+    for (let x = 0; x < N; x++) {
+      if (mode === "br") out[x] = Math.max(...kids.map((c: Float64Array) => c[x]));
+      else for (let a = 0; a < kids.length; a++) out[x] += sig[a * N + x] * kids[a][x];
+    }
+    return out;
+  }
+
+  async run(iterations: number) {
+    for (let k = 0; k < iterations; k++) {
+      this.v.setIteration(this.v.iterations + 1);
+      for (let i = 0; i < this.v.n; i++) {
+        const { frame, jobs } = this.collect(i);
+        this.ascend(frame, i, await this.compute(jobs), "update");
+      }
+    }
+  }
+  averageProfile() { return this.v.averageProfile(); }
+  private async value(i: number, prof: VProfile, br: boolean) {
+    const { frame, jobs } = this.collect(i, prof);
+    return this.v.totalOf(i, this.ascend(frame, i, await this.compute(jobs), br ? "br" : "ev", prof));
+  }
+  async expectedValues(prof: VProfile) { const out: number[] = []; for (let i = 0; i < this.v.n; i++) out.push(await this.value(i, prof, false)); return out; }
+  async nashConv(prof: VProfile) {
+    const ev = await this.expectedValues(prof); let t = 0;
+    for (let i = 0; i < this.v.n; i++) t += (await this.value(i, prof, true)) - ev[i];
+    return Math.max(0, t);
+  }
+  exportState() { return this.v.exportState(); }
+  importState(st: SolverState) { this.v.importState(st); }
 }

@@ -482,3 +482,17 @@ actuelle (deux adversaires libres de 760 et 560 mains). Elle ne paie que si la r
 justement les petites (3, 6, 52, 60). Gain au mieux ×1,6 à 5 et 6 joueurs. **L'estimation « ×50 à ×800 » annoncée
 avant cette étude était fausse.** Restent pour 5 et 6 joueurs exacts : calcul long (5 joueurs : 1 à 4 jours sur cette
 machine) ; 6 joueurs hors de portée ici (des mois) ; calcul dans le cloud seulement avec accord écrit (payant).
+
+## D26 — Calcul réparti par fin de main, au fil de l'eau · retenu · 2026-11-24
+
+**Constat.** À 5 joueurs, le découpage par sous-arbres (D20) mettait 1 137 des 2 841 fins de main sur un même ouvrier
+(la ligne « tout le monde checke » n'était pas coupée) : un seul cœur travaillait. **Choix.** `VRiverNTerminalParallel`
+: le fil principal parcourt tout l'arbre et garde tous les regrets ; chaque fin de main de chaque parcours est confiée
+aux ouvriers, par petits paquets repris au fil de l'eau (les cœurs rapides en font plus). Mêmes opérations dans le même
+ordre : mêmes résultats au bit près que le calcul d'un seul tenant (testé à 4 et 5 joueurs). Tableaux de travail
+réutilisés d'un appel à l'autre (moins de mémoire à nettoyer).
+
+**Mesuré (vrai spot à 4 joueurs, 4 itérations après mise en route).** 1 cœur 65 s ; 4 ouvriers 29 s ; 6 ouvriers 25 s ;
+10 ouvriers 25 s. Le gain plafonne vers ×2,6 sur cette puce (4 cœurs rapides, 6 cœurs économes, fréquence qui baisse
+quand tous travaillent) : la limite est matérielle. Conséquence : 5 joueurs estimé à **3 à 10 jours** sur cette machine
+(au lieu de 1 à 4), les itérations suivantes étant plus rapides que les premières.
