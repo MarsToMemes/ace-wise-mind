@@ -75,7 +75,8 @@ describe("étape 3a : arbre d'enchères à n joueurs", () => {
     const g = river3(rs);
     const t = buildBetTree({ n: 4, potBB: 30, stacks: rs.stacks, bets: [0.75], raise: false, allin: false, maxAggr: 1, rake: CASH_RAKE });
     let paths = 0;
-    g.root.t === "chance" && g.root.outcomes.forEach((o, k) => {
+    if (g.root.t !== "chance") throw new Error("racine attendue : le hasard");
+    g.root.outcomes.forEach((o, k) => {
       const hands = g.deals[k], rk = hands.map(h => rank7([...h, ...rs.board]));
       const pair = (x: typeof o.child, y: TNode) => {
         if (x.t === "terminal") { expect(y.t).toBe("end"); if (y.t === "end") x.payoffs.forEach((v, i) => expect(endPayoff(y, i, rk)).toBeCloseTo(v, 9)); paths++; return; }
