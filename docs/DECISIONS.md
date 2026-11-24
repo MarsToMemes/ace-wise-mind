@@ -376,3 +376,27 @@ recoupement avec l'arbre explicite à 4 joueurs (mêmes décisions, mêmes gains
 
 Repère : 517 fins de main à 3 joueurs = 26 s sur 10 cœurs (D20). À décider avec l'utilisateur après la mesure des
 temps (3d) : quel menu à partir de 4 joueurs. Proposition : celui de Pluribus.
+
+## D23 — Fins de main à n joueurs : approximation « adversaires indépendants » · mesurée, insuffisante seule · 2026-11-24
+
+**Quoi.** src/engines/multiway/nTerminal.ts. `exactCfvN` : toutes les combinaisons compatibles (référence, lente :
+O(N^(n−1)) par main). `indepCfvN` : cartes de ta main et du board retirées des ranges adverses, adversaires supposés
+indépendants entre eux ; O(n²) par main. Tests (src/test/multiway3b.test.ts) : l'approché est exact quand les
+adversaires ne peuvent pas partager de carte, et à 2 joueurs ; le calcul exact à n joueurs égale celui du solveur à 3.
+
+**Mesuré.**
+- Ranges réduites aux combos les plus lourds (paires et As, beaucoup de cartes partagées) : écart moyen 32 % à 4
+  joueurs, 124 % à 5. Cas défavorable, peu représentatif.
+- Ranges complètes, valeur exacte estimée par tirage (sans partage de carte), abattage à n : le gain moyen sachant ta
+  main est bien estimé (écart 0,03 à 0,06 bb sur un pot de 9,5 bb, de 3 à 5 joueurs), mais la probabilité d'arriver
+  dans la situation est surestimée de 11 % (3 joueurs), 28 % (4), 52 % (5).
+- **Qualité du jeu à 3 joueurs** (vrai spot D19, jugée avec le calcul exact) : stratégie calculée avec
+  l'approximation, NashConv 1,05 % du pot à 500 itérations et **0,85 % à 1 000** (plafonne), contre 0,24 % et
+  **0,088 %** avec le calcul exact. Valeur de chaque joueur très proche (écart ≤ 0,014 bb). Plus rapide : 41 s contre
+  99 s sur un cœur.
+
+**Lecture.** Seule, l'approximation plafonne à environ 10 fois l'objectif de précision (0,1 % du pot) dès 3 joueurs,
+et l'erreur de masse grandit avec le nombre de joueurs. Pistes, à mesurer de la même façon (stratégie jugée avec le
+calcul exact à 3 joueurs) : (A) correction de la masse par paires d'adversaires (probabilité que chaque paire ne
+partage aucune carte, calculable exactement en O(52) par main) ; (C) tirage des mains adverses à chaque itération
+(Monte-Carlo, exact en moyenne, comme les solveurs de Pluribus). Décision à prendre avec l'utilisateur.

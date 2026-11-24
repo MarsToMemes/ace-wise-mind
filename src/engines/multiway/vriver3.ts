@@ -8,6 +8,8 @@ import { computePots, type SeatState } from "@/core/handState";
 import { rakeOf, type RakeRule } from "@/core/rake";
 import { rank7 } from "@/engines/handEval7";
 import type { RiverSpec } from "@/engines/multiway/river3";
+import { HandTable, indepCfvN } from "@/engines/multiway/nTerminal";
+import type { TEnd } from "@/engines/multiway/betTree";
 
 export interface VCombo { cards: [string, string]; w: number }
 export interface VSpec {
@@ -53,7 +55,8 @@ export class VRiver3 {
   private regret = new Map<number, Float64Array>();
   private sum = new Map<number, Float64Array>();
   iterations = 0;
-  private readonly terminalMode: "fast" | "exact";
+  private readonly terminalMode: "fast" | "exact" | "indep";
+  private ht?: HandTable;
   private c1: Int32Array[];          // index (0-51) des deux cartes de chaque main
   private c2: Int32Array[];
   private order: Int32Array[];       // mains de chaque joueur triées par force croissante
@@ -63,7 +66,8 @@ export class VRiver3 {
   readonly algo: "cfr+" | "dcfr";
   private disc: [number, number, number] = [1, 1, 1];
 
-  constructor(readonly spec: VSpec, opts: { terminal?: "fast" | "exact" | "auto"; algo?: "cfr+" | "dcfr" } = {}) {
+  /** terminal « indep » : approximation « adversaires indépendants » (D23), pour mesurer son coût à 3 joueurs. */
+  constructor(readonly spec: VSpec, opts: { terminal?: "fast" | "exact" | "auto" | "indep"; algo?: "cfr+" | "dcfr" } = {}) {
     this.algo = opts.algo ?? "dcfr";
     const board = new Set(spec.board);
     this.hands = spec.ranges.map(r => r.filter(h => h.w > 0 && !board.has(h.cards[0]) && !board.has(h.cards[1])));
@@ -84,6 +88,7 @@ export class VRiver3 {
     const mode = opts.terminal ?? "auto";
     const pairs = Math.max(this.N(0) * this.N(1), this.N(0) * this.N(2), this.N(1) * this.N(2));
     this.terminalMode = mode === "auto" ? (pairs <= 150 ? "exact" : "fast") : mode;
+    if (this.terminalMode === "indep") this.ht = new HandTable(spec.board, this.hands.map(r => r.map(h => h.cards)));
     this.root = this.build();
   }
 
@@ -177,6 +182,7 @@ export class VRiver3 {
   private terminal(e: End, i: number, reach: Float64Array[]) {
     // un adversaire n'arrive jamais ici : toutes les valeurs sont nulles (exact, aucun calcul)
     for (let p = 0; p < 3; p++) if (p !== i && !reach[p].some(w => w !== 0)) return new Float64Array(this.N(i));
+    if (this.terminalMode === "indep") return indepCfvN(this.ht!, e as unknown as TEnd, i, reach);
     return this.terminalMode === "fast" ? this.cfvFast(e, i, reach) : this.cfv(e, i, reach);
   }
   /** Pour les tests : valeur d'une fin de main par le calcul rapide ou par le calcul exact « toutes les combinaisons ». */
