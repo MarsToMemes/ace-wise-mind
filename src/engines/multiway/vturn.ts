@@ -270,6 +270,12 @@ export class VTurnN {
    * `prof` à la turn et la stratégie calculée à la river (feuilles exactes) : sert à mesurer un conseil dans le vrai jeu.
    */
   actionValues(prof: VProfile, nodeId: number, player: number): number[][] {
+    const reach = this.reachAt(prof, nodeId, player), target = this.tree.acts[nodeId], sp = new Map<string, VProfile>();
+    const vals = target.children.map(c => this.evalWalk(c, player, reach, prof, false, sp));
+    return this.normalize(vals, target, player, reach);
+  }
+  /** Probabilités d'arrivée au nœud (adversaires seulement : valeurs « contrefactuelles »). */
+  reachAt(prof: VProfile, nodeId: number, player: number): Float64Array[] {
     const path: { node: TAct; a: number }[] = [];
     const find = (nd: TNode): boolean => {
       if (nd.t === "end") return false;
@@ -285,10 +291,12 @@ export class VTurnN {
       for (let x = 0; x < N; x++) w[x] = reach[p][x] * s[a * N + x];
       reach[p] = w;
     }
-    const target = this.tree.acts[nodeId], sp = new Map<string, VProfile>();
+    return reach;
+  }
+  /** Valeurs des actions divisées par la masse des mains adverses compatibles, plus ce que tu as déjà mis (se coucher = 0). */
+  normalize(vals: Float64Array[], target: TAct, player: number, reach: Float64Array[]): number[][] {
     const unit: TEnd = { t: "end", eid: -1, refund: new Array(this.n).fill(1), invested: new Array(this.n).fill(0), folded: new Array(this.n).fill(false), pots: [] };
     const mass = this.showdown(unit, player, reach, false);
-    const vals = target.children.map(c => this.evalWalk(c, player, reach, prof, false, sp));
     return Array.from({ length: this.hands[player].length }, (_, x) => vals.map(va => (mass[x] > 0 ? va[x] / mass[x] + target.put[player] : 0)));
   }
 }

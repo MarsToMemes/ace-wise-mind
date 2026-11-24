@@ -156,3 +156,14 @@ describe("B2 : résultat de la turn pour la Décision synthétique", () => {
     expect(res.localPct).toBeGreaterThanOrEqual(0);
   });
 });
+
+describe("B2 : valeur de chaque action à la turn sur tous les cœurs", () => {
+  it("mêmes valeurs au bit près que le calcul d'un seul tenant", async () => {
+    const spec: TurnSpec = { ...SPEC, path: [{ player: 0, kind: "check" }, { player: 1, kind: "bet", to: 6 }] };
+    const one = new VTurnN(spec, { leaves: "showdown" }); one.run(20);
+    const prof = one.averageProfile(), node = one.tree.pathNode!;
+    const par = new VTurnParallel(spec, inProcessPool(3)); await par.init();
+    const a = one.actionValues(prof, node.id, 2), b = await par.actionValues(prof, node.id, 2);
+    expect(b).toEqual(a);
+  });
+});

@@ -11,6 +11,7 @@ import type { PlayerFile } from "@/lib/playersStore";
 import { saveExploit } from "@/lib/exploitSettings";
 import type { EndgameState } from "@/hooks/use-endgame-solve";
 import type { ActKind } from "@/engines/endgame/tree";
+import { pickMain } from "@/engines/multiway/display";
 import type { Coverage } from "@/engines/solverSpots";
 import type { RakeRule } from "@/core/rake";
 
@@ -129,7 +130,9 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
     ];
   } else if ((street === "Turn" || street === "River") && endgame?.status === "done" && endgame.result && !endgame.guard) {
     const r = endgame.result;
-    const main = r.actions.reduce((b, a) => (a.freq > b.freq ? a : b), r.actions[0]);
+    // multiway : la plus rentable si le calcul n'a pas fini de régler ta main (D32)
+    const pick = r.players && r.players > 2 ? pickMain(r.actions, pot) : null;
+    const main = pick ? pick.main : r.actions.reduce((b, a) => (a.freq > b.freq ? a : b), r.actions[0]);
     source = r.players && r.players > 2 ? `Solveur multiway (${r.players} joueurs)` : "Solveur de fin de main";
     verb = ENDGAME_VERB(main.kind, main.label);
     sizeLine = main.label;
@@ -139,6 +142,8 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
       `Ce que rapporte chaque action avec ta main (se coucher = 0) : ${[...r.actions].sort((a, b) => b.ev - a.ev).map(a => `${a.label.replace(/ = .*/, "")} ${bb(a.ev)}`).join(" · ")}.`,
       `Toute ta range ici : ${r.range.filter(l => l.freq >= 0.02).map(l => `${l.label.replace(/ = .*/, "")} ${Math.round(l.freq * 100)} %${l.with.length ? ` (${l.with.join(", ")})` : ""}`).join(" · ")}.`,
     ];
+    if (pick?.note) reasons.unshift(pick.note);
+    if (pick?.close) reasons.push(pick.close);
     if (!r.heroInRange) reasons.push("Ta main n'est presque jamais dans ta range ici : le résultat est indicatif.");
   } else if (street !== "Preflop" && postflop) {
     source = "Conseiller postflop";

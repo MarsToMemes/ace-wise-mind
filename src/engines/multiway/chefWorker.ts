@@ -6,6 +6,17 @@ import { portPool } from "@/engines/multiway/portPool";
 import { IdbStore } from "@/engines/multiway/idbStore";
 import { multiwayResult, turnResult } from "@/engines/multiway/nodeValues";
 import { isTurnSpec } from "@/engines/multiway/liveSolve";
+import { VTurnParallel } from "@/engines/multiway/vturnParallel";
+import type { TurnSpec } from "@/engines/multiway/vturn";
+import type { VProfile } from "@/engines/multiway/vriver3";
+import type { VPool } from "@/engines/multiway/vparallel";
+
+/** Turn : ce que rapporte chaque action, calculé par les ouvriers (D32). */
+async function turnValuesOnAllCores(spec: TurnSpec, pool: VPool, prof: VProfile, w: { node: number; player: number }) {
+  const par = new VTurnParallel(spec, pool);
+  await par.init();
+  return par.actionValues(prof, w.node, w.player);
+}
 
 export type ChefIn =
   | { type: "start"; spec: VSpec; opts: Pick<LiveOptions, "target" | "maxMs" | "every" | "maxIterations" | "watch">; ports: MessagePort[] }
@@ -26,7 +37,8 @@ ctx.onmessage = async e => {
     const w = m.opts.watch, node = w ? res.profile.get(w.node) : undefined;
     const meta = { nashConv: res.nashConv, iterations: res.iterations, ms: Date.now() - t0 };
     const report = !w || !res.profile.size ? undefined
-      : isTurnSpec(m.spec) ? turnResult(m.spec, res.profile, w.node, w.player, w.hand, meta) : multiwayResult(m.spec, res.profile, w.node, w.player, w.hand, meta);
+      : isTurnSpec(m.spec) ? turnResult(m.spec, res.profile, w.node, w.player, w.hand, meta, pool ? await turnValuesOnAllCores(m.spec, pool, res.profile, w) : undefined)
+      : multiwayResult(m.spec, res.profile, w.node, w.player, w.hand, meta);
     if (report && res.reason === "cache") report.fromMemory = true;
     ctx.postMessage({ type: "done", result: { nashConv: res.nashConv, iterations: res.iterations, reason: res.reason, ms: Date.now() - t0, resumedFrom: res.resumedFrom, node, report } });
   } catch (err) {

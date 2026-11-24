@@ -16,7 +16,7 @@ export class VTurnParallel {
   get iterations() { return this.v.iterations; }
   async init() { await Promise.all(Array.from({ length: this.pool.size }, (_, w) => this.pool.call(w, { type: "turninit", spec: this.spec }))); }
 
-  private collect(i: number, prof?: VProfile) {
+  private collect(i: number, prof?: VProfile, start?: TNode, reach0?: Float64Array[]) {
     const v = this.v, jobs: Job[] = [];
     const down = (node: TNode, reach: Float64Array[]): F => {
       if (node.t === "end") { jobs.push({ eid: node.eid, i, reach }); return { kind: "end", k: jobs.length - 1 }; }
@@ -30,7 +30,7 @@ export class VTurnParallel {
       });
       return { kind: "node", n: node, rp, sigma, kids };
     };
-    return { frame: down(v.root, v.rootReach()), jobs };
+    return { frame: down(start ?? v.root, reach0 ?? v.rootReach()), jobs };
   }
 
   private async compute(jobs: Job[], active: number[] | null, factor: number): Promise<Float64Array[]> {
@@ -81,6 +81,15 @@ export class VTurnParallel {
   private async value(i: number, prof: VProfile, br: boolean) {
     const { frame, jobs } = this.collect(i, prof);
     return this.v.totalOf(i, this.ascend(frame, i, await this.compute(jobs, null, 1), br ? "br" : "ev", prof));
+  }
+  /** Comme VTurnN.actionValues, les fins de turn calculées par les ouvriers (mêmes valeurs au bit près). */
+  async actionValues(prof: VProfile, nodeId: number, player: number): Promise<number[][]> {
+    const v = this.v, reach = v.reachAt(prof, nodeId, player), target = v.tree.acts[nodeId], vals: Float64Array[] = [];
+    for (const c of target.children) {
+      const { frame, jobs } = this.collect(player, prof, c, reach);
+      vals.push(this.ascend(frame, player, await this.compute(jobs, null, 1), "ev", prof));
+    }
+    return v.normalize(vals, target, player, reach);
   }
   async expectedValues(prof: VProfile) { const out: number[] = []; for (let i = 0; i < this.v.n; i++) out.push(await this.value(i, prof, false)); return out; }
   async nashConv(prof: VProfile) {

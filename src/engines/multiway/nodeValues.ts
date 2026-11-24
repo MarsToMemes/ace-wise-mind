@@ -110,7 +110,7 @@ export function nodeResult(v: NodeEngine, allValues: number[][], spec: VSpec, pr
 
 /** Turn (D32) : même présentation, valeurs du modèle « turn seule » (abattage moyen sur les rivers au bout de la turn). */
 export function turnResult(spec: TurnSpec, prof: VProfile, nodeId: number, player: number, hand: number,
-  meta: { nashConv: number; iterations: number; ms: number }): EndgameResult {
+  meta: { nashConv: number; iterations: number; ms: number }, values?: number[][]): EndgameResult {
   const v = new VTurnN(spec, { leaves: "showdown" });
-  return nodeResult(v, v.actionValues(prof, nodeId, player), spec, prof, nodeId, player, hand, meta, "Turn");
+  return nodeResult(v, values ?? v.actionValues(prof, nodeId, player), spec, prof, nodeId, player, hand, meta, "Turn");
 }
