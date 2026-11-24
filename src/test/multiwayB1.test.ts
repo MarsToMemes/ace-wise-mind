@@ -95,3 +95,27 @@ describe("B1 : rivers tirées au hasard (méthode « turn seule »)", () => {
     expect(r.nashConv).toBeLessThan(0.02 * SPEC.potBB);
   }, 60000);
 });
+
+import { VTurnParallel } from "@/engines/multiway/vturnParallel";
+import { inProcessPool } from "@/engines/multiway/vparallel";
+import { portPool, serveCore } from "@/engines/multiway/portPool";
+
+describe("B2 : turn calculée sur tous les cœurs", () => {
+  it("ouvriers simulés : mêmes stratégies et même précision au bit près que le calcul d'un seul tenant (toutes les rivers, et 16 tirées)", async () => {
+    for (const sample of [undefined, 16]) {
+      const one = new VTurnN(SPEC, { leaves: "showdown", sample }); one.run(20);
+      const par = new VTurnParallel(SPEC, inProcessPool(3), { sample }); await par.init(); await par.run(20);
+      const a = one.averageProfile(), b = par.averageProfile();
+      for (const [id, s] of a) expect(Array.from(b.get(id)!)).toEqual(Array.from(s));
+      expect(await par.nashConv(b)).toBe(one.nashConv(a));
+    }
+  });
+  it("vrais canaux de messages (comme les Web Workers) : mêmes résultats", async () => {
+    const ch = Array.from({ length: 4 }, () => new MessageChannel()); ch.forEach(c => serveCore(c.port2));
+    const pool = portPool(ch.map(c => c.port1));
+    const one = new VTurnN(SPEC, { leaves: "showdown" }); one.run(10);
+    const par = new VTurnParallel(SPEC, pool); await par.init(); await par.run(10);
+    for (const [id, s] of one.averageProfile()) expect(Array.from(par.averageProfile().get(id)!)).toEqual(Array.from(s));
+    pool.close!();
+  });
+});

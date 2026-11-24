@@ -6,6 +6,7 @@
 // mêmes résultats (vérifié par test).
 import { VRiver3, type VSpec, type VProfile, type SolverState } from "@/engines/multiway/vriver3";
 import { VRiverN } from "@/engines/multiway/vriverN";
+import { VTurnN, type TurnSpec } from "@/engines/multiway/vturn";
 
 /** Moteur de calcul : river à 3 joueurs (vriver3) ou exact à n joueurs (vriverN, D25). Mêmes méthodes. */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -22,6 +23,8 @@ export type WorkerMsg =
   | { type: "profile"; which: "avg" | "best" }
   | { type: "tinit"; spec: VSpec }
   | { type: "tvals"; jobs: { eid: number; i: number; reach: Float64Array[] }[] }
+  | { type: "turninit"; spec: TurnSpec }
+  | { type: "turnvals"; jobs: { eid: number; i: number; reach: Float64Array[] }[]; active: number[] | null; factor: number }
   | { type: "export" }
   | { type: "import"; state: SolverState };
 
@@ -29,6 +32,7 @@ export type WorkerMsg =
 export class WorkerCore {
   private v?: Engine;
   private vn?: VRiverN;
+  private vt?: VTurnN;
   private ids: number[] = [];
   private avg?: VProfile;
   private best?: VProfile;
@@ -55,6 +59,11 @@ export class WorkerCore {
         return null;
       case "tvals":
         return m.jobs.map(j => this.vn!.terminalValues(j.eid, j.i, j.reach));
+      case "turninit":
+        this.vt = new VTurnN(m.spec, { leaves: "showdown" });
+        return null;
+      case "turnvals":
+        return m.jobs.map(j => this.vt!.leafShowdown(j.eid, j.i, j.reach, m.active, m.factor));
       case "export":
         return this.v!.exportState(this.ids);
       case "import":

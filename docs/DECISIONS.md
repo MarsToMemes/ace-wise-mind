@@ -630,3 +630,21 @@ gain attendu ×3 à ×6 (non mesuré).
 calculé (une mise qu'aucune main ne fait), résoudre depuis le début de la street ne dit rien de fiable à ce nœud : la
 stratégie n'y apprend rien (ici, la référence perdait 0,35 bb par main à ce nœud, sans bouger d'une itération à
 l'autre). Il faut le détecter (probabilité d'arriver au nœud) et le dire, ou résoudre à partir du nœud.
+
+## D31 — La turn « turn seule » sur tous les cœurs · retenu · 2026-11-24
+
+Demande de l'utilisateur : utiliser tous les cœurs de la machine. `vturnParallel.ts` : le fil principal parcourt l'arbre
+de la turn et garde les regrets ; la valeur « abattage » de chaque fin de turn (moyenne sur les rivers) est calculée
+par les ouvriers, par petits paquets repris au fil de l'eau. Mêmes résultats au bit près que le calcul d'un seul
+tenant (ouvriers simulés et vrais canaux de messages, testé).
+
+**Mesuré** (vraies ranges 886 / 339 / 50, BTN face à une mise de 50 % avec relance possible, chef + 9 ouvriers, Mac M5,
+contrôles de précision toutes les 25 itérations compris) :
+
+| Rivers par itération | 1 % du pot | 0,5 % du pot |
+|---|---|---|
+| 16 tirées | 54 s (1 cœur : 200 s) | 90 s (1 cœur : 327 s) |
+| 48 (toutes) | 128 s (1 cœur : 478 s) | 165 s (1 cœur : 622 s) |
+
+Gain ≈ ×3,7 (plafond matériel de cette puce, D26). Avec les vraies ranges, tirer 16 rivers par itération est le bon
+réglage (avec des ranges réduites, le tirage ralentissait : D30).

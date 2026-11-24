@@ -92,10 +92,13 @@ export class VTurnN {
   }
   /** Abattage au bout de la turn, valeur moyenne sur toutes les rivers. */
   private showdown(e: TEnd, i: number, reach: Float64Array[], sampled: boolean) {
-    const out = new Float64Array(this.hands[i].length), f = sampled ? this.factor : 1;
-    for (const ri of sampled ? this.active : this.rivers.map((_, k) => k)) {
+    return this.showdownOn(e, i, reach, sampled ? this.active : null, sampled ? this.factor : 1, sampled);
+  }
+  private showdownOn(e: TEnd, i: number, reach: Float64Array[], active: number[] | null, f: number, count = false) {
+    const out = new Float64Array(this.hands[i].length);
+    for (const ri of active ?? this.rivers.map((_, k) => k)) {
       const R = this.rivers[ri];
-      if (sampled) this.riverEvals++;
+      if (count) this.riverEvals++;
       const v = this.cfv(R.h, e, i, this.toRiver(R, reach)), b = R.back[i];
       for (let k = 0; k < b.length; k++) out[b[k]] += (v[k] * f) / this.K;
     }
@@ -144,6 +147,10 @@ export class VTurnN {
       vals.push(this.walk(node.children[a], i, r));
     }
     if (p !== i) { const tot = new Float64Array(this.hands[i].length); for (const v of vals) for (let x = 0; x < tot.length; x++) tot[x] += v[x]; return tot; }
+    return this.applyUpdate(node, i, rp, sigma, vals);
+  }
+  applyUpdate(node: TAct, i: number, rp: Float64Array, sigma: Float64Array, vals: Float64Array[]): Float64Array {
+    const N = this.hands[i].length, A = node.actions.length;
     const v = new Float64Array(N);
     for (let a = 0; a < A; a++) for (let x = 0; x < N; x++) v[x] += sigma[a * N + x] * vals[a][x];
     let reg = this.regret.get(node.id), sum = this.sum.get(node.id);
@@ -157,13 +164,25 @@ export class VTurnN {
     }
     return v;
   }
+  /** Passe à l'itération t : coefficients DCFR et rivers tirées. */
+  setIteration(t: number) {
+    this.iterations = t;
+    const p = Math.pow(t - 1, 1.5);
+    this.disc = [p / (p + 1), 0.5, Math.pow((t - 1) / t, 2)];
+    this.draw();
+  }
   run(iterations: number) {
     for (let k = 0; k < iterations; k++) {
-      const t = ++this.iterations, p = Math.pow(t - 1, 1.5);
-      this.disc = [p / (p + 1), 0.5, Math.pow((t - 1) / t, 2)];
-      this.draw();
+      this.setIteration(this.iterations + 1);
       for (let i = 0; i < this.n; i++) this.walk(this.root, i, this.weights.map(w => Float64Array.from(w)));
     }
+  }
+  // ------------------------------------------------ accès pour le calcul réparti (vturnParallel.ts)
+  strategyNow(n: TAct) { return this.current(n); }
+  get drawn() { return { active: this.active, factor: this.factor }; }
+  /** Valeur « abattage » d'une fin de turn (rivers données, toutes si null) : le travail confié aux ouvriers. */
+  leafShowdown(eid: number, i: number, reach: Float64Array[], active: number[] | null, factor: number) {
+    return this.showdownOn(this.tree.ends[eid], i, reach, active, factor);
   }
   /** Tire les rivers de l'itération (sans remise ; générateur fixe : calcul reproductible). */
   private draw() {
@@ -211,8 +230,8 @@ export class VTurnN {
     }
     return v;
   }
-  private totalOf(i: number, vec: Float64Array) { return this.weights[i].reduce((t, w, x) => t + w * vec[x], 0) / this.Z; }
-  private rootReach() { return this.weights.map(w => Float64Array.from(w)); }
+  totalOf(i: number, vec: Float64Array) { return this.weights[i].reduce((t, w, x) => t + w * vec[x], 0) / this.Z; }
+  rootReach() { return this.weights.map(w => Float64Array.from(w)); }
   expectedValues(prof: VProfile): number[] {
     const sp = new Map<string, VProfile>();
     return Array.from({ length: this.n }, (_, i) => this.totalOf(i, this.evalWalk(this.root, i, this.rootReach(), prof, false, sp)));
