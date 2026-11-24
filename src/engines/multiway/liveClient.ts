@@ -8,8 +8,8 @@ import type { EndgameResult } from "@/engines/endgame/solve";
 export interface LiveDone { nashConv: number; iterations: number; reason: LiveReason; ms: number; resumedFrom: number; node?: Float64Array; report?: EndgameResult }
 export interface LiveRun { done: Promise<LiveDone>; /** arrêt propre au prochain contrôle (état gardé) */ stop(): void; /** arrêt immédiat */ cancel(): void; workers: number }
 
-/** Contrôles plus fréquents à 4 joueurs (itérations plus longues) pour afficher vite un premier conseil. */
-export const everyFor = (players: number) => (players >= 4 ? 10 : 50);
+/** Contrôles plus fréquents quand les itérations sont longues (4 joueurs, turn) pour afficher vite un premier conseil. */
+export const everyFor = (players: number, turn = false) => (players >= 4 ? 10 : turn ? 25 : 50);
 
 export function startLive(spec: VSpec, opts: Extract<ChefIn, { type: "start" }>["opts"], onProgress: (p: LiveProgress) => void): LiveRun {
   const cores = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 2 : 2;
@@ -27,6 +27,6 @@ export function startLive(spec: VSpec, opts: Extract<ChefIn, { type: "start" }>[
     };
     chef.onerror = ev => { kill(); rej(new Error(ev.message)); };
   });
-  chef.postMessage({ type: "start", spec, opts: { every: everyFor(spec.ranges.length), ...opts }, ports } satisfies ChefIn, ports);
+  chef.postMessage({ type: "start", spec, opts: { every: everyFor(spec.ranges.length, "river" in spec), ...opts }, ports } satisfies ChefIn, ports);
   return { done, stop: () => chef.postMessage({ type: "stop" } satisfies ChefIn), cancel: kill, workers: n };
 }

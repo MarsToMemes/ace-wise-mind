@@ -119,3 +119,40 @@ describe("B2 : turn calculée sur tous les cœurs", () => {
     pool.close!();
   });
 });
+
+import { solveLive, AsyncMemoryStore } from "@/engines/multiway/liveSolve";
+
+describe("B2 : turn au fil de l'eau", () => {
+  const same = (a: Map<number, Float64Array>, b: Map<number, Float64Array>) => { for (const [id, s] of a) expect(Array.from(b.get(id)!)).toEqual(Array.from(s)); };
+  it("par morceaux = calcul d'un seul tenant (16 rivers tirées), avec ou sans ouvriers", async () => {
+    const ref = new VTurnN(SPEC, { leaves: "showdown", sample: 16 }).solve(40, 20);
+    const a = await solveLive(SPEC, { every: 20, maxIterations: 40, target: 0 });
+    expect(a.nashConv).toBe(ref.nashConv); same(a.profile, ref.profile);
+    const b = await solveLive(SPEC, { every: 20, maxIterations: 40, target: 0, pool: inProcessPool(3) });
+    expect(b.nashConv).toBe(ref.nashConv); same(b.profile, ref.profile);
+  });
+  it("interrompu puis repris = jamais interrompu (le tirage des rivers reprend au même point)", async () => {
+    const ref = await solveLive(SPEC, { every: 10, maxIterations: 40, target: 0 }), store = new AsyncMemoryStore();
+    await solveLive(SPEC, { every: 10, maxIterations: 20, target: 0, store });
+    const b = await solveLive(SPEC, { every: 10, maxIterations: 40, target: 0, store });
+    expect(b.resumedFrom).toBe(20);
+    expect(b.nashConv).toBe(ref.nashConv); same(b.profile, ref.profile);
+  });
+});
+
+import { turnResult } from "@/engines/multiway/nodeValues";
+
+describe("B2 : résultat de la turn pour la Décision synthétique", () => {
+  it("actions avec montants, fréquences qui font 100 %, se coucher = 0, catégories de la turn (tirages)", () => {
+    const spec: TurnSpec = { ...SPEC, path: [{ player: 0, kind: "check" }, { player: 1, kind: "bet", to: 6 }] };
+    const v = new VTurnN(spec, { leaves: "showdown" }); v.run(30);
+    const node = v.tree.pathNode!;
+    const res = turnResult(spec, v.averageProfile(), node.id, 2, 0, { nashConv: 0.05, iterations: 30, ms: 10 });
+    expect(res.street).toBe("Turn");
+    expect(res.actions.map(a => a.label)).toEqual(["Fold", "Call 6 bb"]);   // une seule mise par street ici
+    expect(res.actions.reduce((t, a) => t + a.freq, 0)).toBeCloseTo(1, 9);
+    expect(res.actions[0].ev).toBeCloseTo(0, 9);
+    expect(res.players).toBe(3);
+    expect(res.localPct).toBeGreaterThanOrEqual(0);
+  });
+});

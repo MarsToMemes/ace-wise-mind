@@ -4,7 +4,8 @@ import type { VSpec } from "@/engines/multiway/vriver3";
 import { solveLive, type LiveOptions } from "@/engines/multiway/liveSolve";
 import { portPool } from "@/engines/multiway/portPool";
 import { IdbStore } from "@/engines/multiway/idbStore";
-import { multiwayResult } from "@/engines/multiway/nodeValues";
+import { multiwayResult, turnResult } from "@/engines/multiway/nodeValues";
+import { isTurnSpec } from "@/engines/multiway/liveSolve";
 
 export type ChefIn =
   | { type: "start"; spec: VSpec; opts: Pick<LiveOptions, "target" | "maxMs" | "every" | "maxIterations" | "watch">; ports: MessagePort[] }
@@ -23,7 +24,9 @@ ctx.onmessage = async e => {
     // à la page : la stratégie du nœud suivi pour toutes les mains du joueur (pas tout l'arbre), et le résultat prêt à
     // afficher (actions de ta main, ce qu'elles rapportent, ta range ici)
     const w = m.opts.watch, node = w ? res.profile.get(w.node) : undefined;
-    const report = w && res.profile.size ? multiwayResult(m.spec, res.profile, w.node, w.player, w.hand, { nashConv: res.nashConv, iterations: res.iterations, ms: Date.now() - t0 }) : undefined;
+    const meta = { nashConv: res.nashConv, iterations: res.iterations, ms: Date.now() - t0 };
+    const report = !w || !res.profile.size ? undefined
+      : isTurnSpec(m.spec) ? turnResult(m.spec, res.profile, w.node, w.player, w.hand, meta) : multiwayResult(m.spec, res.profile, w.node, w.player, w.hand, meta);
     if (report && res.reason === "cache") report.fromMemory = true;
     ctx.postMessage({ type: "done", result: { nashConv: res.nashConv, iterations: res.iterations, reason: res.reason, ms: Date.now() - t0, resumedFrom: res.resumedFrom, node, report } });
   } catch (err) {

@@ -76,6 +76,8 @@ export class VTurnParallel {
     }
   }
   averageProfile() { return this.v.averageProfile(); }
+  exportState() { return this.v.exportState(); }
+  importState(st: Parameters<VTurnN["importState"]>[0]) { this.v.importState(st); }
   private async value(i: number, prof: VProfile, br: boolean) {
     const { frame, jobs } = this.collect(i, prof);
     return this.v.totalOf(i, this.ascend(frame, i, await this.compute(jobs, null, 1), br ? "br" : "ev", prof));

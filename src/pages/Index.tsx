@@ -962,7 +962,9 @@ const Index = () => {
           progress: 0, result: multiway.status === "done" ? multiway.result : null, guard: null,
           live: multiway.status === "running" ? (multiway.progress ? { pct: multiway.progress.nashConvPct, seconds: multiway.progress.ms / 1000 } : null) : undefined,
           note: [postflopCtx?.endgameNote, multiway.status === "rough" && multiway.result
-            ? `Solveur multiway : précision insuffisante en 60 s (${multiway.result.exploitPct.toFixed(1).replace(".", ",")} % du pot) : conseil maison.` : null,
+            ? (multiway.why === "local"
+              ? `Solveur multiway : la ligne jouée n'arrive presque jamais dans le jeu calculé, donc le solveur n'est pas fiable à ta décision (ta range y perdrait ${(multiway.result.localPct ?? 0).toFixed(1).replace(".", ",")} % du pot) : conseil maison.`
+              : `Solveur multiway : précision insuffisante dans le temps donné (${multiway.result.exploitPct.toFixed(1).replace(".", ",")} % du pot) : conseil maison.`) : null,
           multiway.status === "error" ? "Solveur multiway : erreur de calcul, conseil maison affiché." : null].filter(Boolean).join(" ") || null,
         }
         : { ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}

@@ -44,7 +44,9 @@ type Act = { t: "act"; id: number; player: number; hist: string; actions: string
 type End = { t: "end"; eid: number; refund: number[]; invested: number[]; pots: { net: number; elig: number[] }[]; coef?: [number, number, number][][] };
 type VNode = Act | End;
 export type VProfile = Map<number, Float64Array>;
-export interface SolverState { iterations: number; regret: [number, Float64Array][]; sum: [number, Float64Array][] }
+export interface SolverState { iterations: number; regret: [number, Float64Array][]; sum: [number, Float64Array][];
+  /** Turn (D32) : état du tirage des rivers, pour qu'un calcul repris tire les mêmes rivers. */
+  seed?: number }
 
 const EPS = 1e-9;
 const r1 = (x: number) => Math.round(x * 10) / 10;

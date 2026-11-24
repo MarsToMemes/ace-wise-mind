@@ -117,17 +117,37 @@ describe("A3 : quel solveur pour quelle situation", () => {
     expect(r.kind).toBe("multiway");
     if (r.kind === "multiway") { expect(r.spot.heroPlayer).toBe(2); expect(r.spot.seats).toEqual([5, 2, 3]); }
   });
-  it("turn à 3 joueurs, river à 4 joueurs, pas de ranges de la ligne : conseil maison, avec la raison", () => {
+  it("turn à 3 joueurs : le solveur multiway (méthode « turn seule ») ; river à 4 joueurs, pas de ranges : conseil maison", () => {
     const t = multiwayRoute({ ...base, street: "Turn", live: live([...PRE3, ...FT3.slice(0, 3), A(5, "Turn", "Check"), A(2, "Turn", "Check")], 3, BOARD.slice(0, 4)) });
-    expect(t).toEqual({ kind: "house", note: "Solveur multiway : la river à 3 joueurs seulement pour l'instant (ici, la turn). Conseil maison." });
+    expect(t.kind).toBe("multiway");
+    if (t.kind === "multiway") { expect(t.spot.spec.board).toHaveLength(4); expect(t.spot.heroPlayer).toBe(2); }
     const pre4 = [A(0, "Preflop", "Fold"), A(1, "Preflop", "Fold"), A(2, "Preflop", "Raise", 2.5), A(3, "Preflop", "Call", 2.5), A(4, "Preflop", "Call", 2), A(5, "Preflop", "Call", 1.5)];
     const ft4 = ["Flop", "Turn"].flatMap(st => [4, 5, 2, 3].map(s => A(s, st as PlayerAction["street"], "Check")));
     const f = multiwayRoute({ ...base, street: "River", live: live([...pre4, ...ft4], 4) });
-    expect(f).toEqual({ kind: "house", note: "Solveur multiway : la river à 3 joueurs seulement pour l'instant (ici, 4 joueurs). Conseil maison." });
+    expect(f).toEqual({ kind: "house", note: "Solveur multiway : la turn et la river à 3 joueurs seulement pour l'instant (ici, 4 joueurs). Conseil maison." });
     const g = multiwayRoute({ ...base, game: null, street: "River", live: live([...PRE3, ...FT3, A(5, "River", "Check"), A(2, "River", "Bet", 12)], 3) });
     expect(g.kind).toBe("house");
   });
   it("à 3 joueurs mais pas à toi de parler : rien à calculer, sans note", () => {
     expect(multiwayRoute({ ...base, street: "River", live: live([...PRE3, ...FT3], 3) })).toEqual({ kind: "none" });
   });
+});
+
+describe("B2 : précision à ta décision (lignes rares)", () => {
+  it("localPct = perte moyenne de ta range en suivant la stratégie au nœud (par rapport à la meilleure action), en % du pot", () => {
+    const v = new VRiverN(SPEC); v.run(25);
+    const prof = v.averageProfile(), node = v.tree.pathNode!, N = v.handCount(2), s = prof.get(node.id)!;
+    const ev = actionValues(SPEC, prof, node.id, 2);
+    let W = 0, L = 0;
+    v.hands[2].forEach((c, x) => { W += c.w; L += c.w * (Math.max(...ev[x]) - ev[x].reduce((t, e, a) => t + s[a * N + x] * e, 0)); });
+    const res = multiwayResult(SPEC, prof, node.id, 2, 0, { nashConv: 0, iterations: 25, ms: 1 });
+    expect(res.localPct).toBeCloseTo((100 * L / W) / SPEC.potBB, 9);
+  });
+  it("une stratégie au hasard est bien moins précise à ta décision qu'une stratégie calculée", () => {
+    const v = new VRiverN(SPEC), uni = v.averageProfile(), node = v.tree.pathNode!;
+    v.run(300);
+    const a = multiwayResult(SPEC, uni, node.id, 2, 0, { nashConv: 0, iterations: 0, ms: 1 });
+    const b = multiwayResult(SPEC, v.averageProfile(), node.id, 2, 0, { nashConv: 0, iterations: 300, ms: 1 });
+    expect(b.localPct!).toBeLessThan(a.localPct! / 5);
+  }, 60000);
 });

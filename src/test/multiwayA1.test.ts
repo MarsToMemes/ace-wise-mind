@@ -171,3 +171,31 @@ describe("A2 : mains presque impossibles retirées (Pluribus)", () => {
     expect(cut.notes.some(n => n.includes(`${removed} mains`))).toBe(true);
   });
 });
+
+import { turnSpotFromHand } from "@/engines/multiway/handSpot";
+
+describe("B2 : spot turn à 3 joueurs à partir d'une main saisie", () => {
+  const turnHand = (actions: PlayerAction[], userIdx: number) => ({ ...hand(actions, userIdx, ["Ah", "Kd"]), board: ["Kh", "9d", "4c", "7s"] });
+  const FLOP3 = [A(5, "Flop", "Check"), A(2, "Flop", "Check"), A(3, "Flop", "Check")];
+  it("BB checke, CO mise 4 bb, au BTN (toi) : joueurs, pot, mises d'avant la turn, menus, nœud de ta décision", () => {
+    const s = turnSpotFromHand({ live: turnHand([...PRE3, ...FLOP3, A(5, "Turn", "Check"), A(2, "Turn", "Bet", 4)], 3), ...opts });
+    if (!s.ok) throw new Error(s.reason);
+    expect(s.seats).toEqual([5, 2, 3]);
+    expect(s.spec.board).toEqual(["Kh", "9d", "4c", "7s"]);
+    expect(s.spec.potBB).toBeCloseTo(8, 9);
+    expect(s.spec.invested0).toEqual([2.5, 2.5, 2.5]);
+    expect(s.spec.dead).toEqual([0.5]);
+    expect(s.spec.bets).toEqual([0.5, 1]);
+    expect("river" in s.spec).toBe(true);
+    expect(s.pathNode.player).toBe(2);
+    expect(s.pathNode.actions).toEqual(["f", "c", "r", "a"]);
+  });
+  it("refus : 4 joueurs à la turn ; pas à toi de parler", () => {
+    const pre4 = [A(0, "Preflop", "Fold"), A(1, "Preflop", "Fold"), A(2, "Preflop", "Raise", 2.5), A(3, "Preflop", "Call", 2.5), A(4, "Preflop", "Call", 2), A(5, "Preflop", "Call", 1.5)];
+    const four = turnSpotFromHand({ live: { ...turnHand([...pre4, ...[4, 5, 2, 3].map(x => A(x, "Flop", "Check"))], 4) }, ...opts });
+    expect(four.ok).toBe(false);
+    if (!four.ok) expect(four.reason).toMatch(/3 joueurs/);
+    const notMe = turnSpotFromHand({ live: turnHand([...PRE3, ...FLOP3], 3), ...opts });
+    expect(notMe.ok).toBe(false);
+  });
+});

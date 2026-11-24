@@ -38,6 +38,8 @@ export interface EndgameResult {
   combos: number[];
   /** Joueurs dans le coup (absent : 2). */
   players?: number;
+  /** Perte moyenne de ta range en suivant la stratégie à ta décision (% du pot) : grande quand la ligne jouée est rare (D32). */
+  localPct?: number;
   /** Rendu par la mémoire des spots (déjà calculé) : `ms` est alors le temps de relecture. */
   fromMemory?: boolean;
   heroInRange: boolean;

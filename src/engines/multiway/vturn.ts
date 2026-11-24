@@ -9,7 +9,7 @@ import { buildBetTree, type BetTree, type TAct, type TEnd, type TNode } from "@/
 import { HandTable } from "@/engines/multiway/nTerminal";
 import { exactCfvFast } from "@/engines/multiway/nExact";
 import { VRiverN } from "@/engines/multiway/vriverN";
-import type { VSpec, VProfile } from "@/engines/multiway/vriver3";
+import type { VSpec, VProfile, SolverState } from "@/engines/multiway/vriver3";
 
 export interface TurnSpec extends VSpec {
   /** Tailles de la river (au bout de la turn, feuilles « exactes »). */
@@ -176,6 +176,17 @@ export class VTurnN {
       this.setIteration(this.iterations + 1);
       for (let i = 0; i < this.n; i++) this.walk(this.root, i, this.weights.map(w => Float64Array.from(w)));
     }
+  }
+  /** État complet (mémoire des spots) : regrets, moyennes, itérations et tirage des rivers. */
+  exportState(): SolverState {
+    const keep = (m: Map<number, Float64Array>) => [...m].map(([id, a]) => [id, Float64Array.from(a)] as [number, Float64Array]);
+    return { iterations: this.iterations, regret: keep(this.regret), sum: keep(this.sum), seed: this.seed };
+  }
+  importState(st: SolverState) {
+    this.iterations = st.iterations;
+    if (st.seed !== undefined) this.seed = st.seed;
+    for (const [id, a] of st.regret) this.regret.set(id, Float64Array.from(a));
+    for (const [id, a] of st.sum) this.sum.set(id, Float64Array.from(a));
   }
   // ------------------------------------------------ accès pour le calcul réparti (vturnParallel.ts)
   strategyNow(n: TAct) { return this.current(n); }

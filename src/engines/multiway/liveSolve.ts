@@ -7,6 +7,12 @@ import { VRiver3, type VSpec, type VProfile, type SolverState } from "@/engines/
 import { VRiverN } from "@/engines/multiway/vriverN";
 import { VRiver3Parallel, VRiverNTerminalParallel, type VPool } from "@/engines/multiway/vparallel";
 import { spotKey, type SpotEntry } from "@/engines/multiway/spotCache";
+import { VTurnN, type TurnSpec } from "@/engines/multiway/vturn";
+import { VTurnParallel } from "@/engines/multiway/vturnParallel";
+
+/** Turn (D32) : méthode « turn seule », 16 rivers tirées par itération (le bon réglage avec les vraies ranges, D31). */
+export const TURN_SAMPLE = 16;
+export const isTurnSpec = (s: VSpec): s is TurnSpec => "river" in s;
 
 /** Mémoire des spots asynchrone (IndexedDB dans le navigateur, mémoire vive pour les tests). */
 export interface AsyncSpotStore { get(key: string): Promise<SpotEntry | undefined>; set(key: string, e: SpotEntry): Promise<void> }
@@ -67,6 +73,22 @@ interface Runner {
 }
 
 function runner(spec: VSpec, pool?: VPool): Runner {
+  if (isTurnSpec(spec)) {
+    if (!pool) {
+      const v = new VTurnN(spec, { leaves: "showdown", sample: TURN_SAMPLE });
+      return {
+        iterations: () => v.iterations, init: async () => {}, run: async k => v.run(k),
+        check: async () => { const avg = v.averageProfile(); return { nc: v.nashConv(avg), profile: async () => avg }; },
+        exportState: async () => v.exportState(), importState: async s => v.importState(s), handCount: p => v.handCount(p),
+      };
+    }
+    const par = new VTurnParallel(spec, pool, { sample: TURN_SAMPLE });
+    return {
+      iterations: () => par.iterations, init: () => par.init(), run: k => par.run(k),
+      check: async () => { const avg = par.averageProfile(); return { nc: await par.nashConv(avg), profile: async () => avg }; },
+      exportState: async () => par.exportState(), importState: async s => par.importState(s), handCount: p => par.v.handCount(p),
+    };
+  }
   if (!pool) {
     const v = spec.ranges.length === 3 ? new VRiver3(spec) : new VRiverN(spec);
     return {

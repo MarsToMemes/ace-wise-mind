@@ -287,6 +287,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           {source.startsWith("Solveur") && street !== "Preflop" && endgame?.result && (
             <>
               <Detail label="Précision solveur" value={`${endgame.result.exploitPct.toFixed(2).replace(".", ",")} % du pot`} />
+              {endgame.result.localPct != null && <Detail label="Précision à ta décision" value={`${endgame.result.localPct.toFixed(2).replace(".", ",")} % du pot`} />}
               <Detail label="Itérations" value={`${endgame.result.iterations}`} />
               <Detail label="Mains calculées" value={endgame.result.combos.length > 2 ? endgame.result.combos.join(" / ") : `${endgame.result.combos[0]} vs ${endgame.result.combos[1]}`} />
               <Detail label="Temps" value={`${(endgame.result.ms / 1000).toFixed(1).replace(".", ",")} s${endgame.result.fromMemory ? " · déjà calculé" : ""}`} />
@@ -317,6 +318,9 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
             : endgame?.result?.players && endgame.result.players > 2 ? ""
             : "Turn et river : solveur de fin de main (CFR, comme la résolution de sous-jeu de Libratus) sur les ranges filtrées selon les actions. Mises testées : 33, 75, 125 % et tapis (river après la turn : 50, 100 % et tapis), plus la vraie mise jouée. Gain = jetons gagnés en moyenne à partir de maintenant."}
         </p>
+        {street === "Turn" && endgame?.result?.players && endgame.result.players > 2 && (
+          <p className="mt-1 text-muted-foreground">Turn à {endgame.result.players} joueurs : solveur multiway, méthode « turn seule » (comme Pluribus) : les mises de la turn sont calculées (50 et 100 % du pot, relance au pot, tapis, plus la vraie mise jouée), puis chacun va à l'abattage en moyenne sur les rivers possibles. Mesurée contre le vrai jeu turn + river : perte moyenne sous 0,2 % du pot sur les turns types testées. Calculé dans ton navigateur sur tous les cœurs (≈ 1 min) ; une situation déjà calculée revient tout de suite.</p>
+        )}
         {street === "River" && endgame?.result?.players && endgame.result.players > 2 && (
           <p className="mt-1 text-muted-foreground">River à {endgame.result.players} joueurs : solveur multiway exact (CFR, aucune approximation des cartes) sur les ranges de la ligne jouée. Mises testées : 33, 75, 125 % du pot, relance au pot et tapis, plus la vraie mise jouée. Calculé dans ton navigateur ; une situation déjà calculée revient tout de suite.</p>
         )}
