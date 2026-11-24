@@ -4,7 +4,7 @@
 // avec en plus plusieurs tailles de mise, relance au pot, tapis, réouverture par joueur (D2), pots annexes et rake
 // réparti au prorata (moteur de règles, D4-D5). CFR+ alterné ; meilleure réponse exacte par main ; NashConv.
 import type { Profile } from "@/engines/multiway/game";
-import { computePots, type SeatState } from "@/core/handState";
+import { computePots, type PotSeat as SeatState } from "@/core/pots";
 import { rakeOf, type RakeRule } from "@/core/rake";
 import { rank7 } from "@/engines/handEval7";
 import type { RiverSpec } from "@/engines/multiway/river3";

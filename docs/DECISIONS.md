@@ -529,3 +529,42 @@ court et argent mort).
 **Tests.** multiwayA1.test.ts (10 tests) : gains contre le moteur de règles du site (70 cas), vraie taille insérée,
 rattachement, chemin impossible, mains réelles à 3 et 4 joueurs, tapis court, refus, moteur rapide = moteur général,
 empreintes distinctes. Toute la suite multiway passe (références au bit près comprises).
+
+## D28 — Étape A2 : calcul multiway dans le navigateur, au fil de l'eau · retenu · 2026-11-24
+
+**Choix.**
+- **Au fil de l'eau** (`liveSolve.ts`) : le calcul avance par morceaux de `every` itérations (50 à 2-3 joueurs, 10 à 4) ;
+  après chaque morceau, la précision (NashConv) est mesurée, la meilleure stratégie gardée, le conseil de ta main envoyé
+  à l'écran et l'état sauvé. Arrêt à 0,1 % du pot, à 60 s, ou sur demande. Mêmes opérations, même ordre : même résultat
+  au bit près qu'un calcul d'un seul tenant, avec ou sans ouvriers, à 3 et 4 joueurs ; un calcul interrompu puis repris
+  donne le même résultat qu'un calcul jamais interrompu (testé).
+- **Web Workers** (`chefWorker.ts`, `coreWorker.ts`, `liveClient.ts`, `portPool.ts`) : la page crée un chef (qui mène
+  le calcul) et des ouvriers (un par cœur moins un, 8 au plus), reliés deux à deux par des canaux de messages. La page
+  ne calcule rien : elle ne se fige jamais. Écarté : le chef dans la page (le parcours de l'arbre et les regrets du haut
+  de l'arbre la figeraient) ; des ouvriers créés par le chef (Workers dans un Worker, moins bien pris en charge).
+- **Mémoire qui survit au rechargement** (`idbStore.ts`, IndexedDB) : 20 derniers spots, ≈ 6 Mo chacun à 3 joueurs
+  (état du calcul 4,3 Mo + meilleure stratégie 2,1 Mo). Toute erreur (navigation privée, quota) la rend inopérante
+  sans casser le calcul.
+- **Rien de chargé d'interface dans les Workers** : le découpage en pots sort de handState.ts (qui importe le composant
+  PokerTable.tsx) vers `core/pots.ts`, réexporté par handState (le site ne change pas). Un test vérifie qu'aucun .tsx
+  n'est chargé par le chef ni les ouvriers. Défaut trouvé dans l'aperçu : « window is not defined » dans le Worker.
+- **Correction** : à 4 joueurs, la mesure de précision du calcul réparti additionnait dans un autre ordre que le calcul
+  d'un seul tenant (dernier chiffre différent ; stratégies identiques).
+
+**Mesuré (8 ouvriers, Mac M5, board K♥9♦4♣7♠2♥, rake cash).**
+
+| Spot | Mains calculées | Précision atteinte | Temps |
+|---|---|---|---|
+| 2 joueurs (CO mise 6 bb, BTN avec K♣Q♣) | 335 / 51 | 0,086 % du pot | ≈ 1 s |
+| 3 joueurs (CO mise 12 bb, BTN avec A♥K♦), Node | 864 / 335 / 51 | 0,095 % | 18 s |
+| 3 joueurs, même spot, **dans le navigateur** | idem | 0,09 % | **14,8 s** (premier conseil à 2 s) |
+| 3 joueurs, rechargé depuis la mémoire | idem | 0,09 % | 0,2 s |
+| 4 joueurs (QQ en SB, checks jusqu'à la river) | 184 / 762 / 335 / 50 | **33 %** du pot | 127 s (limite) |
+
+**Mains rares retirées (méthode Pluribus) : écarté à 2 et 3 joueurs.** Gain de 1 à 2 s seulement, pour un conseil
+qui bouge : écart moyen sur tes mains 0,9 / 2,9 / 5,2 points aux seuils 2 / 5 / 10 %, pire écart 8 à 21 points.
+L'option (`minWeight`) reste disponible, désactivée.
+
+**4 joueurs : le calcul exact en direct n'est pas utilisable.** Une itération coûte ≈ 4 s (0,03 s à 3 joueurs) ; après
+2 min, la précision est de 33 % du pot (21 % et 29 % en retirant les mains sous 5 et 10 %). Le conseil affiché à ce
+stade n'est pas fiable. Il faut une autre approche (arbre plus petit, à mesurer) avant de l'afficher sur le site.

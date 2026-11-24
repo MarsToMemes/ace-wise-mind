@@ -323,7 +323,8 @@ export class VRiverNTerminalParallel {
   async expectedValues(prof: VProfile) { const out: number[] = []; for (let i = 0; i < this.v.n; i++) out.push(await this.value(i, prof, false)); return out; }
   async nashConv(prof: VProfile) {
     const ev = await this.expectedValues(prof); let t = 0;
-    for (let i = 0; i < this.v.n; i++) t += (await this.value(i, prof, true)) - ev[i];
+    // même ordre d'additions que VRiverN.nashConv : (t + meilleure réponse) − valeur
+    for (let i = 0; i < this.v.n; i++) t = t + (await this.value(i, prof, true)) - ev[i];
     return Math.max(0, t);
   }
   exportState() { return this.v.exportState(); }

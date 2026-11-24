@@ -19,6 +19,8 @@ export interface HandSpotInput {
   game: SolverGame;
   effStack: number;
   rake: RakeRule | null;
+  /** Mains presque impossibles retirées (poids relatif sous ce seuil), sauf la tienne. Étape A2, comme Pluribus. */
+  minWeight?: number;
 }
 export type HandSpot =
   | { ok: true; spec: VSpec; seats: number[]; heroPlayer: number; heroHand: number; pathNode: TAct; notes: string[]; reason?: undefined }
@@ -75,6 +77,16 @@ export function riverSpotFromHand(o: HandSpotInput): HandSpot {
     ranges[heroPlayer].push({ cards: [h.hole[0], h.hole[1]], w: 0.01 });
     heroHand = ranges[heroPlayer].length - 1;
     notes.push("Ta main ne faisait pas partie de ta range d'après la ligne jouée : ajoutée avec un petit poids.");
+  }
+  if (o.minWeight) {
+    let removed = 0;
+    ranges.forEach((r, p) => {
+      const kept = r.filter((c, x) => c.w >= o.minWeight! || (p === heroPlayer && x === heroHand));
+      removed += r.length - kept.length;
+      if (p === heroPlayer) heroHand = kept.findIndex(c => same(c.cards, h.hole));
+      ranges[p] = kept;
+    });
+    if (removed) notes.push(`${removed} mains presque impossibles d'après la ligne jouée (poids sous ${Math.round(o.minWeight * 100)} % de la main la plus fréquente) ne sont pas calculées.`);
   }
 
   // actions déjà jouées sur la river, avec leurs vraies tailles

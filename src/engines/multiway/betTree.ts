@@ -3,7 +3,7 @@
 // nombre maximal de mises et relances, réouverture suivie par joueur (règle A : un tapis court qui relance d'un montant
 // trop petit ne rouvre pas la relance), pots annexes, mise rendue et rake au prorata (D4-D5).
 // Jetons d'historique : p (check), b ou b{k} (mise), f (couché), c (payer), r (relance au pot), a (tapis).
-import { computePots, type SeatState } from "@/core/handState";
+import { computePots, type PotSeat as SeatState } from "@/core/pots";
 import { rakeOf, type RakeRule } from "@/core/rake";
 
 export interface BetTreeSpec {

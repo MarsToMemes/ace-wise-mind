@@ -158,3 +158,16 @@ describe("A1 : mémoire des spots", () => {
     expect(new Set(keys).size).toBe(4);
   });
 });
+
+describe("A2 : mains presque impossibles retirées (Pluribus)", () => {
+  it("sous le seuil, les mains disparaissent des ranges, sauf la tienne ; le nombre retiré est signalé", () => {
+    const h = hand([...PRE3, ...FLOP_TURN3, A(5, "River", "Check"), A(2, "River", "Bet", 12)], 3, ["Ah", "Kd"]);
+    const full = riverSpotFromHand({ live: h, ...opts }), cut = riverSpotFromHand({ live: h, ...opts, minWeight: 0.05 });
+    if (!full.ok || !cut.ok) throw new Error("spot");
+    cut.spec.ranges.forEach((r, p) => r.forEach((c, x) => { if (!(p === cut.heroPlayer && x === cut.heroHand)) expect(c.w).toBeGreaterThanOrEqual(0.05); }));
+    expect(cut.spec.ranges[cut.heroPlayer][cut.heroHand].cards.join("")).toBe("AhKd");
+    const removed = full.spec.ranges.reduce((t, r) => t + r.length, 0) - cut.spec.ranges.reduce((t, r) => t + r.length, 0);
+    expect(removed).toBeGreaterThan(0);
+    expect(cut.notes.some(n => n.includes(`${removed} mains`))).toBe(true);
+  });
+});
