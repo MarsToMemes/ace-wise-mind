@@ -355,3 +355,24 @@ Mémoire vive limitée aux 20 derniers spots utilisés.
 
 **À faire plus tard (avec accord).** Garder la mémoire entre deux visites du site (stockage du navigateur) : un spot
 réel pèse plusieurs mégaoctets, il faudra le compresser et en limiter le nombre.
+
+## D22 — Arbre d'enchères de la river pour 2 à 6 joueurs · retenu (menu de mises : à décider) · 2026-11-24
+
+**Choix.** src/engines/multiway/betTree.ts : l'arbre du solveur à 3 joueurs, généralisé à n joueurs, mêmes règles
+(tailles en fraction du pot, relance au pot, tapis, plafond de mises, réouverture par joueur, pots annexes, mise
+rendue, rake au prorata). Tests (src/test/multiway3a.test.ts) : à 3 joueurs, exactement l'arbre actuel ; de 4 à 6
+joueurs, aucun jeton créé ni perdu et rake au plus le plafond sur toutes les fins de main et tous les classements ;
+gains identiques à ceux du moteur de règles du site (5 joueurs, tapis 100/12/45/100/30) ; règle de réouverture ;
+recoupement avec l'arbre explicite à 4 joueurs (mêmes décisions, mêmes gains pour chaque distribution).
+
+**Taille de l'arbre (pot 8, tapis 97,5)** — fins de main :
+
+| Menu | 3 j | 4 j | 5 j | 6 j |
+|---|---|---|---|---|
+| Complet (⅓, ¾, 1¼ pot + relance + tapis, 3 relances) | 517 | 3 401 | 18 941 | 95 893 |
+| Pluribus (½, 1 pot + relance + tapis, 2 relances) | 157 | 705 | 2 841 | 10 705 |
+| Réduit (¾ pot + relance + tapis, 2 relances) | 85 | 369 | 1 461 | 5 449 |
+| Minimal (¾ pot + tapis, 1 mise) | 25 | 65 | 161 | 385 |
+
+Repère : 517 fins de main à 3 joueurs = 26 s sur 10 cœurs (D20). À décider avec l'utilisateur après la mesure des
+temps (3d) : quel menu à partir de 4 joueurs. Proposition : celui de Pluribus.
