@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildBetTree } from "@/engines/multiway/betTree";
-import { HandTable, exactCfvN, indepCfvN } from "@/engines/multiway/nTerminal";
+import { HandTable, exactCfvN, indepCfvN, pairMass } from "@/engines/multiway/nTerminal";
 import { CASH_RAKE } from "@/core/rake";
 
 // Étape 3b : valeur des fins de main à n joueurs.
@@ -61,5 +61,48 @@ describe("étape 3b : fins de main à n joueurs", () => {
       a.forEach((x, j) => { worst = Math.max(worst, Math.abs(x - b[j])); });
     } });
     expect(worst).toBeLessThan(1e-9);
+  });
+
+  // Piste A : correction de la masse par paires d'adversaires (D23)
+  it("masse exacte d'une paire d'adversaires : égale à l'énumération de toutes les paires sans carte partagée", () => {
+    const h = new HandTable(BOARD, ranges(3, 30, 21)), r = rng(5);
+    const reach = h.hands.map(hs => Float64Array.from(hs, () => (r() < 0.1 ? 0 : r())));
+    const d = pairMass(h, 0, 1, 2, reach);
+    let worst = 0;
+    h.hands[0].forEach(([a, b], x) => {
+      let s = 0;
+      h.hands[1].forEach(([c, e], y) => {
+        if ([c, e].some(k => k === a || k === b)) return;
+        h.hands[2].forEach(([f, g2], z) => { if (![f, g2].some(k => k === a || k === b || k === c || k === e)) s += reach[1][y] * reach[2][z]; });
+      });
+      worst = Math.max(worst, Math.abs(s - d[x]));
+    });
+    expect(worst).toBeLessThan(1e-9);
+  });
+
+  it("3 joueurs, fins de main où ta main ne joue plus (tu t'es couché) : avec la correction, l'approché égale l'exact", () => {
+    const t = treeFor(3), h = new HandTable(BOARD, ranges(3, 25, 8)), r = rng(6);
+    let worst = 0, n = 0;
+    for (const e of t.ends) for (let i = 0; i < 3; i++) {
+      if (!e.folded[i]) continue;
+      const reach = h.hands.map(hs => Float64Array.from(hs, () => r()));
+      const a = indepCfvN(h, e, i, reach, true), b = exactCfvN(h, e, i, reach);
+      a.forEach((v, x) => { worst = Math.max(worst, Math.abs(v - b[x])); }); n++;
+    }
+    expect(n).toBeGreaterThan(10);
+    expect(worst).toBeLessThan(1e-9);
+  });
+
+  it("avec la correction : toujours exact à 2 joueurs et quand les adversaires ne peuvent pas partager de carte", () => {
+    for (const [n, disjoint] of [[2, false], [4, true]] as const) {
+      const t = treeFor(n), h = new HandTable(BOARD, ranges(n, 8, 30 + n, disjoint)), r = rng(9);
+      let worst = 0;
+      for (const e of t.ends.slice(0, 120)) for (let i = 0; i < n; i++) {
+        const reach = h.hands.map(hs => Float64Array.from(hs, () => r()));
+        const a = indepCfvN(h, e, i, reach, true), b = exactCfvN(h, e, i, reach);
+        a.forEach((v, x) => { worst = Math.max(worst, Math.abs(v - b[x])); });
+      }
+      expect(worst).toBeLessThan(1e-9);
+    }
   });
 });

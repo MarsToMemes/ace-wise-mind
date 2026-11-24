@@ -400,3 +400,12 @@ et l'erreur de masse grandit avec le nombre de joueurs. Pistes, à mesurer de la
 calcul exact à 3 joueurs) : (A) correction de la masse par paires d'adversaires (probabilité que chaque paire ne
 partage aucune carte, calculable exactement en O(52) par main) ; (C) tirage des mains adverses à chaque itération
 (Monte-Carlo, exact en moyenne, comme les solveurs de Pluribus). Décision à prendre avec l'utilisateur.
+
+**Piste A mesurée (2026-11-24) : correction par paires d'adversaires.** `pairMass` (masse exacte d'une paire, testée
+contre l'énumération) et `indepCfvN(…, pairs = true)` (mode `terminal: "pair"`). Erreur sur la probabilité des
+situations, ranges complètes, tirage exact : 3 joueurs +12 % → 0,6 % (bruit du tirage) ; 4 joueurs +39 % → 0,8 % ;
+5 joueurs +109 % → 1,6 % ; 6 joueurs +280 % → 8 %. **Mais la qualité du jeu à 3 joueurs ne bouge pas** : NashConv
+exacte 0,968 % du pot à 500 itérations, 0,853 % à 1 000 (sans correction : 1,05 % et 0,85 %), et le calcul est deux
+fois plus lent (76 s contre 41 s sur un cœur). Lecture : à 3 joueurs, la masse est exacte avec la correction ; le
+plafond vient donc du lien entre cartes bloquées et force des mains (le gain moyen sachant ta main), que
+l'indépendance ne capte pas. **Piste A écartée comme solution** ; le code reste pour les mesures.

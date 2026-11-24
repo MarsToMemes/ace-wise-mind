@@ -74,8 +74,56 @@ export function exactCfvN(h: HandTable, e: TEnd, i: number, reach: Float64Array[
   return out;
 }
 
-/** Approximation « adversaires indépendants » : exacte à 2 joueurs, et dès que les adversaires ne peuvent pas partager de carte. */
-export function indepCfvN(h: HandTable, e: TEnd, i: number, reach: Float64Array[]): Float64Array {
+/**
+ * Masse exacte d'une paire d'adversaires (p, q) pour chaque main x de i : Σ w_p(y)·w_q(z) sur les mains y, z sans carte
+ * commune entre x, y et z. Inclusion-exclusion sur les cartes (même calcul que le terme A×A de vriver3), O(52) par main.
+ */
+export function pairMass(h: HandTable, i: number, p: number, q: number, reach: Float64Array[]): Float64Array {
+  const Ca = new Float64Array(52), Cb = new Float64Array(52), Pa = new Float64Array(2704), Pb = new Float64Array(2704);
+  let Wa = 0, Wb = 0;
+  const fill = (pl: number, C: Float64Array, P: Float64Array) => {
+    let W = 0; const r = reach[pl];
+    for (let y = 0; y < r.length; y++) {
+      const w = r[y]; if (w === 0) continue;
+      const a = h.c1[pl][y], b = h.c2[pl][y];
+      W += w; C[a] += w; C[b] += w; P[a * 52 + b] += w; P[b * 52 + a] += w;
+    }
+    return W;
+  };
+  Wa = fill(p, Ca, Pa); Wb = fill(q, Cb, Pb);
+  let D = 0, Rq = 0;
+  const V = new Float64Array(52), U = new Float64Array(52), Rc = new Float64Array(52);
+  for (let c = 0; c < 52; c++) {
+    D += Ca[c] * Cb[c];
+    let sv = 0, su = 0;
+    for (let d = 0; d < 52; d++) { sv += Pa[c * 52 + d] * Cb[d]; su += Pb[c * 52 + d] * Ca[d]; }
+    V[c] = sv; U[c] = su;
+  }
+  // même combo chez les deux : Σ sur les paires de cartes (non ordonnées) de Pa·Pb
+  for (let a = 0; a < 52; a++) for (let b = a + 1; b < 52; b++) {
+    const k = Pa[a * 52 + b] * Pb[a * 52 + b];
+    if (k !== 0) { Rq += k; Rc[a] += k; Rc[b] += k; }
+  }
+  const out = new Float64Array(h.hands[i].length);
+  for (let x = 0; x < out.length; x++) {
+    const x1 = h.c1[i][x], x2 = h.c2[i][x], kx = x1 * 52 + x2, o1 = x1 * 52, o2 = x2 * 52, pa = Pa[kx], pb = Pb[kx];
+    const T1 = (Wa - Ca[x1] - Ca[x2] + pa) * (Wb - Cb[x1] - Cb[x2] + pb);
+    const T2 = D - (Ca[x1] * Cb[x1] + V[x1]) - (Ca[x2] * Cb[x2] + V[x2]) + pa * (Cb[x1] + Cb[x2]);
+    const T3 = Rq - Rc[x1] - Rc[x2] + pa * pb;
+    let hsum = 0;
+    for (let d = 0; d < 52; d++) hsum += (Pb[o1 + d] + Pb[o2 + d]) * (Pa[o1 + d] + Pa[o2 + d]);
+    const t4 = U[x1] + U[x2] - pb * (Ca[x1] + Ca[x2]) - hsum + 2 * pb * pa;
+    out[x] = T1 - T2 + T3 + t4;
+  }
+  return out;
+}
+
+/**
+ * Approximation « adversaires indépendants » : exacte à 2 joueurs, et dès que les adversaires ne peuvent pas partager de
+ * carte. Avec `pairs` (piste A, D23) : la valeur est multipliée, pour chaque paire d'adversaires, par la part de leurs
+ * mains sans carte commune (exacte pour la masse à 3 joueurs ; produit de ces parts au-delà).
+ */
+export function indepCfvN(h: HandTable, e: TEnd, i: number, reach: Float64Array[], pairs = false): Float64Array {
   const n = h.n, opp = Array.from({ length: n }, (_, p) => p).filter(p => p !== i), m = opp.length;
   // par adversaire : total (W, C), plus faibles strictement (lw, lc), pas plus forts (ew, ec)
   const W = new Float64Array(m), C = opp.map(() => new Float64Array(52));
@@ -123,6 +171,25 @@ export function indepCfvN(h: HandTable, e: TEnd, i: number, reach: Float64Array[
       out[x] = val;
     }
     g = gEnd;
+  }
+  if (pairs && m >= 2) {
+    const mass = opp.map(p => {
+      const C = new Float64Array(52), r = reach[p]; let W = 0;
+      for (let y = 0; y < r.length; y++) { const w = r[y]; if (w === 0) continue; W += w; C[h.c1[p][y]] += w; C[h.c2[p][y]] += w; }
+      return { W, C };
+    });
+    for (let a = 0; a < m; a++) for (let b = a + 1; b < m; b++) {
+      const d = pairMass(h, i, opp[a], opp[b], reach);
+      for (let x = 0; x < out.length; x++) {
+        const x1 = h.c1[i][x], x2 = h.c2[i][x], key = Math.min(x1, x2) * 52 + Math.max(x1, x2);
+        const mx = (k: number) => {
+          const p = opp[k], same = h.combo[p][key];
+          return mass[k].W - mass[k].C[x1] - mass[k].C[x2] + (same >= 0 ? reach[p][same] : 0);
+        };
+        const ind = mx(a) * mx(b);
+        out[x] = ind > 0 ? out[x] * (d[x] / ind) : 0;
+      }
+    }
   }
   return out;
 }
