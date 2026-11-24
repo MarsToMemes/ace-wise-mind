@@ -33,9 +33,10 @@ export const fromRiverSpec = (s: RiverSpec): VSpec => ({
 });
 
 type Act = { t: "act"; id: number; player: number; hist: string; actions: string[]; children: VNode[] };
-type End = { t: "end"; refund: number[]; invested: number[]; pots: { net: number; elig: number[] }[]; coef?: [number, number, number][][] };
+type End = { t: "end"; eid: number; refund: number[]; invested: number[]; pots: { net: number; elig: number[] }[]; coef?: [number, number, number][][] };
 type VNode = Act | End;
 export type VProfile = Map<number, Float64Array>;
+export interface SolverState { iterations: number; regret: [number, Float64Array][]; sum: [number, Float64Array][] }
 
 const EPS = 1e-9;
 const r1 = (x: number) => Math.round(x * 10) / 10;
@@ -111,7 +112,7 @@ export class VRiver3 {
       const rake = s.rake && T > 0 ? rakeOf(T, s.rake) : 0;
       const refund = [0, 0, 0];
       pots.filter(x => x.kind === "refund").forEach(x => { refund[x.eligible[0]] += x.amount; });
-      const node: End = { t: "end", refund, invested: seats.map(x => x.investedBB), pots: contested.map(x => ({ net: x.amount - (T > 0 ? (rake * x.amount) / T : 0), elig: x.eligible })) };
+      const node: End = { t: "end", eid: this.ends.length, refund, invested: seats.map(x => x.investedBB), pots: contested.map(x => ({ net: x.amount - (T > 0 ? (rake * x.amount) / T : 0), elig: x.eligible })) };
       this.ends.push(node);
       return node;
     };
@@ -174,6 +175,8 @@ export class VRiver3 {
   }
 
   private terminal(e: End, i: number, reach: Float64Array[]) {
+    // un adversaire n'arrive jamais ici : toutes les valeurs sont nulles (exact, aucun calcul)
+    for (let p = 0; p < 3; p++) if (p !== i && !reach[p].some(w => w !== 0)) return new Float64Array(this.N(i));
     return this.terminalMode === "fast" ? this.cfvFast(e, i, reach) : this.cfv(e, i, reach);
   }
   /** Pour les tests : valeur d'une fin de main par le calcul rapide ou par le calcul exact « toutes les combinaisons ». */
@@ -256,37 +259,70 @@ export class VRiver3 {
     const put = (slot: number, c1: number, c2: number, w: number) => {
       W[slot] += w; C[slot][c1] += w; C[slot][c2] += w; P[slot][c1 * 52 + c2] += w; P[slot][c2 * 52 + c1] += w;
     };
+    // Par terme k : V[c] = Σd Pa[c,d]·Cb[d], U[c] = Σd Pb[c,d]·Ca[d], D = Σc Ca[c]·Cb[c], tenus à jour à chaque main
+    // ajoutée pendant le balayage (D20) : il ne reste par main qu'une seule boucle de 52 cartes.
+    const nT = terms.length, TA = terms.map(t => t[0]), TB = terms.map(t => t[1]);
+    const V = terms.map(() => new Float64Array(52)), U = terms.map(() => new Float64Array(52)), D = new Float64Array(nT);
+    let live = false;
     const putA = (t: number, y: number) => {
       const w = ra[y]; if (w === 0) return;
-      put(t, a1[y], a2[y], w);
-      const q = w * P[5][a1[y] * 52 + a2[y]];
-      Rq[t] += q; Rc[t][a1[y]] += q; Rc[t][a2[y]] += q;
+      const c1 = a1[y], c2 = a2[y];
+      if (live) for (let k = 0; k < nT; k++) {
+        if (TA[k] !== t) continue;
+        const Cb = C[3 + TB[k]], Pb = P[3 + TB[k]], Vk = V[k], Uk = U[k];
+        Vk[c1] += w * Cb[c2]; Vk[c2] += w * Cb[c1];
+        for (let c = 0; c < 52; c++) Uk[c] += w * (Pb[c * 52 + c1] + Pb[c * 52 + c2]);
+        D[k] += w * (Cb[c1] + Cb[c2]);
+      }
+      put(t, c1, c2, w);
+      const q = w * P[5][c1 * 52 + c2];
+      Rq[t] += q; Rc[t][c1] += q; Rc[t][c2] += q;
     };
-    const putB = (t: number, z: number) => { const w = rb[z]; if (w !== 0) put(3 + t, b1[z], b2[z], w); };
+    const putB = (t: number, z: number) => {
+      const w = rb[z]; if (w === 0) return;
+      const c1 = b1[z], c2 = b2[z];
+      if (live) for (let k = 0; k < nT; k++) {
+        if (TB[k] !== t) continue;
+        const Ca = C[TA[k]], Pa = P[TA[k]], Vk = V[k], Uk = U[k];
+        for (let c = 0; c < 52; c++) Vk[c] += w * (Pa[c * 52 + c1] + Pa[c * 52 + c2]);
+        Uk[c1] += w * Ca[c2]; Uk[c2] += w * Ca[c1];
+        D[k] += w * (Ca[c1] + Ca[c2]);
+      }
+      put(3 + t, c1, c2, w);
+    };
     for (let z = 0; z < rb.length; z++) putB(2, z);
     for (let y = 0; y < ra.length; y++) putA(2, y);
+    // au départ, seules les tables « toutes les mains » (A) sont remplies : les termes A×A se calculent une fois
+    for (let k = 0; k < nT; k++) {
+      if (TA[k] !== 2 || TB[k] !== 2) continue;
+      const Ca = C[2], Pa = P[2], Cb = C[5], Pb = P[5], Vk = V[k], Uk = U[k];
+      let d = 0;
+      for (let c = 0; c < 52; c++) {
+        d += Ca[c] * Cb[c];
+        let sv = 0, su = 0;
+        for (let e = 0; e < 52; e++) { sv += Pa[c * 52 + e] * Cb[e]; su += Pb[c * 52 + e] * Ca[e]; }
+        Vk[c] = sv; Uk[c] = su;
+      }
+      D[k] = d;
+    }
+    live = true;
 
     const out = new Float64Array(this.N(i));
     const x1s = this.c1[i], x2s = this.c2[i];
-    const D = new Float64Array(terms.length);
     const evalGroup = (xs: ArrayLike<number>, from: number, to: number) => {
-      terms.forEach(([ta, tb], k) => { let d = 0; const Ca = C[ta], Cb = C[3 + tb]; for (let c = 0; c < 52; c++) d += Ca[c] * Cb[c]; D[k] = d; });
       for (let g = from; g < to; g++) {
-        const x = xs[g], x1 = x1s[x], x2 = x2s[x], kx = x1 * 52 + x2;
+        const x = xs[g], x1 = x1s[x], x2 = x2s[x], kx = x1 * 52 + x2, o1 = x1 * 52, o2 = x2 * 52;
         let v = 0;
-        for (let k = 0; k < terms.length; k++) {
-          const [ta, tb, coef] = terms[k];
-          const Ca = C[ta], Pa = P[ta], Cb = C[3 + tb], Pb = P[3 + tb], tr = Math.min(ta, tb);
-          const A = W[ta] - Ca[x1] - Ca[x2] + Pa[kx];
-          const T1 = A * (W[3 + tb] - Cb[x1] - Cb[x2] + Pb[kx]);
-          let s1 = 0, s2 = 0, t4 = 0;
-          const o1 = x1 * 52, o2 = x2 * 52;
-          for (let d = 0; d < 52; d++) {
-            s1 += Pa[o1 + d] * Cb[d]; s2 += Pa[o2 + d] * Cb[d];
-            if (d !== x1 && d !== x2) t4 += (Pb[o1 + d] + Pb[o2 + d]) * (Ca[d] - Pa[o1 + d] - Pa[o2 + d]);
-          }
-          const T2 = D[k] - (Ca[x1] * Cb[x1] + s1) - (Ca[x2] * Cb[x2] + s2) + Pa[kx] * (Cb[x1] + Cb[x2]);
-          const T3 = Rq[tr] - Rc[tr][x1] - Rc[tr][x2] + Pa[kx] * Pb[kx];
+        for (let k = 0; k < nT; k++) {
+          const ta = TA[k], tb = TB[k], coef = terms[k][2];
+          const Ca = C[ta], Pa = P[ta], Cb = C[3 + tb], Pb = P[3 + tb], tr = ta < tb ? ta : tb, Vk = V[k], Uk = U[k];
+          const pa = Pa[kx], pb = Pb[kx];
+          const T1 = (W[ta] - Ca[x1] - Ca[x2] + pa) * (W[3 + tb] - Cb[x1] - Cb[x2] + pb);
+          const T2 = D[k] - (Ca[x1] * Cb[x1] + Vk[x1]) - (Ca[x2] * Cb[x2] + Vk[x2]) + pa * (Cb[x1] + Cb[x2]);
+          const T3 = Rq[tr] - Rc[tr][x1] - Rc[tr][x2] + pa * pb;
+          let h = 0;
+          for (let d = 0; d < 52; d++) h += (Pb[o1 + d] + Pb[o2 + d]) * (Pa[o1 + d] + Pa[o2 + d]);
+          const t4 = Uk[x1] + Uk[x2] - pb * (Ca[x1] + Ca[x2]) - h + 2 * pb * pa;
           v += coef * (T1 - T2 + T3 + t4);
         }
         out[x] = v;
@@ -311,51 +347,91 @@ export class VRiver3 {
     return out;
   }
 
-  private strategy(n: Act, table: Map<number, Float64Array>, normalize: (row: number[]) => number[]): Float64Array {
-    const N = this.N(n.player), A = n.actions.length, t = table.get(n.id), out = new Float64Array(A * N);
+  /** Stratégie du moment (regret matching), sans tableaux intermédiaires. */
+  private current(n: Act): Float64Array {
+    const N = this.N(n.player), A = n.actions.length, t = this.regret.get(n.id), out = new Float64Array(A * N);
+    if (!t) { out.fill(1 / A); return out; }
     for (let x = 0; x < N; x++) {
-      const row = normalize(Array.from({ length: A }, (_, a) => (t ? t[a * N + x] : 0)));
-      row.forEach((v, a) => { out[a * N + x] = v; });
+      let s = 0;
+      for (let a = 0; a < A; a++) { const r = t[a * N + x]; if (r > 0) s += r; }
+      if (s > 0) for (let a = 0; a < A; a++) { const r = t[a * N + x]; out[a * N + x] = r > 0 ? r / s : 0; }
+      else for (let a = 0; a < A; a++) out[a * N + x] = 1 / A;
     }
     return out;
   }
-  private current = (n: Act) => this.strategy(n, this.regret, row => {
-    const pos = row.map(x => Math.max(0, x)), s = pos.reduce((p, q) => p + q, 0);
-    return s > 0 ? pos.map(x => x / s) : row.map(() => 1 / row.length);
-  });
 
-  // ---------------------------------------------------------------- CFR+
+  // ---------------------------------------------------------------- CFR (DCFR par défaut, D18)
   private walk(n: VNode, i: number, reach: Float64Array[]): Float64Array {
     if (n.t === "end") return this.terminal(n, i, reach);
-    const N = this.N(n.player), A = n.actions.length, sigma = this.current(n);
-    if (n.player !== i) {
-      const tot = new Float64Array(this.N(i));
-      n.children.forEach((c, a) => {
-        const r = reach.slice(); r[n.player] = reach[n.player].map((w, x) => w * sigma[a * N + x]);
-        this.walk(c, i, r).forEach((v, x) => { tot[x] += v; });
-      });
+    const p = n.player, N = this.N(p), A = n.actions.length, sigma = this.current(n), rp = reach[p];
+    if (p !== i) {
+      const Ni = this.N(i), tot = new Float64Array(Ni);
+      for (let a = 0; a < A; a++) {
+        const r = reach.slice(), w = new Float64Array(N);
+        for (let x = 0; x < N; x++) w[x] = rp[x] * sigma[a * N + x];
+        r[p] = w;
+        const v = this.walk(n.children[a], i, r);
+        for (let x = 0; x < Ni; x++) tot[x] += v[x];
+      }
       return tot;
     }
-    const vals = n.children.map((c, a) => {
-      const r = reach.slice(); r[i] = reach[i].map((w, x) => w * sigma[a * N + x]);
-      return this.walk(c, i, r);
-    });
+    const vals: Float64Array[] = [];
+    for (let a = 0; a < A; a++) {
+      const r = reach.slice(), w = new Float64Array(N);
+      for (let x = 0; x < N; x++) w[x] = rp[x] * sigma[a * N + x];
+      r[i] = w;
+      vals.push(this.walk(n.children[a], i, r));
+    }
+    return this.applyUpdate(n, i, rp, sigma, vals);
+  }
+
+  /** Fin de la visite d'un nœud du joueur qui apprend : valeur de ses mains, mise à jour des regrets et de la moyenne. */
+  applyUpdate(n: Act, i: number, rp: Float64Array, sigma: Float64Array, vals: Float64Array[]): Float64Array {
+    const N = this.N(i), A = n.actions.length;
     const v = new Float64Array(N);
-    for (let x = 0; x < N; x++) for (let a = 0; a < A; a++) v[x] += sigma[a * N + x] * vals[a][x];
-    const reg = this.regret.get(n.id) ?? new Float64Array(A * N), sum = this.sum.get(n.id) ?? new Float64Array(A * N);
-    for (let a = 0; a < A; a++) for (let x = 0; x < N; x++) {
-      const k = a * N + x, r = vals[a][x] - v[x];
-      if (this.algo === "dcfr") {
-        const old = reg[k];
-        reg[k] = (old > 0 ? old * this.disc[0] : old * this.disc[1]) + r;
-        sum[k] = sum[k] * this.disc[2] + reach[i][x] * sigma[k];
-      } else {
-        reg[k] = Math.max(0, reg[k] + r);
-        sum[k] += this.iterations * reach[i][x] * sigma[k];
+    for (let a = 0; a < A; a++) { const va = vals[a]; for (let x = 0; x < N; x++) v[x] += sigma[a * N + x] * va[x]; }
+    let reg = this.regret.get(n.id), sum = this.sum.get(n.id);
+    if (!reg) { reg = new Float64Array(A * N); this.regret.set(n.id, reg); }
+    if (!sum) { sum = new Float64Array(A * N); this.sum.set(n.id, sum); }
+    const [d0, d1, d2] = this.disc, dcfr = this.algo === "dcfr", it = this.iterations;
+    for (let a = 0; a < A; a++) {
+      const va = vals[a];
+      for (let x = 0; x < N; x++) {
+        const k = a * N + x, r = va[x] - v[x];
+        if (dcfr) {
+          const old = reg[k];
+          reg[k] = (old > 0 ? old * d0 : old * d1) + r;
+          sum[k] = sum[k] * d2 + rp[x] * sigma[k];
+        } else {
+          reg[k] = Math.max(0, reg[k] + r);
+          sum[k] += it * rp[x] * sigma[k];
+        }
       }
     }
-    this.regret.set(n.id, reg); this.sum.set(n.id, sum);
     return v;
+  }
+
+  // ---------------------------------------------------------------- accès pour le calcul réparti (vparallel.ts)
+  keyOf(n: VNode) { return n.t === "act" ? `a${n.id}` : `e${n.eid}`; }
+  nodeOf(key: string): VNode { return key[0] === "a" ? this.acts[+key.slice(1)] : this.ends[+key.slice(1)]; }
+  /** Fixe le numéro d'itération et les coefficients DCFR (identiques à run()). */
+  setIteration(t: number) {
+    this.iterations = t;
+    const p = Math.pow(t - 1, 1.5);
+    this.disc = [p / (p + 1), 0.5, Math.pow((t - 1) / t, 2)];
+  }
+  walkKey(key: string, i: number, reach: Float64Array[]) { return this.walk(this.nodeOf(key), i, reach); }
+  evalKey(key: string, i: number, reach: Float64Array[], prof: VProfile, br: boolean) { return this.evalWalk(this.nodeOf(key), i, reach, prof, br); }
+  strategyNow(n: Act) { return this.current(n); }
+  rootReach() { return this.reach0(); }
+  totalOf(i: number, vec: Float64Array) { return this.total(i, vec); }
+  handCount(p: number) { return this.N(p); }
+  /** Nœuds de décision et nombre de fins de main sous un nœud (lui compris). */
+  subtree(key: string): { acts: number[]; ends: number } {
+    const acts: number[] = []; let ends = 0;
+    const rec = (n: VNode) => { if (n.t === "end") { ends++; return; } acts.push(n.id); n.children.forEach(rec); };
+    rec(this.nodeOf(key));
+    return { acts, ends };
   }
 
   private reach0 = () => this.hands.map(r => Float64Array.from(r, h => h.w));
@@ -372,10 +448,10 @@ export class VRiver3 {
    * Calcul avec contrôles : toutes les `every` itérations, mesure la NashConv exacte de la stratégie moyenne et garde la
    * meilleure (D18) — on ne publie jamais moins bien que le meilleur point atteint, même si la mesure remonte ensuite.
    */
-  solve(iterations: number, every = 100) {
+  solve(iterations: number, every = 100, stopAt = 0) {
     const checks: { iterations: number; nashConv: number }[] = [];
     let profile = this.averageProfile(), nashConv = Infinity, at = 0;
-    for (let done = 0; done < iterations;) {
+    for (let done = 0; done < iterations && nashConv > stopAt;) {
       const k = Math.min(every, iterations - done);
       this.run(k); done += k;
       const avg = this.averageProfile(), nc = this.nashConv(avg);
@@ -385,12 +461,30 @@ export class VRiver3 {
     return { profile, nashConv, iterations: at, checks };
   }
 
-  averageProfile(): VProfile {
+  /** État complet du calcul (pour la mémoire des spots, D21) : itération, regrets et sommes des stratégies. */
+  exportState(ids?: number[]): SolverState {
+    const keep = (m: Map<number, Float64Array>) => [...m].filter(([id]) => !ids || ids.includes(id)).map(([id, a]) => [id, Float64Array.from(a)] as [number, Float64Array]);
+    return { iterations: this.iterations, regret: keep(this.regret), sum: keep(this.sum) };
+  }
+  /** Reprend un calcul exporté : la suite donne exactement ce qu'aurait donné un calcul jamais interrompu. */
+  importState(st: SolverState, ids?: number[]) {
+    this.iterations = st.iterations;
+    for (const [id, a] of st.regret) if (!ids || ids.includes(id)) this.regret.set(id, Float64Array.from(a));
+    for (const [id, a] of st.sum) if (!ids || ids.includes(id)) this.sum.set(id, Float64Array.from(a));
+  }
+
+  averageProfile(ids?: number[]): VProfile {
     const out: VProfile = new Map();
-    for (const n of this.acts) out.set(n.id, this.strategy(n, this.sum, row => {
-      const s = row.reduce((p, q) => p + q, 0);
-      return s > 0 ? row.map(x => x / s) : row.map(() => 1 / row.length);
-    }));
+    for (const n of ids ? ids.map(id => this.acts[id]) : this.acts) {
+      const N = this.N(n.player), A = n.actions.length, t = this.sum.get(n.id), o = new Float64Array(A * N);
+      for (let x = 0; x < N; x++) {
+        let s = 0;
+        if (t) for (let a = 0; a < A; a++) s += t[a * N + x];
+        if (t && s > 0) for (let a = 0; a < A; a++) o[a * N + x] = t[a * N + x] / s;
+        else for (let a = 0; a < A; a++) o[a * N + x] = 1 / A;
+      }
+      out.set(n.id, o);
+    }
     return out;
   }
   uniform(): VProfile {

@@ -315,3 +315,43 @@ une approximation. Pluribus déduit les ranges de la street suivante de la strat
 faire quand le solveur de turn existera (étape 4). (2) 5 minutes pour 0,1 % du pot : trop lent pour un conseil en
 direct, assez pour un banc d'essai ou un calcul hors ligne. Pistes mesurables : ignorer les mains de probabilité
 nulle (Pluribus : ×4), mettre en cache les spots déjà résolus.
+
+## D20 — Accélérations du solveur river à 3, calcul réparti sur plusieurs cœurs · retenu · 2026-11-24
+
+**Demande.** Une river à 3 sur de vraies ranges doit se résoudre en 20 à 30 secondes au plus (au lieu de 5 minutes),
+« comme Pluribus ».
+
+**Ce qui a été fait, et la preuve de chaque étape.**
+1. Réécriture du parcours sans tableaux intermédiaires et saut des fins de main qu'un adversaire n'atteint jamais :
+   mêmes opérations, **mêmes résultats au bit près** (référence figée, src/test/multiway2e.test.ts). 9,1 s → 5,2 s pour
+   30 itérations sur un cœur.
+2. Fins de main : par terme, sommes par carte V, U, D tenues à jour à chaque main ajoutée pendant le balayage ; il ne
+   reste qu'une boucle de 52 cartes par main. 5,2 s → 3,5 s. Juste par rapport au calcul exact (multiway2b). L'ordre
+   des additions change (écart ~1e-13 en relatif), ce qui suffit à faire diverger la trajectoire de CFR : mesuré,
+   l'ancien calcul perturbé de 1e-12 finit lui-même entre 0,0072 et 0,0090 à 400 itérations ; le nouveau, 0,0085. Le
+   test exige donc la même précision (marge ×1,3), pas les mêmes bits.
+3. Calcul réparti (src/engines/multiway/vparallel.ts) : le haut de l'arbre reste sur le fil principal, les sous-arbres
+   vont aux ouvriers, qui gardent leurs regrets. Mêmes opérations dans le même ordre : **mêmes résultats au bit près**
+   que le calcul d'un seul tenant (testé avec des ouvriers simulés). Dans le navigateur : Web Workers ; sous Node :
+   worker_threads.
+
+**Mesuré de bout en bout** (CO ouvre, BTN et BB paient, board Kh 9d 4c 7s 2h, tout checké ; 864/335/50 combos ;
+objectif 0,1 % du pot) : **10 cœurs (M5) : 26 s** (1 000 itérations, 0,088 % du pot) ; **4 cœurs : 47 s**.
+Avant : environ 5 minutes. Sur un ordinateur à 4 cœurs, l'objectif de 30 s n'est pas tenu.
+
+**Ignorer les mains impossibles.** Le gain ×4 cité par Pluribus vient des mains couchées au préflop : nos ranges les
+excluent déjà (lineRanges). Les mains de poids nul en cours de calcul sont sautées dans les fins de main.
+
+**Écartés.** Retirer les combos de faible poids (D19 : fausse le résultat). Mises à jour simultanées des 3 joueurs
+(plus parallèles, mais convergence moins bonne et résultats différents du calcul validé). Réseaux de neurones (GPU).
+
+## D21 — Mémoire des spots déjà calculés · retenu · 2026-11-24
+
+**Choix.** src/engines/multiway/spotCache.ts. Empreinte du spot (board, ranges et poids, pot, tapis, tailles, rake,
+méthode). Si la mémoire a déjà ce spot à la précision demandée : réponse immédiate (mesuré : 0 à 1 ms). Sinon, si elle
+l'a moins précis : le calcul reprend là où il s'était arrêté (regrets et moyennes gardés), avec exactement les mêmes
+chiffres qu'un calcul jamais interrompu (testé, calcul simple et réparti). On garde la meilleure stratégie mesurée.
+Mémoire vive limitée aux 20 derniers spots utilisés.
+
+**À faire plus tard (avec accord).** Garder la mémoire entre deux visites du site (stockage du navigateur) : un spot
+réel pèse plusieurs mégaoctets, il faudra le compresser et en limiter le nombre.
