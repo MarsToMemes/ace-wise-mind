@@ -87,6 +87,8 @@ interface Props {
   // Tournament overlay
   tournamentState?: TournamentState;
   seatStacksBB?: number[];
+  /** Montant « relance à » d'un tapis pour chaque siège (ce qui lui reste + ce qu'il a déjà mis sur la street). */
+  seatAllInTo?: number[];
   levelTimerSec?: number;
   flashMRatio?: boolean;
   /** Pseudo et profil du joueur associé à chaque siège (fiches joueurs). */
@@ -105,7 +107,7 @@ interface Props {
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
   currentBet, toCallBB, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
-  tournamentState, seatStacksBB, levelTimerSec, flashMRatio, seatNames, street, potBB, stackBB,
+  tournamentState, seatStacksBB, seatAllInTo, levelTimerSec, flashMRatio, seatNames, street, potBB, stackBB,
   board = [], hole = [], heroHand,
 }: Props) => {
   const { t, lang } = useI18n();
@@ -358,7 +360,7 @@ export const PokerTable = ({
             defaultRaise={defaultRaise}
             street={street}
             potBB={potBB}
-            stackBB={actionSeat != null && seatStacksBB?.[actionSeat] ? seatStacksBB[actionSeat] : stackBB}
+            stackBB={actionSeat != null && seatAllInTo?.[actionSeat] != null ? seatAllInTo[actionSeat] : actionSeat != null && seatStacksBB?.[actionSeat] ? seatStacksBB[actionSeat] : stackBB}
             betLevel={currentBet}
             onAction={({ type, amountBB }) => {
               if (actionSeat != null) onPlayerAction(actionSeat, type, amountBB);

@@ -39,6 +39,10 @@ export interface PostflopInput {
   samples?: number;
   /** Rake cash retiré du pot gagné. Absent : aucun (tournoi). */
   rake?: RakeRule | null;
+  /** Une relance est-elle encore possible ? Non face à un tapis (personne d'autre n'a de jetons) ou si ton tapis ne couvre pas la mise. Absent : oui. */
+  canRaise?: boolean;
+  /** As-tu checké sur cette street ? Une relance n'est un « check-raise » qu'après ton check. */
+  heroCheckedThisStreet?: boolean;
 }
 
 export interface PostflopAdvice {
@@ -104,8 +108,15 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     const finalPot = potBB + toCallBB;
     const required = toCallBB / (finalPot - rakeOf(finalPot, inp.rake)) + (adj.callThresholdDelta ?? 0) / 100;
     const reqPct = Math.round(required * 1000) / 10;
-    const checkRaise = !ip && inp.villainCheckedThisStreet === false;
+    const checkRaise = inp.heroCheckedThisStreet ?? (!ip && inp.villainCheckedThisStreet === false);
+    const noRaise = inp.canRaise === false;
+    const callLabel = `Call ${toCallBB} BB${toCallBB >= heroStackBB - 1e-6 ? " (tapis)" : ""}`;
     reasons.push(`Ton équité ${nOpp > 1 ? `contre les ${nOpp} adversaires` : "contre sa range"} : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);
+    // face à un tapis (ou quand ton tapis ne couvre pas la mise) : seuls payer ou se coucher sont possibles
+    if (noRaise && (role === "nuts" || (role === "value" && hEq >= T(0.75) && street === "Flop"))) {
+      reasons.push("Ta main est en haut de ta range, mais plus aucune relance n'est possible ici : tu paies.");
+      return { action: "call", verb: "CALL", label: callLabel, sizeBB: toCallBB, allIn: toCallBB >= heroStackBB - 1e-6, pct: 100, mix: [{ label: "Call", pct: 100 }], role, reasons, plan, stats: { ...stats, required: reqPct } };
+    }
     // turn et river : il ne paie une relance qu'avec mieux ; seul le haut de ta range relance, une value moyenne paie
     // (banc maison / solveur : river, relances de value jouées 0 % du temps ; turn avec relance au pot permise,
     // le solveur paie dans 5 cas sur 6, −1,5 bb en moyenne). Le flop garde la relance de value.
@@ -122,7 +133,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
         role, reasons, plan, stats: { ...stats, required: reqPct },
       };
     }
-    if (role === "draw" && street !== "River") {
+    if (role === "draw" && street !== "River" && !noRaise) {
       const semi = Math.round(35 * (adj.heroBluffMult ?? 1));
       const to = 3 * toCallBB;
       const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
@@ -131,7 +142,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
       plan.push("Si ton tirage rentre au turn/river : mise pour la value.");
       return {
         action: canCall ? "call" : "raise", verb: canCall ? "CALL" : "SEMI-BLUFF",
-        label: canCall ? `Call ${toCallBB} BB` : `${!ip ? "Check-raise" : "Relance"} à ${sizeBB} BB en semi-bluff`,
+        label: canCall ? `Call ${toCallBB} BB` : `${checkRaise ? "Check-raise" : "Relance"} à ${sizeBB} BB en semi-bluff`,
         sizeBB: canCall ? toCallBB : sizeBB, allIn: !canCall && allIn, pct: canCall ? 100 - semi : semi + 20,
         mix: canCall ? [{ label: "Call", pct: 100 - semi }, { label: "Relance (semi-bluff)", pct: semi }] : [{ label: "Relance (semi-bluff)", pct: semi + 20 }, { label: "Fold", pct: 80 - semi }],
         role, reasons, plan, stats: { ...stats, required: reqPct },
@@ -141,11 +152,11 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     if (margin >= 0.03) {
       reasons.push("Ton équité dépasse la cote : payer est rentable.");
       plan.push(street === "River" ? "C'est la dernière décision." : "Street suivante : réévalue selon la carte et sa mise.");
-      return { action: "call", verb: "CALL", label: `Call ${toCallBB} BB`, sizeBB: toCallBB, allIn: false, pct: 100, mix: [{ label: "Call", pct: 100 }], role, reasons, plan, stats: { ...stats, required: reqPct } };
+      return { action: "call", verb: "CALL", label: callLabel, sizeBB: toCallBB, allIn: toCallBB >= heroStackBB - 1e-6, pct: 100, mix: [{ label: "Call", pct: 100 }], role, reasons, plan, stats: { ...stats, required: reqPct } };
     }
     if (margin >= -0.03) {
       reasons.push("Ton équité est juste à la limite de la cote : décision presque indifférente.");
-      return { action: "call", verb: "CALL / FOLD", label: `Call ${toCallBB} BB (limite)`, sizeBB: toCallBB, allIn: false, pct: 50, mix: [{ label: "Call", pct: 50 }, { label: "Fold", pct: 50 }], role, reasons, plan, stats: { ...stats, required: reqPct } };
+      return { action: "call", verb: "CALL / FOLD", label: `${callLabel} (limite)`, sizeBB: toCallBB, allIn: false, pct: 50, mix: [{ label: "Call", pct: 50 }, { label: "Fold", pct: 50 }], role, reasons, plan, stats: { ...stats, required: reqPct } };
     }
     reasons.push("Ton équité est sous la cote : se coucher.");
     return { action: "fold", verb: "FOLD", label: "Coucher", allIn: false, pct: 100, mix: [{ label: "Fold", pct: 100 }], role, reasons, plan, stats: { ...stats, required: reqPct } };

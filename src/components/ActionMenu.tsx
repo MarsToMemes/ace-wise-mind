@@ -37,7 +37,8 @@ export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRais
   const { t } = useI18n();
   const level = betLevel ?? currentBet;
   const minAmt = level > 0 ? Math.max(level * 2, level + 1) : street === "Preflop" ? 2 : 1;
-  const maxAmt = Math.max(minAmt, stackBB);
+  // tapis = tout ce qui reste au joueur (un tapis plus court que la relance minimum reste permis)
+  const maxAmt = stackBB > 0 ? stackBB : minAmt;
   const [text, setText] = useState<string>(fmt(Math.min(maxAmt, Math.max(minAmt, defaultRaise))));
   const amt = parseAmount(text);
   // à chaque ouverture, repartir de la taille proposée

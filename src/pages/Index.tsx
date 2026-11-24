@@ -62,6 +62,7 @@ import { ShowdownPanel } from "@/components/ShowdownPanel";
 import { parseCards, buildShowdownRecord, showdownSeats, strengthAt } from "@/engines/showdown";
 import type { EndgameInput } from "@/engines/endgame/solve";
 import { useEndgameSolve } from "@/hooks/use-endgame-solve";
+import { heroStakes } from "@/lib/heroStakes";
 import { useMultiwaySolve, type MultiwayJob } from "@/hooks/use-multiway-solve";
 import { multiwayRoute } from "@/engines/multiway/route";
 import { spotKey } from "@/engines/multiway/spotCache";
@@ -206,12 +207,21 @@ const Index = () => {
     () => streetContribs.reduce((m, v) => Math.max(m, v), 0),
     [streetContribs],
   );
-  const dynamicPot = potState.pot;
-  const userToCall = userIdx >= 0 ? potState.toCall(userIdx) : call;
+  // ce qui est vraiment en jeu pour toi (moteur de règles) : tapis restants, à payer plafonné à ton tapis, pot que tu
+  // peux gagner, relance encore possible ; avec le tapis saisi pour tous si les tapis ne sont pas suivis siège par siège
+  const stakes = useMemo(() => (userIdx >= 0 && dealerIdx >= 0
+    ? heroStakes({ ...liveHand, stacks: tracked ? seatStacks : Array(tableSize).fill(stack) }) : null),
+  [userIdx, dealerIdx, liveHand, tracked, seatStacks, tableSize, stack]);
+  const tablePot = potState.pot;
+  // la part d'un adversaire que tu ne peux pas couvrir lui revient : elle n'est pas dans le pot que tu joues
+  const dynamicPot = stakes ? Math.round((potState.pot - Math.max(0, stakes.fullPot - stakes.pot)) * 100) / 100 : potState.pot;
+  const userToCall = userIdx >= 0 ? (stakes ? Math.min(potState.toCall(userIdx), stakes.remaining) : potState.toCall(userIdx)) : call;
+  /** Tapis effectif restant (affichage, SPR, conseiller) ; `effStack` garde le tapis de départ (profondeur des tables). */
+  const effLeft = stakes ? stakes.effective : effStack;
   // Une vraie mise / relance à payer (et pas seulement la grosse blinde)
   const blindLevel = currentStreet === "Preflop" && potFromActions && dealerIdx >= 0 ? 1 : 0;
   const facingBet = userIdx >= 0 ? userToCall > 0 && currentBet > blindLevel : userToCall > 0;
-  const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(dynamicPot * 0.66));
+  const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(tablePot * 0.66));
 
   const engine = useMemo<EngineResult | null>(() => {
     if (hole.length < 2) return null;
@@ -478,7 +488,9 @@ const Index = () => {
     const villainAggressive = vf ? estimateStats(vf.counters).af >= 2 : false;
     const advice = advisePostflop({
       street: currentStreet as PostStreet, board, hole, heroRange, villainRange,
-      heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: effStack,
+      heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: effLeft,
+      canRaise: stakes?.canRaise, heroCheckedThisStreet: actionHistory.some(a => a.street === currentStreet && a.seatIdx === userIdx && a.type === "Check")
+        && !actionHistory.some(a => a.street === currentStreet && a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise")),
       opponents: exploit.realOpponents,
       otherRanges,
       prevVillain: prev ? villainLine.find(e => e.street === prev)?.act : undefined,
@@ -528,7 +540,7 @@ const Index = () => {
       }
     }
     return { advice, endgame, endgameNote, rangeSource, multiway };
-  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, effStack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode, tableSize, liveHand]);
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, effStack, effLeft, stakes, opponents, exploitSettings.mode, potState, potOpts, analyzerMode, tableSize, liveHand]);
   const postflopAdvice = postflopCtx?.advice ?? null;
   const endgameKey = useMemo(() => {
     const e = postflopCtx?.endgame;
@@ -953,7 +965,7 @@ const Index = () => {
       polar={polarization}
       pot={dynamicPot}
       toCall={userToCall}
-      stack={effStack}
+      stack={effLeft}
       solver={currentStreet === "Preflop" ? solverPreflop : null}
       postflop={postflopAdvice}
       endgame={multiwayJob
@@ -1096,9 +1108,10 @@ const Index = () => {
                     onSizeChange={handleSizeChange}
                     seatNames={seatNames}
                     street={currentStreet}
-                    potBB={dynamicPot}
+                    potBB={tablePot}
                     stackBB={heroStart}
                     seatStacksBB={seatRemaining}
+                    seatAllInTo={stakes?.allInTo}
                     board={board}
                     hole={hole}
                     heroHand={hole.length === 2 && board.length >= 3 ? engine?.category : undefined}
