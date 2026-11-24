@@ -36,7 +36,7 @@ describe("étape 3a : arbre d'enchères à n joueurs", () => {
     expect(checked).toBeGreaterThan(1000);
     expect(worst).toBeLessThanOrEqual(1e-9);
     expect(maxRake).toBeLessThanOrEqual(3 + 1e-9);
-  });
+  }, 60000); // 6 joueurs : ~10 000 fins × 729 classements, plusieurs secondes quand la machine est chargée
 
   it("gains de l'arbre = gains du moteur de règles du site (pots annexes, mises rendues, rake), mains tirées au hasard", () => {
     const n = 5, stacks = [100, 12, 45, 100, 30], s = spec(n, stacks), t = buildBetTree(s);
