@@ -409,3 +409,22 @@ exacte 0,968 % du pot à 500 itérations, 0,853 % à 1 000 (sans correction : 1,
 fois plus lent (76 s contre 41 s sur un cœur). Lecture : à 3 joueurs, la masse est exacte avec la correction ; le
 plafond vient donc du lien entre cartes bloquées et force des mains (le gain moyen sachant ta main), que
 l'indépendance ne capte pas. **Piste A écartée comme solution** ; le code reste pour les mesures.
+
+## D24 — Piste C : tirage des mains adverses (Monte-Carlo) · mesurée, insuffisante pour un calcul en direct · 2026-11-24
+
+**Quoi.** src/engines/multiway/vmc.ts : à chaque parcours, K jeux de mains adverses tirés selon leurs poids, sans carte
+partagée ; le joueur qui apprend garde le vecteur de toutes ses mains. Tests (src/test/multiway3c.test.ts) : sans biais
+(moyenne des tirages proportionnelle à la valeur exacte, 4 joueurs), aucune carte partagée, reproductible.
+Vérification du code : après une itération, regrets du tirage (K = 200 000) proportionnels aux regrets exacts
+(rapport constant 125 à 0,5 % près).
+
+**Mesuré.** Vrai spot à 3 joueurs (D19), stratégie jugée avec le calcul exact : 64 tirages + DCFR, 2,06 % du pot à
+1 000 itérations et 1,17 % à 4 000 (6 min sur un cœur) ; Linear CFR moins bon. Petit spot (15 mains par joueur,
+pot 20) : calcul exact 0,014 à 400 itérations ; tirages fixes, plafond 0,76 (4 096 tirages) et 0,38 (20 000) ; tirages
+renouvelés, 0,42 à 0,82 selon la graine. L'erreur ne baisse qu'avec la racine du nombre de tirages : il en faudrait
+des millions pour 0,1 % du pot. Pluribus s'en accommode parce qu'il calcule pendant des jours, ce qui n'est pas notre cas.
+
+**Lecture.** Exact en moyenne mais trop bruité pour 30 secondes. Moins bon que l'approximation « indépendants »
+(0,85 % du pot à 1 000 itérations en 41 s). Piste possible, à mesurer : ne tirer que n−2 adversaires et calculer le
+dernier exactement (masses par force et par carte, comme à 2 joueurs) — bruit bien plus faible, coût O(K·N) par fin
+de main. Décision à prendre avec l'utilisateur.
