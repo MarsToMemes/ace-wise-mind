@@ -5,6 +5,13 @@
 // remontée et les mises à jour du haut exactement comme le calcul d'un seul tenant : mêmes opérations, même ordre, donc
 // mêmes résultats (vérifié par test).
 import { VRiver3, type VSpec, type VProfile, type SolverState } from "@/engines/multiway/vriver3";
+import { VRiverN } from "@/engines/multiway/vriverN";
+
+/** Moteur de calcul : river à 3 joueurs (vriver3) ou exact à n joueurs (vriverN, D25). Mêmes méthodes. */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type Engine = VRiver3 | VRiverN;
+const makeEngine = (spec: VSpec, algo?: "cfr+" | "dcfr") => (spec.ranges.length === 3 ? new VRiver3(spec, { algo }) : new VRiverN(spec, { algo }));
+const players = (spec: VSpec) => spec.ranges.length;
 
 type Job = { key: string; reach: Float64Array[] };
 export type WorkerMsg =
@@ -18,14 +25,14 @@ export type WorkerMsg =
 
 /** Ce que fait un ouvrier ; partagé par toutes les façons de le lancer (même fil, Web Worker, worker_threads). */
 export class WorkerCore {
-  private v?: VRiver3;
+  private v?: Engine;
   private ids: number[] = [];
   private avg?: VProfile;
   private best?: VProfile;
   handle(m: WorkerMsg): unknown {
     switch (m.type) {
       case "init":
-        this.v = new VRiver3(m.spec, { algo: m.algo });
+        this.v = makeEngine(m.spec, m.algo);
         this.ids = m.keys.flatMap(k => this.v!.subtree(k).acts);
         return null;
       case "walk": {
@@ -65,17 +72,17 @@ export function inProcessPool(size: number): VPool {
 
 type Frame =
   | { kind: "job"; w: number; idx: number }
-  | { kind: "node"; n: Extract<ReturnType<VRiver3["nodeOf"]>, { t: "act" }>; rp: Float64Array; sigma: Float64Array; kids: Frame[] };
+  | { kind: "node"; n: any; rp: Float64Array; sigma: Float64Array; kids: Frame[] };
 
 export class VRiver3Parallel {
-  readonly v: VRiver3;
+  readonly v: any;
   private owner = new Map<string, number>();
   private top = new Set<number>();
   private mainBest?: VProfile;
   iterations = 0;
 
   constructor(readonly spec: VSpec, readonly pool: VPool, readonly opts: { algo?: "cfr+" | "dcfr"; depth?: number } = {}) {
-    this.v = new VRiver3(spec, { algo: opts.algo });
+    this.v = makeEngine(spec, opts.algo);
   }
 
   /** Découpe l'arbre : descend jusqu'à avoir assez de sous-arbres, puis les répartit par nombre de fins de main. */
@@ -148,7 +155,7 @@ export class VRiver3Parallel {
     for (let k = 0; k < iterations; k++) {
       this.iterations++;
       this.v.setIteration(this.iterations);
-      for (let i = 0; i < 3; i++) await this.traverse(i);
+      for (let i = 0; i < players(this.spec); i++) await this.traverse(i);
     }
   }
 
@@ -178,9 +185,9 @@ export class VRiver3Parallel {
     return v.totalOf(i, this.ascend(frame, i, res, false, br, prof));
   }
 
-  async expectedValues(which: "avg" | "best" = "avg") { return Promise.all([0, 1, 2].map(i => this.evaluate(i, false, which))); }
+  async expectedValues(which: "avg" | "best" = "avg") { return Promise.all(Array.from({ length: players(this.spec) }, (_, i) => this.evaluate(i, false, which))); }
   async nashConv(which: "avg" | "best" = "avg") {
-    const ev = await this.expectedValues(which), brv = await Promise.all([0, 1, 2].map(i => this.evaluate(i, true, which)));
+    const ev = await this.expectedValues(which), brv = await Promise.all(Array.from({ length: players(this.spec) }, (_, i) => this.evaluate(i, true, which)));
     return Math.max(0, brv.reduce((t, b, i) => t + b - ev[i], 0));
   }
 

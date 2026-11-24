@@ -428,3 +428,29 @@ des millions pour 0,1 % du pot. Pluribus s'en accommode parce qu'il calcule pend
 (0,85 % du pot à 1 000 itérations en 41 s). Piste possible, à mesurer : ne tirer que n−2 adversaires et calculer le
 dernier exactement (masses par force et par carte, comme à 2 joueurs) — bruit bien plus faible, coût O(K·N) par fin
 de main. Décision à prendre avec l'utilisateur.
+
+## D25 — Solveur EXACT de la river à n joueurs (4, 5, 6) · retenu (demande de l'utilisateur) · 2026-11-24
+
+**Demande.** « Le solveur exact au-delà de 3 joueurs, même s'il faut des millions de calculs. » Ni approximation (D23)
+ni tirage (D24).
+
+**Méthode.** src/engines/multiway/nExact.ts : pour le joueur qui apprend, deux adversaires (les deux plus grosses
+ranges) sont calculés par la méthode rapide du solveur à 3 joueurs, généralisée (part de pot selon le nombre d'ex
+aequo parmi les joueurs énumérés : ⅟(1+c), ⅟(2+c), ⅟(3+c)) ; tous les autres adversaires sont énumérés main par main
+(toutes les combinaisons sans carte partagée, pondérées par leurs probabilités). Exact : testé contre l'énumération
+complète à 4 et 5 joueurs (pots annexes, égalités), égal au calcul rapide à 3 joueurs. Solveur
+src/engines/multiway/vriverN.ts (DCFR, même méthode que vriver3) : à 3 joueurs mêmes valeurs et NashConv que vriver3
+pour une même stratégie ; à 4 joueurs valeurs et NashConv identiques à l'arbre explicite. Calcul réparti et mémoire
+des spots : mêmes résultats au bit près (tests src/test/multiway3d.test.ts).
+
+**Coût.** Proportionnel au produit des ranges énumérées : 4 joueurs = une range énumérée (la plus petite), 5 joueurs =
+deux, 6 joueurs = trois. Vrai spot à 4 joueurs (CO ouvre, BTN, SB, BB paient ; 183/762/335/50 combos ; menu Pluribus,
+705 fins de main) : 9,2 s par itération sur un cœur.
+**Mesuré de bout en bout (10 cœurs, M5).** NashConv (exacte) en % du pot : 8,66 % à 100 itérations, 0,75 % à 400,
+0,17 % à 1 000, **0,091 % à 1 400 itérations, en 26,5 minutes** ; baisse régulière à chaque contrôle. Objectif de
+0,1 % du pot atteint, sans approximation. Rappel : au-delà de 2 joueurs, aucune garantie théorique de convergence ;
+c'est la mesure qui fait foi.
+
+**À venir.** 5 et 6 joueurs : même solveur, mais deux puis trois ranges énumérées ; coût à mesurer, probablement des
+heures puis des jours par spot. Pistes d'accélération à mesurer : ne recalculer, d'une main énumérée à l'autre, que
+les mains adverses qui partagent ses cartes ; choisir les ranges énumérées qui minimisent le coût.

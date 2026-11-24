@@ -3,6 +3,7 @@
 // gardés), ce qui donne exactement le même résultat qu'un calcul jamais interrompu.
 import { VRiver3, type VSpec, type VProfile, type SolverState } from "@/engines/multiway/vriver3";
 import { VRiver3Parallel, type VPool } from "@/engines/multiway/vparallel";
+import { VRiverN } from "@/engines/multiway/vriverN";
 
 export interface SpotEntry {
   state: SolverState;
@@ -62,7 +63,7 @@ export async function solveSpot(spec: VSpec, o: SolveSpotOptions = {}) {
     res = await par.solve(Math.max(0, max - par.iterations), every, o.maxMs ?? Infinity, target);
     state = await par.exportState();
   } else {
-    const v = new VRiver3(spec);
+    const v = spec.ranges.length === 3 ? new VRiver3(spec) : new VRiverN(spec);
     if (prev) v.importState(prev.state);
     res = v.solve(Math.max(0, max - v.iterations), every, target);
     state = v.exportState();
