@@ -12,11 +12,10 @@ import { PokerTable, TableSize, SeatMode, labelToPosition, seatLabel } from "@/c
 import { PlayerAction, ActionType } from "@/components/ActionMenu";
 import {
   evaluateBest, detectDraws, classifyTexture, rangeAdvantage,
-  potOdds, estimateEquity, adjustedScore, decide, recommendSizing,
+  potOdds, adjustedScore, decide, recommendSizing,
   classifyHandStrength,
 } from "@/lib/pokerEngine";
 import { inferRanges, rangeModifiers } from "@/lib/rangeInference";
-import { evaluateHandVsRange } from "@/lib/handVsRange";
 import { buildExplanation } from "@/lib/explanationEngine";
 import { buildConditionalLines } from "@/lib/conditionalLines";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +62,7 @@ import { parseCards, buildShowdownRecord, showdownSeats, strengthAt } from "@/en
 import type { EndgameInput } from "@/engines/endgame/solve";
 import { useEndgameSolve } from "@/hooks/use-endgame-solve";
 import { heroStakes } from "@/lib/heroStakes";
+import { baseEquity } from "@/lib/baseEquity";
 import { useMultiwaySolve, type MultiwayJob } from "@/hooks/use-multiway-solve";
 import { multiwayRoute } from "@/engines/multiway/route";
 import { spotKey } from "@/engines/multiway/spotCache";
@@ -231,7 +231,6 @@ const Index = () => {
     const texture = classifyTexture(board);
     const ra = rangeAdvantage(position, board);
     const po = potOdds(userToCall, dynamicPot);
-    const equityPct = estimateEquity(draws.outs, board.length);
     const adjScore = adjustedScore({ baseScore: ev.score, outs: draws.outs, texture, position });
 
     // Range inference from action history
@@ -254,10 +253,9 @@ const Index = () => {
     });
     const rangeMods = rangeModifiers(rangeReadout);
 
-    // ===== Hand vs Range — Monte Carlo equity vs opponent distributions =====
-    const hvr = board.length >= 3 && hole.length === 2 && rangeReadout.opponents.length > 0
-      ? evaluateHandVsRange({ hole, board, opponentRanges: rangeReadout.opponents })
-      : null;
+    // ===== Équité : contre les ranges adverses déduites des actions (aussi avant le flop), sinon contre une main au
+    // hasard avant le flop, sinon règle des outs (lib/baseEquity.ts)
+    const { equityPct, vsRange: hvr } = baseEquity(hole, board, draws.outs, rangeReadout.opponents);
 
     // Apply range strength delta to effective adjScore for decision making
     const effAdjScore = Math.max(0, adjScore + rangeMods.strengthDelta);
@@ -289,7 +287,7 @@ const Index = () => {
 
     // OVERRIDE absolute classification with range-relative verdict when available.
     // This eliminates false "weak hand" bias when hero crushes opponents' actual ranges.
-    if (hvr) {
+    if (hvr && board.length >= 3) {
       const map: Record<string, "Strong" | "Medium" | "Weak"> = {
         "Strong vs Range": "Strong",
         "Medium vs Range": "Medium",
