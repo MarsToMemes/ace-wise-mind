@@ -3,8 +3,9 @@
 import type { VSpec } from "@/engines/multiway/vriver3";
 import type { LiveProgress, LiveReason } from "@/engines/multiway/liveSolve";
 import type { ChefIn } from "@/engines/multiway/chefWorker";
+import type { EndgameResult } from "@/engines/endgame/solve";
 
-export interface LiveDone { nashConv: number; iterations: number; reason: LiveReason; ms: number; resumedFrom: number; node?: Float64Array }
+export interface LiveDone { nashConv: number; iterations: number; reason: LiveReason; ms: number; resumedFrom: number; node?: Float64Array; report?: EndgameResult }
 export interface LiveRun { done: Promise<LiveDone>; /** arrêt propre au prochain contrôle (état gardé) */ stop(): void; /** arrêt immédiat */ cancel(): void; workers: number }
 
 /** Contrôles plus fréquents à 4 joueurs (itérations plus longues) pour afficher vite un premier conseil. */

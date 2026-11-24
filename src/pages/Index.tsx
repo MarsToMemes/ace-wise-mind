@@ -62,6 +62,9 @@ import { ShowdownPanel } from "@/components/ShowdownPanel";
 import { parseCards, buildShowdownRecord, showdownSeats, strengthAt } from "@/engines/showdown";
 import type { EndgameInput } from "@/engines/endgame/solve";
 import { useEndgameSolve } from "@/hooks/use-endgame-solve";
+import { useMultiwaySolve, type MultiwayJob } from "@/hooks/use-multiway-solve";
+import { multiwayRoute } from "@/engines/multiway/route";
+import { spotKey } from "@/engines/multiway/spotCache";
 import { bluffGuard } from "@/engines/endgame/guard";
 import { useSolverBase } from "@/hooks/use-solver-base";
 import { cashCoverage, CASH_DEPTHS, getSolverBaseGame } from "@/engines/solverSpots";
@@ -489,10 +492,22 @@ const Index = () => {
     // solveur de fin de main : turn et river, en tête-à-tête ; ranges du DÉBUT de la street (le solveur rejoue la street)
     let endgame: Omit<EndgameInput, "onProgress"> | null = null;
     let endgameNote: string | null = null;
+    let multiway: MultiwayJob | null = null;
     if ((currentStreet === "Turn" || currentStreet === "River") && board.length >= (currentStreet === "Turn" ? 4 : 5)) {
       const curActs = actionHistory.filter(a => a.street === currentStreet && a.type !== "Fold");
       if (exploit.realOpponents !== 1 || vSeat < 0 || curActs.some(a => a.seatIdx !== userIdx && a.seatIdx !== vSeat)) {
         endgameNote = "Solveur de fin de main : seulement en tête-à-tête (pot à 3 ou plus : conseil maison).";
+        // pot à 3 ou plus : solveur multiway exact à la river à 3 joueurs (D29), sinon conseil maison avec la raison
+        const route = multiwayRoute({
+          street: currentStreet, live: { ...liveHand, stacks: liveHand.stacks.length === tableSize ? liveHand.stacks : Array(tableSize).fill(effStack) },
+          positions: Array.from({ length: tableSize }, (_, i) => posOf(i)), game: analyzerMode === "cash" ? getSolverBaseGame() : null,
+          effStack, rake: analyzerMode === "cash" ? CASH_RAKE : null,
+        });
+        if (route.kind === "multiway") {
+          multiway = { spec: route.spot.spec, node: route.spot.pathNode.id, player: route.spot.heroPlayer, hand: route.spot.heroHand };
+          endgameNote = route.spot.notes.length ? `Solveur multiway : ${route.spot.notes.join(" ").replace(/^./, c => c.toLowerCase())}` : null;
+        } else if (route.kind === "house") endgameNote = route.note;
+        else if (route.kind === "none") endgameNote = null;
       } else {
         const order = ["Preflop", "Flop", "Turn", "River"];
         const before = actionHistory.filter(a => order.indexOf(a.street) < order.indexOf(currentStreet));
@@ -512,8 +527,8 @@ const Index = () => {
         };
       }
     }
-    return { advice, endgame, endgameNote, rangeSource };
-  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, effStack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode, tableSize]);
+    return { advice, endgame, endgameNote, rangeSource, multiway };
+  }, [currentStreet, hole, board, dealerIdx, tableSize, userIdx, position, exploit, actionHistory, folded, dynamicPot, userToCall, effStack, opponents, exploitSettings.mode, potState, potOpts, analyzerMode, tableSize, liveHand]);
   const postflopAdvice = postflopCtx?.advice ?? null;
   const endgameKey = useMemo(() => {
     const e = postflopCtx?.endgame;
@@ -523,6 +538,9 @@ const Index = () => {
     return JSON.stringify([e.street, e.board, e.startPot, e.stack, e.hero, e.heroCards, e.path, e.rake, h]);
   }, [postflopCtx]);
   const endgame = useEndgameSolve(postflopCtx?.endgame ?? null, endgameKey);
+  const multiwayJob = postflopCtx?.multiway ?? null;
+  const multiwayKey = useMemo(() => (multiwayJob ? `${spotKey(multiwayJob.spec)}|${multiwayJob.node}|${multiwayJob.player}|${multiwayJob.hand}` : ""), [multiwayJob]);
+  const multiway = useMultiwaySolve(multiwayJob, multiwayKey);
   // garde-fou : contre un récréatif (fiche), pas de bluff du solveur → conseil maison
   const endgameGuard = useMemo(() => {
     const vf = exploit.villainFile;
@@ -539,7 +557,7 @@ const Index = () => {
     preflop: currentStreet === "Preflop" ? solverPreflop : null,
     preflopMissing: currentStreet === "Preflop" ? preflopMissing : null,
     postflop: currentStreet !== "Preflop" && !!postflopAdvice,
-    multiway: !!postflopCtx?.endgameNote, guard: !!endgameGuard,
+    multiway: !!postflopCtx?.endgameNote && !postflopCtx?.multiway, guard: !!endgameGuard,
   }), [currentStreet, hole, userIdx, dealerIdx, effStack, cashCover.ok, solverPreflop, preflopMissing, postflopAdvice, postflopCtx, endgameGuard]);
   // lacunes des décisions de la main en cours : le conseil affiché juste avant chaque action du joueur
   const handGaps = useRef(new Map<string, Gap>());
@@ -938,7 +956,16 @@ const Index = () => {
       stack={effStack}
       solver={currentStreet === "Preflop" ? solverPreflop : null}
       postflop={postflopAdvice}
-      endgame={{ ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
+      endgame={multiwayJob
+        ? {
+          status: multiway.status === "done" ? "done" : multiway.status === "running" ? "running" : "idle",
+          progress: 0, result: multiway.status === "done" ? multiway.result : null, guard: null,
+          live: multiway.status === "running" ? (multiway.progress ? { pct: multiway.progress.nashConvPct, seconds: multiway.progress.ms / 1000 } : null) : undefined,
+          note: [postflopCtx?.endgameNote, multiway.status === "rough" && multiway.result
+            ? `Solveur multiway : précision insuffisante en 60 s (${multiway.result.exploitPct.toFixed(1).replace(".", ",")} % du pot) : conseil maison.` : null,
+          multiway.status === "error" ? "Solveur multiway : erreur de calcul, conseil maison affiché." : null].filter(Boolean).join(" ") || null,
+        }
+        : { ...endgame, note: postflopCtx?.endgameNote ?? null, guard: endgameGuard }}
       format={solverFormat}
       solverNote={cashCover.note}
       rake={analyzerMode === "cash" ? CASH_RAKE : null}

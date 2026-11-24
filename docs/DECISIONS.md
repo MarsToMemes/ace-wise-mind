@@ -568,3 +568,33 @@ L'option (`minWeight`) reste disponible, désactivée.
 **4 joueurs : le calcul exact en direct n'est pas utilisable.** Une itération coûte ≈ 4 s (0,03 s à 3 joueurs) ; après
 2 min, la précision est de 33 % du pot (21 % et 29 % en retirant les mains sous 5 et 10 %). Le conseil affiché à ce
 stade n'est pas fiable. Il faut une autre approche (arbre plus petit, à mesurer) avant de l'afficher sur le site.
+
+## D29 — Étape A3 : le solveur multiway dans la Décision synthétique (river à 3 joueurs) · retenu · 2026-11-24
+
+**Choix.**
+- **Quel solveur** (`route.ts`) : tête-à-tête → le solveur de fin de main actuel (turn et river, inchangé) ; river à 3
+  joueurs → le solveur multiway exact ; turn à 3 joueurs, 4 joueurs et plus, pas de ranges de la ligne (tournoi) ou
+  refus de A1 → conseil maison avec la raison écrite. Pas à toi de parler → rien à calculer.
+- **Affichage** : même forme que le solveur tête-à-tête (`EndgameResult`) : action conseillée et fréquences, ce que
+  rapporte chaque action avec ta main (se coucher = 0), toute ta range ici par catégorie ; en détail : précision,
+  itérations, mains calculées par joueur, temps (« déjà calculé » quand la mémoire le rend). Badge « Solveur multiway
+  (3 joueurs) ».
+- **Pendant le calcul** : le conseil maison reste affiché ; l'en-tête montre la précision qui s'affine (« Solveur
+  multiway : précision 5,6 % du pot · 2 s »). Le conseil du solveur remplace le conseil maison à 0,1 % du pot ; si les
+  60 s passent au-dessus de 1 % du pot, le conseil maison reste, avec la précision atteinte.
+- **Ce que rapporte chaque action** (`nodeValues.ts`) : probabilités d'arrivée des adversaires le long de la ligne,
+  valeur exacte de chaque action dans son sous-arbre, divisée par la masse des mains adverses compatibles ; plus ce que
+  tu as déjà mis (se coucher = 0). Une passe de plus à la fin du calcul (≈ 1 s).
+- **Pas de garde-fou contre les bluffs à 3 joueurs** : il est fait pour un seul adversaire dont on a la fiche.
+
+**Écarté.** Remplacer le solveur tête-à-tête par le moteur multiway (il marche, il couvre la turn ; rien à gagner
+maintenant). Afficher le conseil du solveur dès le premier contrôle (6 % du pot à 2 s : pas fiable).
+
+**Tests.** multiwayA3.test.ts (7 tests) : valeur de chaque action égale au calcul complet sur toutes les distributions
+de mains ; traduction (montants, 100 %, se coucher = 0, range) ; choix du solveur (2 joueurs, river à 3, turn à 3,
+4 joueurs, mode tournoi, pas à toi de parler). Suite complète du site : 541 tests.
+
+**Aperçu (site lancé depuis la copie de travail, main rouverte depuis l'historique).** CO ouvre, BTN et BB paient, BB
+checke la river, CO mise 10 bb, toi au BTN avec Q♣Q♦ : conseil maison (call / fold) et « précision 5,6 % du pot · 2 s »
+pendant le calcul, puis « Solveur multiway (3 joueurs) » : fold (call −4,6 bb, relance −5,1 bb, tapis −5,6 bb),
+précision 0,09 % du pot en 15,7 s ; même spot rouvert : rendu par la mémoire.

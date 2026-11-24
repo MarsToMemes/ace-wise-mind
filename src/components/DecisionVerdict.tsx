@@ -15,7 +15,9 @@ import type { Coverage } from "@/engines/solverSpots";
 import type { RakeRule } from "@/core/rake";
 
 /** `guard` : le solveur voulait bluffer contre un récréatif ; on garde le conseil maison (texte de l'explication). */
-export type EndgameView = EndgameState & { note: string | null; guard?: string | null };
+export type EndgameView = EndgameState & { note: string | null; guard?: string | null;
+  /** Solveur multiway en cours : précision de la meilleure stratégie (% du pot) et temps écoulé (étape A3). */
+  live?: { pct: number; seconds: number } | null };
 
 export interface SolverPreflop {
   act: string;
@@ -128,7 +130,7 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
   } else if ((street === "Turn" || street === "River") && endgame?.status === "done" && endgame.result && !endgame.guard) {
     const r = endgame.result;
     const main = r.actions.reduce((b, a) => (a.freq > b.freq ? a : b), r.actions[0]);
-    source = "Solveur de fin de main";
+    source = r.players && r.players > 2 ? `Solveur multiway (${r.players} joueurs)` : "Solveur de fin de main";
     verb = ENDGAME_VERB(main.kind, main.label);
     sizeLine = main.label;
     mix = r.actions.map(a => ({ label: a.label, pct: Math.round(a.freq * 100) })).filter(m => m.pct > 0);
@@ -180,7 +182,12 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           <span className="text-xs uppercase tracking-widest text-muted-foreground">Décision synthétique</span>
           <Badge variant="outline" className="text-[10px] uppercase">{street}</Badge>
           <Badge variant="outline" title={sourceHint || undefined} className={`text-[10px] ${sourceTone}`}>{source}</Badge>
-          {endgame?.status === "running" && (street === "Turn" || street === "River") && (
+          {endgame?.status === "running" && endgame.live !== undefined && (street === "Turn" || street === "River") && (
+            <span className="text-[10px] text-muted-foreground tabular-nums">
+              {endgame.live ? `Solveur multiway : précision ${endgame.live.pct.toFixed(endgame.live.pct < 1 ? 2 : 1).replace(".", ",")} % du pot · ${Math.round(endgame.live.seconds)} s` : "Solveur multiway : démarrage…"}
+            </span>
+          )}
+          {endgame?.status === "running" && endgame.live === undefined && (street === "Turn" || street === "River") && (
             <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               Solveur : calcul {Math.round(endgame.progress * 100)} %
               <span className="w-14 h-1 rounded-full bg-border overflow-hidden"><span className="block h-full bg-primary transition-[width]" style={{ width: `${Math.round(endgame.progress * 100)}%` }} /></span>
@@ -277,12 +284,12 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
           {street === "Preflop" && solver?.version && <Detail label="Table préflop" value={`${solver.label} · calculée le ${solver.version}`} />}
           {rangeSource && street !== "Preflop" && <Detail label="Ranges d'entrée" value={rangeSource} />}
           {rake && <Detail label="Rake compté" value={`${String(rake.pct).replace(".", ",")} %${rake.capBB != null ? ` · max ${String(rake.capBB).replace(".", ",")} bb` : ""}`} />}
-          {source === "Solveur de fin de main" && endgame?.result && (
+          {source.startsWith("Solveur") && street !== "Preflop" && endgame?.result && (
             <>
               <Detail label="Précision solveur" value={`${endgame.result.exploitPct.toFixed(2).replace(".", ",")} % du pot`} />
               <Detail label="Itérations" value={`${endgame.result.iterations}`} />
-              <Detail label="Mains calculées" value={`${endgame.result.combos[0]} vs ${endgame.result.combos[1]}`} />
-              <Detail label="Temps" value={`${(endgame.result.ms / 1000).toFixed(1).replace(".", ",")} s`} />
+              <Detail label="Mains calculées" value={endgame.result.combos.length > 2 ? endgame.result.combos.join(" / ") : `${endgame.result.combos[0]} vs ${endgame.result.combos[1]}`} />
+              <Detail label="Temps" value={`${(endgame.result.ms / 1000).toFixed(1).replace(".", ",")} s${endgame.result.fromMemory ? " · déjà calculé" : ""}`} />
               {postflop && <Detail label="Règles maison" value={postflop.label} />}
             </>
           )}
@@ -307,8 +314,12 @@ export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, sol
         <p className="mt-2 text-muted-foreground">
           {street === "Preflop" ? "Préflop : stratégie calculée par GTOpen (sans ICM)."
             : street === "Flop" ? "Flop : principes GTO calculés à la volée (ranges filtrées selon les actions), pas un solveur."
+            : endgame?.result?.players && endgame.result.players > 2 ? ""
             : "Turn et river : solveur de fin de main (CFR, comme la résolution de sous-jeu de Libratus) sur les ranges filtrées selon les actions. Mises testées : 33, 75, 125 % et tapis (river après la turn : 50, 100 % et tapis), plus la vraie mise jouée. Gain = jetons gagnés en moyenne à partir de maintenant."}
         </p>
+        {street === "River" && endgame?.result?.players && endgame.result.players > 2 && (
+          <p className="mt-1 text-muted-foreground">River à {endgame.result.players} joueurs : solveur multiway exact (CFR, aucune approximation des cartes) sur les ranges de la ligne jouée. Mises testées : 33, 75, 125 % du pot, relance au pot et tapis, plus la vraie mise jouée. Calculé dans ton navigateur ; une situation déjà calculée revient tout de suite.</p>
+        )}
         {endgame?.note && <p className="mt-1 text-muted-foreground">{endgame.note}</p>}
         {endgame?.status === "none" && <p className="mt-1 text-muted-foreground">Solveur de fin de main : ce n'est pas à toi de jouer dans cette situation.</p>}
         {endgame?.status === "error" && <p className="mt-1 text-destructive">Solveur de fin de main : erreur de calcul, conseil maison affiché.</p>}

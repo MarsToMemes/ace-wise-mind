@@ -34,7 +34,12 @@ export interface EndgameResult {
   exploitPct: number;
   iterations: number;
   ms: number;
-  combos: [number, number];
+  /** Mains calculées par joueur (2 en tête-à-tête, plus en multiway). */
+  combos: number[];
+  /** Joueurs dans le coup (absent : 2). */
+  players?: number;
+  /** Rendu par la mémoire des spots (déjà calculé) : `ms` est alors le temps de relecture. */
+  fromMemory?: boolean;
   heroInRange: boolean;
 }
 
@@ -52,7 +57,8 @@ export function actionLabel(a: Action, n: ActNode): string {
 
 const keyOf = (a: string, b: string) => (a < b ? a + b : b + a);
 
-function category(cards: [string, string], board: string[], street: EndStreet): string {
+/** Catégorie d'une main pour le résumé de la range (aussi utilisée par le solveur multiway). */
+export function category(cards: [string, string], board: string[], street: EndStreet): string {
   const rel = relStrength(cards, board);
   if (rel >= 2) return "mains fortes";
   if (rel === 1) return "paires";

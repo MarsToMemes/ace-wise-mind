@@ -27,7 +27,11 @@ export interface BetTreeSpec {
 
 export interface PathAct { player: number; kind: "check" | "bet" | "raise" | "call" | "fold" | "allin"; to?: number }
 
-export type TAct = { t: "act"; id: number; player: number; hist: string; actions: string[]; children: TNode[] };
+export type TAct = { t: "act"; id: number; player: number; hist: string; actions: string[]; children: TNode[];
+  /** Ce que chaque joueur a mis dans la main en arrivant ici (avant la river + river). */
+  put: number[];
+  /** Mis sur la river par chaque joueur en arrivant ici ; pot avant l'action ; total « à » de chaque action. */
+  street: number[]; pot: number; tos: number[] };
 export type TEnd = {
   t: "end"; eid: number;
   /** Mise rendue à chaque joueur (part non payée par les autres). */
@@ -126,7 +130,8 @@ export function buildBetTree(s: BetTreeSpec): BetTree {
       if (onPath < 0 && !pathError) pathError = `Action « ${pa.kind} » impossible à ce moment de la main.`;
     }
 
-    const node: TAct = { t: "act", id: acts.length, player: p, hist: st.hist, actions: options.map(o => o.tok), children: [] };
+    const node: TAct = { t: "act", id: acts.length, player: p, hist: st.hist, actions: options.map(o => o.tok), children: [],
+      put: Array.from({ length: n }, (_, q) => base(q) + st.contrib[q]), street: [...st.contrib], pot, tos: options.map(o => o.to) };
     acts.push(node);
     byHist.set(`${p}|${st.hist}`, node);
     if (st.k === path.length && !pathError) pathNode = node;

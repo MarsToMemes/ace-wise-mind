@@ -179,6 +179,11 @@ export class VRiverN {
   nodeOf(key: string): TNode { return key[0] === "a" ? this.tree.acts[+key.slice(1)] : this.tree.ends[+key.slice(1)]; }
   /** Valeur d'une fin de main (par son numéro) : le travail que le calcul réparti confie aux ouvriers. */
   terminalValues(eid: number, i: number, reach: Float64Array[]) { return this.terminal(this.tree.ends[eid], i, reach); }
+  /** Masse des mains adverses compatibles avec chaque main de i (probabilités d'arrivée `reach`). */
+  massAt(i: number, reach: Float64Array[]) {
+    const unit: TEnd = { t: "end", eid: -1, refund: new Array(this.n).fill(1), invested: new Array(this.n).fill(0), folded: new Array(this.n).fill(false), pots: [] };
+    return this.terminal(unit, i, reach);
+  }
   walkKey(key: string, i: number, reach: Float64Array[]) { return this.walk(this.nodeOf(key), i, reach); }
   evalKey(key: string, i: number, reach: Float64Array[], prof: VProfile, br: boolean) { return this.evalWalk(this.nodeOf(key), i, reach, prof, br); }
   strategyNow(n: TAct) { return this.current(n); }
