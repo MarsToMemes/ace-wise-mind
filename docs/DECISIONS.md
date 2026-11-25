@@ -817,3 +817,23 @@ entre ordres au plus 0,5 point, dans l'erreur d'échantillonnage. Suite du site 
 
 **Conséquence.** Les équités affichées et les seuils du conseiller changent légèrement dans les pots à plusieurs
 adversaires (moins d'un point sur des ranges réalistes, beaucoup plus quand les ranges se gênent).
+
+## D39 — Banc, partie B1 : petits jeux à solution connue · mesures · 2026-11-25
+
+**Méthode.** Jeux écrits à part (`tests-solveur/oracle/jeux.ts` : Kuhn, Leduc) et meilleures réponses exactes écrites
+à part (`tests-solveur/oracle/meilleureReponse.ts` : jeu explicite par ensembles d'information ; river en tête-à-tête
+avec ses propres gains, retraits de cartes et abattage, sur l'arbre de mises du solveur mesuré). Exploitabilité et
+valeur du jeu après 10, 30, 100, 300, 1 000 et 3 000 itérations.
+
+**Choix.** Le solveur de la décision synthétique en tête-à-tête (`endgame/cfr.ts`) ne joue que le hold'em : Kuhn lui est
+donné déguisé en river (trois mains TT < QQ < KK, une mise de la taille du pot de départ), ce qui reproduit exactement
+le jeu. Leduc (deux tours, carte commune) ne se déguise pas : il est joué par le CFR générique du site
+(`multiway/cfr.ts`), qui ne sert pas à la décision synthétique. Écarté : installer OpenSpiel (dépendance Python) ; les
+valeurs de référence publiées suffisent (Kuhn −1/18, Leduc ≈ −0,0856).
+
+**Résultats** (5 / 5 convergent) : à 3 000 itérations, Kuhn 0,00004 jeton par main (valeur −0,0556), Leduc 0,00009
+(valeur −0,0856), Kuhn par le solveur de fin de main 0,004 % du pot (valeur exactement −1/18), river polarisée 0,006 %
+(IP paie 50,0 %, bluffs 33,3 % : la théorie), petite river avec le menu complet 0,0002 %. L'exploitabilité indépendante
+et celle que mesure le site sont égales à 5 décimales.
+
+**Limites.** Rien sur les vrais spots, le préflop (GTOpen), le conseiller maison ni le multiway : B2 à B5.

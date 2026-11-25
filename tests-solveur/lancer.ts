@@ -10,6 +10,7 @@ import { runFuzz, type Divergence } from "./a2/fuzz";
 import { ficheDe } from "./a2/bugs";
 import { runCas } from "./a3/cas";
 import { runA4 } from "./a4/equite";
+import { runB1 } from "./b1/petitsJeux";
 
 const root = resolve(process.cwd());
 const args = process.argv.slice(2);
@@ -29,8 +30,8 @@ const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate
 const L: string[] = [];
 const fr = (x: number) => x.toLocaleString("fr-FR");
 
-L.push(`# Banc de test du solveur — partie A (moteur de table et équité)`, "", `Rapport du ${now.toLocaleString("fr-FR")}. Graine de A2 : **${SEED}**, ${fr(HANDS)} mains.`, "");
-L.push("Ce rapport mesure la justesse du moteur de table et de ce que la page affiche, par comparaison à un arbitre indépendant. Il ne dit rien de la qualité de la stratégie (partie B).", "");
+L.push(`# Banc de test du solveur — partie A (moteur de table, équité) et B1 (petits jeux)`, "", `Rapport du ${now.toLocaleString("fr-FR")}. Graine de A2 : **${SEED}**, ${fr(HANDS)} mains.`, "");
+L.push("Partie A : justesse du moteur de table, de ce que la page affiche et de l'équité, par comparaison à un arbitre indépendant. Partie B1 : convergence des solveurs sur des petits jeux à solution connue. Rien ici ne prouve qu'une stratégie du site est un équilibre sur les vrais spots (parties B2 à B5).", "");
 
 // --- A1 ---
 const a1 = controlesArbitre(root);
@@ -91,6 +92,19 @@ L.push("| Cas | Exacte (poids égaux) | Moteur de base, par ordre | Écart entre
 for (const c of a4.casBase) L.push(`| ${c.id} | ${pc(c.exacte)} % | ${c.mesures.map(m => `${m.ordre} : ${pc(m.moyenne)} ± ${pc(m.se)} (z ${m.z.toFixed(1).replace(".", ",")})`).join(" ; ")} | ${pc(c.ecartOrdres)} pts | ${c.ok ? "OK" : "**BIAIS**"} |`);
 L.push("");
 
+// --- B1 ---
+const b1 = runB1();
+const b1ok = b1.filter(c => c.ok).length;
+const f5 = (x: number | undefined) => (x === undefined ? "—" : x.toFixed(5).replace(".", ","));
+L.push(`## B1 — Petits jeux à solution connue : ${b1ok} / ${b1.length} convergent`, "");
+L.push("Exploitabilité exacte par meilleure réponse, calculée à part (tests-solveur/oracle/meilleureReponse.ts), comparée à celle que mesure le site ; valeur du jeu pour le premier joueur comparée à la théorie. Itérations cumulées.", "");
+for (const c of b1) {
+  L.push(`### ${c.id} — ${c.ok ? "OK" : "**ÉCHEC**"} — ${c.titre}`, "", `Unité : ${c.unite}. ${c.theorie ? `Théorie : ${c.theorie}. ` : ""}Critère : ${c.critere}.`, "");
+  L.push("| Itérations | Exploitabilité (indépendante) | Exploitabilité (site) | Valeur 1er joueur | Écart à la théorie | Détail |", "|---|---|---|---|---|---|");
+  for (const p of c.points) L.push(`| ${fr(p.iterations)} | ${f5(p.exploit)} | ${f5(p.site)} | ${p.valeur !== undefined ? p.valeur.toFixed(4).replace(".", ",") : "—"} | ${p.ecartValeur !== undefined ? p.ecartValeur.toFixed(4).replace(".", ",") : "—"} | ${p.extra ?? ""} |`);
+  L.push("");
+}
+
 // --- classement ---
 L.push("## Bugs trouvés, du plus grave au moins grave (corrections proposées, NON appliquées)", "");
 L.push("Gravité : 1 = montant ou légalité faux pour le jeu ; 2 = conseil ou saisie impossible ; 3 = conseil hors règle mais sans effet sur les montants ; 4 = règle différente (convention à trancher).", "");
@@ -121,7 +135,7 @@ L.push("");
 
 L.push("## Ce que ces tests ne montrent pas", "");
 L.push(
-  "- La qualité de la stratégie (préflop, conseiller postflop, solveurs) : c'est la partie B, pas encore lancée.",
+  "- B1 montre que les solveurs convergent sur de petits jeux ; il ne dit rien des vrais spots (arbres plus gros, ranges réelles), ni du préflop (GTOpen), ni du conseiller maison, ni du multiway (aucun équilibre garanti au-delà de 2 joueurs) : parties B2 à B5. Leduc est joué par le CFR générique du site, qui n'est pas celui de la décision synthétique ; le solveur de la décision synthétique en tête-à-tête est mesuré sur Kuhn et deux rivers.",
   "- A4 : le moteur de base est mesuré avec des mains adverses données directement ; les ranges qu'il construit lui-même (profils « fort », « polarisé »…) ne sont pas jugées ici. L'équité du préflop (equityVsRange, tête-à-tête) et le solveur multiway exact ne sont pas mesurés ici. Les cas tirés au hasard sont volontairement extrêmes (adversaires qui se gênent beaucoup) : ils montrent le défaut, pas sa taille en jeu, que donnent les cas à ranges réalistes.",
   "- Que l'arbitre est juste : il est écrit à part et contrôlé sur des cas calculés à la main (A1), mais un même malentendu de règle dans l'arbitre et dans le site passerait inaperçu.",
   "- L'ante dans la page : le site ne la gère pas ; les mains avec ante ne comparent que le moteur de règles.",
@@ -140,6 +154,6 @@ mkdirSync(dir, { recursive: true });
 const file = join(dir, `${stamp}.md`);
 writeFileSync(file, L.join("\n"));
 writeFileSync(join(dir, `${stamp}-ecarts.json`), JSON.stringify({ seed: SEED, hands: HANDS, divergences: a2.divergences }, null, 1));
-console.log(`A1 : ${a1.length - a1ko.length}/${a1.length} | A4 : ${a4ok}/${a4.cas.length} + ${a4.casBase.filter(c => c.ok).length}/${a4.casBase.length} sans biais | A2 : ${fr(a2.hands)} mains, ${fr(a2.divergences.length)} écarts (${fams.map(f => `${f} ${a2.divergences.filter(d => d.family === f).length}`).join(", ")}) | A3 : ${a3ok}/${a3.length}`);
+console.log(`B1 : ${b1.filter(c => c.ok).length}/${b1.length} | A1 : ${a1.length - a1ko.length}/${a1.length} | A4 : ${a4ok}/${a4.cas.length} + ${a4.casBase.filter(c => c.ok).length}/${a4.casBase.length} sans biais | A2 : ${fr(a2.hands)} mains, ${fr(a2.divergences.length)} écarts (${fams.map(f => `${f} ${a2.divergences.filter(d => d.family === f).length}`).join(", ")}) | A3 : ${a3ok}/${a3.length}`);
 console.log(`Rapport : tests-solveur/rapports/${stamp}.md`);
-process.exitCode = a1ko.length || a3ok < a3.length ? 1 : 0;
+process.exitCode = a1ko.length || a3ok < a3.length || b1.some(c => !c.ok) ? 1 : 0;
