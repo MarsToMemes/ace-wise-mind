@@ -3,7 +3,7 @@
  "id": "cash75",
  "table": {
   "file": "cash75.json",
-  "sha256": "2538acc6cf9bec13c9f159167080aec1b5a216d4a9c8789628e16aa87c0fe2b8",
+  "sha256": "f280ad7a0e46e87be2d4b52fb935ae6ff0e50da8e31d2551f6098819661ae67d",
   "spots": 1919
  },
  "game": {
@@ -54,18 +54,18 @@
   "leafNet": "v2"
  },
  "solve": {
-  "iterations": 1383,
-  "gap": 0.0064329692728822985,
+  "iterations": 2183,
+  "gap": 0.0029777877274566947,
   "gaps": [
-   0.0007704064620293624,
-   0.0011847523009379042,
-   0.0017967054242336042,
-   0.0009582404070025341,
-   0.0006696941526690274,
-   0.0010531705260098667
+   0.0003624249621080564,
+   0.0005461975701190167,
+   0.0008325767955160734,
+   0.0004363112316240475,
+   0.0003034884605452085,
+   0.000496788707544292
   ],
-  "gapIteration": 1383,
-  "stopReason": "stopped",
+  "gapIteration": 2183,
+  "stopReason": "target_reached",
   "gapDefinition": "Somme, sur tous les sièges, du gain d'une meilleure réponse, en bb par main, mesurée dans le jeu décrit par cette fiche (arbre, rake, modèle d'après-flop). Elle ne mesure pas l'erreur du modèle d'après-flop lui-même."
  },
  "export": {
@@ -129,14 +129,14 @@
  },
  "run": {
   "dates": "2026-11-25",
-  "durationMin": 241,
+  "durationMin": 329,
   "machine": "Apple M5, 10 cœurs, 16 Go de RAM",
-  "script": "gtopen-batch/run_depths.py (AT=0.35, TARGET=0.003, deux serveurs en parallèle)",
+  "script": "gtopen-batch/run_depths.py puis run_resume.py (reprise de la sauvegarde, même calcul prolongé jusqu'à l'écart visé)",
   "export": "ré-extraction depuis la solution calculée, sans nouveau calcul (seuil d'élagage 0, comme cash100)"
  },
  "notes": [
   "Même arbre, même rake et même modèle d'après-flop que la table cash 100 bb (leafnet v2, seuil de tapis 0,35) ; seul le tapis change.",
   "Le modèle leafnet a été appris sur des flops à 100 bb : aux autres tapis, ses valeurs d'après-flop sont une approximation.",
-  "Calcul arrêté à sa limite de temps, avant l'écart visé de 0,003 bb : précision indiquée par « gap »."
+  "Calcul prolongé de 88 min (reprise de la sauvegarde) jusqu'à l'écart visé de 0,003 bb."
  ]
 }

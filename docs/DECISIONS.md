@@ -766,3 +766,16 @@ Aperçu (site local, tapis 80 / 150 / 30) : pot 191,5 bb.
 
 **Reste.** La dictée enregistre « Tapis 100 » sans regarder les tapis saisis (étiquettes des sièges) ; l'historique ne
 garde qu'un tapis pour tous (main revue).
+
+## D37 — Tables cash 50 et 75 bb prolongées jusqu'à l'écart visé · retenu · 2026-11-25
+
+**Demande.** « Prolonge 50 et 75 bb cette nuit », puis « Oui, mets-les ».
+
+**Calcul.** Reprise des sauvegardes GTOpen (DCFR continue où il s'était arrêté, `gtopen-batch/run_resume.py`), un
+serveur par table : 50 bb de 1 022 à 1 472 itérations (+52 min), écart 0,0065 → 0,00297 ; 75 bb de 1 383 à
+2 183 itérations (+88 min), écart 0,0064 → 0,00298. Export complet (1 919 lignes chacune). Mises en service par
+`npm run promote` (anciennes tables archivées dans `solver-archive/`, remise en service possible avec `rollback`).
+
+**Comparaison aux tables remplacées.** Aucune ligne gagnée ni perdue ; action principale changée pour 0,4 % (50 bb)
+et 0,5 % (75 bb) des mains ; les gros écarts de fréquence sont tous dans des pots 4-bettés multiway (lignes rares,
+peu entraînées par le calcul court). Cinq des six tables cash sont maintenant à l'écart visé ; seule 150 bb reste au-dessus (0,0038).
