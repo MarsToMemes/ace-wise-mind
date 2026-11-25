@@ -767,6 +767,23 @@ Aperçu (site local, tapis 80 / 150 / 30) : pot 191,5 bb.
 **Reste.** La dictée enregistre « Tapis 100 » sans regarder les tapis saisis (étiquettes des sièges) ; l'historique ne
 garde qu'un tapis pour tous (main revue).
 
+## D36 — Banc, partie A4 : équité multiway sans biais · mesures · 2026-11-25
+
+**Méthode.** Référence exacte (`tests-solveur/oracle/equite.ts`) : toutes les combinaisons de mains adverses compatibles,
+pondérées (distribution jointe de D9), et tous les boards restants, avec l'évaluateur de l'arbitre. Site :
+`handEquityMulti` (conseiller postflop) sur 20 graines × 4 000 tirages, dans plusieurs ordres d'adversaires ;
+erreur d'échantillonnage = écart-type des graines / √20 ; biais si |écart| ≥ 4 erreurs types.
+
+**Résultats** (`npm run test:solveur`, section A4) : 3 cas sur 16 sans biais détectable.
+- Cas connu à 3 joueurs : 75,2 % ou 50,0 % selon l'ordre, pour 66,67 % exacts.
+- Cas où les adversaires se gênent beaucoup : jusqu'à 42 points d'écart entre deux ordres.
+- Ranges réalistes (top 8 à 40 %) : biais de 0,5 à 0,9 point (z de 5 à 12), sans écart détectable à la river à 3 joueurs.
+- Évaluateur : `rank7` d'accord avec l'arbitre sur 20 000 abattages ; celui du moteur de base (`evaluateBest` +
+  `tieScore`, `evaluateHandVsRange`) se trompe dans 5,46 % des cas.
+
+**Cause et corrections proposées (non appliquées).** Tirage des mains adverses l'une après l'autre (D9 l'annonçait) →
+tirer toute la combinaison d'un coup et la rejeter en entier en cas de carte partagée. Moteur de base → `rank7`, partage
+des égalités entre les seuls joueurs à égalité, simulations abandonnées non comptées.
 ## D37 — Tables cash 50 et 75 bb prolongées jusqu'à l'écart visé · retenu · 2026-11-25
 
 **Demande.** « Prolonge 50 et 75 bb cette nuit », puis « Oui, mets-les ».
