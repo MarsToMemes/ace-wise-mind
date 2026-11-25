@@ -670,3 +670,43 @@ relance rapportait plus (+0,8 contre +0,5 bb) : d'où l'action mise en avant. Ca
 à ta décision 0,11 %, tapis 91 % et le plus rentable (+1,3 bb), en 98 s.
 
 **Écarté.** Une turn à 4 joueurs et plus (non mesurée) ; le calcul exact turn + river dans le navigateur (D30).
+
+## D33 — Tables cash préflop à 20, 30, 50, 75 et 150 bb, et table la plus proche du tapis · retenu · 2026-11-25
+
+**Demande.** « Calculer les tables à 20, 30, 50, 75 et 150 bb avec GTOpen en préflop pour agrandir la bibliothèque du
+solveur, avec les 10 cœurs. »
+
+**Calcul.** Même jeu que la table 100 bb (6-max, ouverture 2,5 bb, 3-bet ×3, 4-bet ×2,3, tapis au-delà de 35 % du
+tapis, rake 5 % plafonné à 3 bb, pas de rake sans flop) ; seul le tapis change. Deux serveurs GTOpen en parallèle
+(un serveur n'occupe qu'environ 4,6 cœurs : à deux, 9,7 cœurs). Export complet, sans élagage, comme cash100.
+
+| Tapis | Modèle d'après-flop | Itérations | Écart (bb par main) | Lignes |
+|---|---|---|---|---|
+| 20 bb | balanced | 100 | 0,0024 (visé 0,003) | 290 |
+| 30 bb | balanced | 200 | 0,0019 | 837 |
+| 50 bb | leafnet v2 | 1 022 | 0,0065 (arrêt à 2 h 30) | 1 919 |
+| 75 bb | leafnet v2 | 1 383 | 0,0064 (arrêt à 4 h) | 1 919 |
+| 150 bb | leafnet v2 | 1 898 | 0,0038 (arrêt à 7 h) | 2 625 |
+
+**Modèle à 20 et 30 bb : balanced (choix de l'utilisateur).** Leafnet a été appris sur des flops à 100 bb. Face à
+l'ouverture du BTN, il fait jeter à la BB 61 % de ses mains à 100 bb, 66 % à 30 bb et 70 % à 20 bb : la défense se
+resserre quand le tapis raccourcit, à l'inverse du sens attendu (moins de jeu après le flop, l'équité de la BB se
+réalise mieux). Balanced suit ce sens : 49 %, 45 %, 40 %. Les deux modèles diffèrent de 7 points de fréquence en
+moyenne à 20 et 30 bb. Conséquence assumée : une marche entre 30 bb (balanced) et 50 bb (leafnet) ; à 100 bb, les
+deux modèles diffèrent déjà de 12 points sur ce spot.
+
+**Choix de la table.** La table la plus proche du tapis effectif, si l'écart ne dépasse pas 25 % du tapis de cette
+table (62 bb → table 50 bb, 40 bb → 50 bb, 125 bb → 100 bb, à égalité la moins profonde) ; le conseil dit alors
+« Conseil calculé à N bb ». Au-delà (12 bb, 200 bb) : pas de conseil solveur, avec un message. Les ranges du site
+(lignes préflop, c-bet, Mes ranges, multiway) viennent de la même table, ou de la plus proche hors tolérance.
+L'ancienne tolérance fixe de 10 bb autour de 100 bb laissait des trous entre les nouvelles tables (62 bb).
+
+**Aperçu** (site local, BB avec Q♠8♦, BTN ouvre à 2,5 bb) : « Solveur GTOpen · Cash · 30 bb », Q8o : 100 % call ;
+même main au tapis 100 bb : « Cash · 100 bb », 100 % fold.
+
+**Écarté.** Leafnet à 20 et 30 bb (sens de la défense de la BB inversé) ; prolonger 50 et 75 bb jusqu'à 0,003
+(2 à 3 h de plus, possible plus tard) ; une tolérance fixe en bb (trous entre tables) ; garder la table 100 bb pour
+les ranges à tous les tapis.
+
+**Incident.** La première nuit de calcul a été perdue : sur batterie, le Mac s'est mis en veille forcée à 1 %
+(`caffeinate` n'empêche pas la veille quand la batterie est vide). Les tables à 150 et 75 bb ont été recalculées.

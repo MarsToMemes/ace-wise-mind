@@ -1,0 +1,141 @@
+{
+ "schema": 1,
+ "id": "cash30",
+ "table": {
+  "file": "cash30.json",
+  "sha256": "6c3d7bcc4647d92c781070a58a604831985fde284a171b48c68b158cce0c8902",
+  "spots": 837
+ },
+ "game": {
+  "variant": "NLHE",
+  "format": "cash",
+  "players": 6,
+  "positions": [
+   "UTG",
+   "MP",
+   "CO",
+   "BTN",
+   "SB",
+   "BB"
+  ],
+  "stackBB": 30,
+  "posts": [
+   0,
+   0,
+   0,
+   0,
+   0.5,
+   1
+  ],
+  "anteBB": 0,
+  "rake": {
+   "pct": 5,
+   "capBB": 3,
+   "noFlopNoDrop": true
+  }
+ },
+ "tree": {
+  "limp": false,
+  "openBB": [
+   2.5
+  ],
+  "raiseMults": [
+   3.0
+  ],
+  "fourbetMults": [
+   2.3
+  ],
+  "maxRaises": 4,
+  "addAllin": true,
+  "allinThreshold": 0.35
+ },
+ "model": {
+  "realization": "balanced",
+  "leafNet": null
+ },
+ "solve": {
+  "iterations": 200,
+  "gap": 0.0018733837495932728,
+  "gaps": [
+   0.0003095493158175482,
+   0.0003345377322953932,
+   0.0002541420308917826,
+   0.00017131047677629448,
+   0.0003750105492989211,
+   0.0004288336445133333
+  ],
+  "gapIteration": 200,
+  "stopReason": "target_reached",
+  "gapDefinition": "Somme, sur tous les sièges, du gain d'une meilleure réponse, en bb par main, mesurée dans le jeu décrit par cette fiche (arbre, rake, modèle d'après-flop). Elle ne mesure pas l'erreur du modèle d'après-flop lui-même."
+ },
+ "export": {
+  "freqRoundingPts": 0.1,
+  "handRoundingPts": 1,
+  "handsListed": "mains atteintes à plus de 0,1 % dans ce nœud",
+  "branchMinFreq": 0.0,
+  "branches": "toutes les actions sont développées, même celles que la stratégie ne joue jamais ; au plus 4 relances ; rien n'est développé après le call d'un 3-bet ou plus",
+  "rareFreq": 0.002,
+  "rareLines": "« r »: 1 marque une ligne dont une action a une fréquence globale sous 0,2 % : la stratégie ne la joue presque jamais, le calcul l'a peu entraînée, le conseil y est indicatif",
+  "importer": "scripts/import_gtopen.py"
+ },
+ "config": {
+  "positions": [
+   "UTG",
+   "MP",
+   "CO",
+   "BTN",
+   "SB",
+   "BB"
+  ],
+  "stack": 30,
+  "posts": [
+   0,
+   0,
+   0,
+   0,
+   0.5,
+   1
+  ],
+  "ante": 0,
+  "limp": false,
+  "open_raises": [
+   2.5
+  ],
+  "raise_mults": [
+   3.0
+  ],
+  "fourbet_mults": [
+   2.3
+  ],
+  "max_raises": 4,
+  "add_allin": true,
+  "allin_threshold": 0.35,
+  "rake_pct": 5,
+  "rake_cap": 3,
+  "realization": "balanced"
+ },
+ "generator": {
+  "name": "GTOpen",
+  "url": "https://github.com/MatthewPDingle/GTOpen",
+  "commit": "370e1a19b",
+  "engine": "solveur préflop CPU, serveur local",
+  "settings": {
+   "PREFLOP_PRUNE": "0",
+   "PREFLOP_LEAF_BLOCKING": "on"
+  },
+  "settingsNote": "Mêmes réglages que la table cash 100 bb : élagage CPU coupé (exigé par le modèle leafnet) ; comptabilité des pots 4-bettés corrigée (PREFLOP_LEAF_BLOCKING=on).",
+  "license": "Apache-2.0"
+ },
+ "run": {
+  "dates": "2026-11-25",
+  "durationMin": 7,
+  "machine": "Apple M5, 10 cœurs, 16 Go de RAM",
+  "script": "gtopen-batch/run_depths.py (REALIZATION=balanced, AT=0.35, TARGET=0.003)",
+  "export": "ré-extraction depuis la solution calculée, sans nouveau calcul (seuil d'élagage 0, comme cash100)"
+ },
+ "notes": [
+  "Même arbre et même rake que la table cash 100 bb (seuil de tapis 0,35) ; modèle d'après-flop « balanced » au lieu de « leafnet » (décision D33).",
+  "Raison : leafnet, appris sur des flops à 100 bb, fait défendre la BB de moins en moins quand le tapis raccourcit (BB face à l'ouverture du BTN : 61 % de folds à 100 bb, 66 % à 30 bb, 70 % à 20 bb), à l'inverse du sens attendu ; balanced suit ce sens (49 %, 45 %, 40 %).",
+  "Conséquence : une marche entre 30 bb (balanced) et 50 bb (leafnet) ; les deux modèles diffèrent déjà de 12 points sur ce spot à 100 bb."
+ ]
+}

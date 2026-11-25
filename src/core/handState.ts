@@ -34,8 +34,8 @@ export interface RakeConvention {
 export const ENGINE_RAKE: Record<"preflopSolver" | "postflopAdvisor" | "endgameSolver", RakeConvention> = {
   preflopSolver: {
     pct: 5, capBB: 3, noFlopNoDrop: true,
-    note: "Table cash 100 bb (GTOpen) : 5 % plafonné à 3 bb, pris sur les pots qui voient le flop. "
-      + "Paramètre de calcul non inscrit dans public/solver/cash100.json.",
+    note: "Tables cash 20 à 150 bb (GTOpen) : 5 % plafonné à 3 bb, pris sur les pots qui voient le flop "
+      + "(inscrit dans la fiche de chaque table, public/solver/cash*.manifest.json).",
   },
   postflopAdvisor: { ...CASH_RAKE, noFlopNoDrop: true, note: "Conseiller postflop : rake cash (src/core/rake.ts) compté dans la cote ; aucun en tournoi." },
   endgameSolver: { ...CASH_RAKE, noFlopNoDrop: true, note: "Solveur de fin de main : rake cash (src/core/rake.ts) retiré du pot gagné ; aucun en tournoi." },

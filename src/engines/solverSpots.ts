@@ -201,27 +201,33 @@ export function lineText(key: string): string {
   return key ? key.split(",").map(x => x.split(":")).filter(([, a]) => a !== "F").map(([p, a]) => `${p} ${ACT_FR(a)}`).join(" · ") : "";
 }
 
-// --- Cash : profondeurs calculées ---
+// --- Cash : profondeurs calculées (D33) ---
 /** Tapis proposés en cash ; seuls ceux marqués `ready` ont une table solveur. */
 export const CASH_DEPTHS: { bb: number; ready: boolean }[] = [
-  { bb: 50, ready: false }, { bb: 100, ready: true }, { bb: 150, ready: false }, { bb: 200, ready: false },
+  { bb: 20, ready: true }, { bb: 30, ready: true }, { bb: 50, ready: true }, { bb: 75, ready: true },
+  { bb: 100, ready: true }, { bb: 150, ready: true }, { bb: 200, ready: false },
 ];
-/** Écart toléré autour d'une profondeur calculée (un tapis réel de 92 bb joue comme 100 bb). */
-const CASH_TOLERANCE_BB = 10;
+/** Écart toléré autour d'une table calculée, en part de son tapis (un tapis de 62 bb joue comme 50 bb). */
+const CASH_TOLERANCE = 0.25;
+const readyDepths = () => CASH_DEPTHS.filter(d => d.ready).map(d => d.bb);
+const byDistance = (stackBB: number) => (a: number, b: number) => Math.abs(a - stackBB) - Math.abs(b - stackBB) || a - b;  // à égalité, la moins profonde
 
 /**
- * Le tapis est-il couvert par une table cash ? Hors tolérance : pas de conseil solveur,
- * et un message qui le dit (plutôt que servir la table 100 bb en silence).
+ * Le tapis est-il couvert par une table cash ? La table la plus proche dans la tolérance ; hors tolérance : pas de
+ * conseil solveur, et un message qui le dit (plutôt que servir une table d'une autre profondeur en silence).
  */
-export function cashCoverage(stackBB: number): { ok: boolean; note: string | null } {
-  const ready = CASH_DEPTHS.filter(d => d.ready);
-  const near = ready.find(d => Math.abs(d.bb - stackBB) <= CASH_TOLERANCE_BB);
+export function cashCoverage(stackBB: number): { ok: boolean; note: string | null; depth: number | null } {
+  const ready = readyDepths();
+  const near = ready.filter(d => Math.abs(d - stackBB) <= d * CASH_TOLERANCE).sort(byDistance(stackBB))[0];
   const fmt = (x: number) => String(Math.round(x * 10) / 10).replace(".", ",");
-  if (!near) {
-    return { ok: false, note: `La bibliothèque cash n'est calculée qu'à ${ready.map(d => `${d.bb} bb`).join(", ")} (ton tapis : ${fmt(stackBB)} bb) : pas de conseil solveur à cette profondeur.` };
+  if (near === undefined) {
+    return { ok: false, depth: null, note: `La bibliothèque cash n'est calculée qu'à ${ready.map(d => `${d} bb`).join(", ")} (ton tapis : ${fmt(stackBB)} bb) : pas de conseil solveur à cette profondeur.` };
   }
-  return { ok: true, note: near.bb === stackBB ? null : `Conseil calculé à ${near.bb} bb (ton tapis : ${fmt(stackBB)} bb).` };
+  return { ok: true, depth: near, note: near === stackBB ? null : `Conseil calculé à ${near} bb (ton tapis : ${fmt(stackBB)} bb).` };
 }
+
+/** Table cash dont viennent les ranges du site (lignes préflop, c-bet, multiway) : toujours la plus proche du tapis. */
+export const cashBaseId = (stackBB: number) => `cash${cashCoverage(stackBB).depth ?? [...readyDepths()].sort(byDistance(stackBB))[0]}`;
 
 /** Choisit la partie calculée la plus adaptée (format + tapis le plus proche). */
 export function pickGame(index: SolverIndexEntry[], kind: string, stackBB: number): SolverIndexEntry | undefined {

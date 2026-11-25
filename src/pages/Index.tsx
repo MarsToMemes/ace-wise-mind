@@ -349,7 +349,7 @@ const Index = () => {
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, potOpts, facingBet]);
 
   // === Moteur d'exploits : adversaire de la main + ligne jouée ===
-  useSolverBase();
+  useSolverBase(effStack);
   const [solverPreflop, setSolverPreflop] = useState<SolverPreflop | null>(null);
   // l'analyse cash n'utilise que les tables cash (le tournoi a son propre espace)
   const solverFormat = "cash" as const;
@@ -1221,7 +1221,7 @@ const Index = () => {
                               </button>
                             ))}
                           </div>
-                          <p className="text-xs text-muted-foreground">Seul le tapis de 100 bb est calculé en cash pour l'instant. Les autres profondeurs arriveront après validation.</p>
+                          <p className="text-xs text-muted-foreground">Tables calculées à 20, 30, 50, 75, 100 et 150 bb. Entre deux, le conseil prend la plus proche et le dit.</p>
                         </div>
                         <div className="space-y-1.5">
                           <Label>{t("field.pot")}</Label>

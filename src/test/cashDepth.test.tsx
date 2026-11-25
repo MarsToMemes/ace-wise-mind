@@ -1,28 +1,43 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { cashCoverage, CASH_DEPTHS } from "@/engines/solverSpots";
+import { cashCoverage, cashBaseId, CASH_DEPTHS } from "@/engines/solverSpots";
 import { DecisionVerdict } from "@/components/DecisionVerdict";
 
-describe("cash : seule la profondeur 100 bb est calculée", () => {
-  it("100 bb est couvert, sans remarque", () => {
-    expect(cashCoverage(100)).toEqual({ ok: true, note: null });
+describe("cash : tables calculées à 20, 30, 50, 75, 100 et 150 bb (D33)", () => {
+  it("les six tapis calculés sont proposés", () => {
+    expect(CASH_DEPTHS.filter(d => d.ready).map(d => d.bb)).toEqual([20, 30, 50, 75, 100, 150]);
   });
 
-  it("près de 100 bb, le conseil reste donné mais on dit qu'il est calculé à 100 bb", () => {
-    const c = cashCoverage(92);
-    expect(c.ok).toBe(true);
-    expect(c.note).toMatch(/calculé à 100 bb/);
+  it("un tapis calculé est couvert par sa table, sans remarque", () => {
+    for (const bb of [20, 30, 50, 75, 100, 150]) expect(cashCoverage(bb)).toEqual({ ok: true, note: null, depth: bb });
   });
 
-  it("à 50 bb, pas de conseil solveur et un message clair", () => {
-    const c = cashCoverage(50);
-    expect(c.ok).toBe(false);
-    expect(c.note).toMatch(/100 bb/);
-    expect(c.note).toMatch(/50 bb/);
+  it("entre deux tables : la plus proche, à 25 % de son tapis au plus, et on le dit", () => {
+    const cases: [number, number][] = [[92, 100], [40, 50], [62, 50], [70, 75], [125, 100], [175, 150], [16, 20], [27, 30]];
+    for (const [stack, depth] of cases) {
+      const c = cashCoverage(stack);
+      expect(c.ok, `${stack} bb`).toBe(true);
+      expect(c.depth, `${stack} bb`).toBe(depth);
+      expect(c.note).toMatch(new RegExp(`calculé à ${depth} bb`));
+    }
   });
 
-  it("seul 100 bb est disponible dans le choix du tapis", () => {
-    expect(CASH_DEPTHS.filter(d => d.ready).map(d => d.bb)).toEqual([100]);
+  it("trop loin de toute table : pas de conseil solveur et un message clair", () => {
+    for (const stack of [12, 200]) {
+      const c = cashCoverage(stack);
+      expect(c.ok).toBe(false);
+      expect(c.depth).toBeNull();
+      expect(c.note).toMatch(/20 bb, 30 bb, 50 bb, 75 bb, 100 bb, 150 bb/);
+      expect(c.note).toMatch(new RegExp(`ton tapis : ${stack} bb`));
+    }
+  });
+
+  it("les ranges du site viennent toujours de la table la plus proche", () => {
+    expect(cashBaseId(12)).toBe("cash20");
+    expect(cashBaseId(30)).toBe("cash30");
+    expect(cashBaseId(62)).toBe("cash50");
+    expect(cashBaseId(100)).toBe("cash100");
+    expect(cashBaseId(300)).toBe("cash150");
   });
 });
 

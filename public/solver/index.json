@@ -75,5 +75,40 @@
   "label": "Cash · 100 bb",
   "stack": 100,
   "spots": 1919
+ },
+ {
+  "id": "cash20",
+  "kind": "cash",
+  "label": "Cash · 20 bb",
+  "stack": 20,
+  "spots": 290
+ },
+ {
+  "id": "cash30",
+  "kind": "cash",
+  "label": "Cash · 30 bb",
+  "stack": 30,
+  "spots": 837
+ },
+ {
+  "id": "cash50",
+  "kind": "cash",
+  "label": "Cash · 50 bb",
+  "stack": 50,
+  "spots": 1919
+ },
+ {
+  "id": "cash75",
+  "kind": "cash",
+  "label": "Cash · 75 bb",
+  "stack": 75,
+  "spots": 1919
+ },
+ {
+  "id": "cash150",
+  "kind": "cash",
+  "label": "Cash · 150 bb",
+  "stack": 150,
+  "spots": 2625
  }
 ]
