@@ -60,7 +60,7 @@ function conseilApres(m: Main, r: ReturnType<typeof rejouer>): PostflopAdvice {
     street: STREETS[r.t.street] as "Flop" | "Turn" | "River", board: b, hole: m.hole,
     heroRange: R(WIDE, [...m.hole, ...b]), villainRange: R(WIDE, [...m.hole, ...b]),
     heroInPosition: false, heroIsPfr: false, potBB: v.dynamicPot, toCallBB: v.userToCall, heroStackBB: v.effLeft,
-    canRaise: v.stakes?.canRaise, opponents: Math.max(1, r.t.live().length - 1), villainCheckedThisStreet: false, samples: 800,
+    canRaise: v.stakes?.canRaise, betLevel: v.currentBet, minRaiseTo: v.minRaiseTo, opponents: Math.max(1, r.t.live().length - 1), villainCheckedThisStreet: false, samples: 800,
   });
 }
 /** Le conseiller appelé comme dans A2 (ranges top 40 %, 120 tirages), pour rejouer exactement un écart trouvé par A2. */
@@ -69,7 +69,7 @@ function conseilCommeA2(m: Main, r: ReturnType<typeof rejouer>): PostflopAdvice 
   return advisePostflop({
     street: STREETS[r.t.street] as "Flop" | "Turn" | "River", board: b, hole: m.hole, heroRange: range, villainRange: range,
     heroInPosition: false, heroIsPfr: true, potBB: v.dynamicPot, toCallBB: v.userToCall, heroStackBB: v.effLeft,
-    canRaise: v.stakes?.canRaise, opponents: Math.max(1, r.t.live().length - 1), villainCheckedThisStreet: false, samples: 120,
+    canRaise: v.stakes?.canRaise, betLevel: v.currentBet, minRaiseTo: v.minRaiseTo, opponents: Math.max(1, r.t.live().length - 1), villainCheckedThisStreet: false, samples: 120,
   });
 }
 const AGG = new Set(["bet", "overbet", "donk", "probe", "delayed", "block", "raise", "checkRaise", "jam"]);
@@ -119,7 +119,7 @@ export const CAS: Cas[] = [
         V("relance minimale (arbitre)", 4, bbOf(L.raise!.minTo)),
         V("relance minimale (moteur de table)", 4, r.engine().state.legal!.raise!.minTo),
         V("relance à 3 refusée par le moteur", "refusée", e3.errors.some(x => x.code === "RAISE_BELOW_MIN") ? "refusée" : "acceptée"),
-        V("relance minimale du menu d'action (page)", 4, actionBounds(v.currentBet, "Preflop", 100).minAmt),
+        V("relance minimale du menu d'action (page)", 4, actionBounds(v.currentBet, "Preflop", 100, v.minRaiseTo).minAmt),
       ];
     },
   },
@@ -144,12 +144,11 @@ export const CAS: Cas[] = [
       const m = SIX(Array(6).fill(100), 5, ["Ah", "Kh"]);
       const r = rejouer(m, [[0, "raise", 2.5], [1, "fold"], [2, "fold"], [3, "fold"], [4, "fold"], [5, "call"],
         [5, "check"], [0, "check"], [5, "check"], [0, "check"], [5, "check"], [0, "check"]]);
-      const out: Verif[] = [V("main finie (arbitre)", "oui", r.t.handOver() ? "oui" : "non")];
-      for (const hole of [["Kh", "Kc"], ["9h", "9c"], ["Ah", "Kh"], ["7h", "7s"], ["5c", "3c"], ["Qh", "Jh"]]) {
-        const a = conseilApres({ ...m, hole }, r);
-        out.push(V(`${hole.join("")} : conseil avec les valeurs de la page`, "aucune mise", a.label, !AGG.has(a.action)));
-      }
-      return out;
+      const v = r.view();
+      return [
+        V("main finie (arbitre)", "oui", r.t.handOver() ? "oui" : "non"),
+        V("la page remplace le conseil par un message", "message « plus de décision »", v.done ?? "conseil affiché", !!v.done),
+      ];
     },
   },
   {
@@ -176,7 +175,7 @@ export const CAS: Cas[] = [
     verifs: () => {
       const m = SIX(Array(6).fill(100), 2, ["Ah", "Kd"]);
       const r = rejouer(m, [[0, "raise", 2]]);
-      return [V("relance minimale (arbitre)", 3, bbOf(r.t.legal()!.raise!.minTo)), V("relance minimale du menu (page)", 3, actionBounds(r.view().currentBet, "Preflop", 100).minAmt)];
+      return [V("relance minimale (arbitre)", 3, bbOf(r.t.legal()!.raise!.minTo)), V("relance minimale du menu (page)", 3, actionBounds(r.view().currentBet, "Preflop", 100, r.view().minRaiseTo).minAmt)];
     },
   },
   {
@@ -195,7 +194,7 @@ export const CAS: Cas[] = [
       const m: Main = { n: 2, dealer: 0, stacks: [100, 100], hero: 1, hole: ["Ah", "Ad"], boards: [[], [], [], []] };
       const r = rejouer(m, [[0, "raise", 100]]);
       const v = r.view();
-      const p = analyzePreflop({ hole: m.hole, position: "BB", stackBB: v.effLeft, facingRaise: v.facingBet, raiseSizeBB: v.currentBet, opponents: 1 });
+      const p = analyzePreflop({ hole: m.hole, position: "BB", stackBB: v.effLeft, facingRaise: v.facingBet, raiseSizeBB: v.currentBet, opponents: 1, canRaise: v.stakes?.canRaise });
       return [V("relance possible (arbitre)", "non", r.t.legal()!.raise ? "oui" : "non"), V("conseil préflop", "Call ou Fold", p.recommendedAction, p.recommendedAction === "Call" || p.recommendedAction === "Fold")];
     },
   },
@@ -206,12 +205,11 @@ export const CAS: Cas[] = [
       const m: Main = { n: 2, dealer: 0, stacks: [100, 40], hero: 1, hole: ["9h", "8h"], boards: [[], ["Kd", "7c", "2s"], ["Kd", "7c", "2s", "4h"], ["Kd", "7c", "2s", "4h", "9d"]] };
       const r = rejouer(m, [[0, "raise", 2.5], [1, "call"], [1, "bet", 37.5], [0, "call"]]);
       r.close();
-      const out: Verif[] = [V("héros à tapis (arbitre)", "oui", r.t.seats[1].allIn ? "oui" : "non")];
-      for (const hole of [["9h", "8h"], ["Kh", "Kc"], ["5c", "2s"], ["Ah", "Jh"]]) {
-        const a = conseilApres({ ...m, hole }, r);
-        out.push(V(`${hole.join("")} : conseil affiché`, "aucune mise", a.label, !AGG.has(a.action)));
-      }
-      return out;
+      const v = r.view();
+      return [
+        V("héros à tapis (arbitre)", "oui", r.t.seats[1].allIn ? "oui" : "non"),
+        V("la page remplace le conseil par un message", "message « plus de décision »", v.done ?? "conseil affiché", !!v.done),
+      ];
     },
   },
   {

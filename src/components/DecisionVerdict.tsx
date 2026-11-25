@@ -45,6 +45,8 @@ export interface ExploitView {
 }
 
 interface Props {
+  /** Tu ne peux plus agir (main finie, couché, à tapis) : ce message remplace le conseil. */
+  done?: string | null;
   street: "Preflop" | "Flop" | "Turn" | "River";
   engine: EngineResult | null;
   polar: PolarizationResult | null;
@@ -88,11 +90,18 @@ const bb = (x: number) => `${x >= 0 ? "+" : ""}${(Math.round(x * 10) / 10).toStr
 const SOLVER_VERB = (a: string) =>
   a === "F" ? "FOLD" : a === "X" ? "CHECK" : a === "C" ? "CALL" : a === "L" ? "LIMP" : a.startsWith("A") ? "TAPIS" : a.startsWith("R") ? "RELANCE" : a;
 
-export const DecisionVerdict = ({ street, engine, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat, solverNote, rake, rangeSource }: Props) => {
+export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat, solverNote, rake, rangeSource }: Props) => {
   if (!engine) {
     return (
       <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm">
         Sélectionne tes cartes et ta position pour obtenir la décision synthétique.
+      </Card>
+    );
+  }
+  if (done) {
+    return (
+      <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm" data-testid="decision-done">
+        {done}
       </Card>
     );
   }

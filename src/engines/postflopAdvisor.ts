@@ -43,6 +43,10 @@ export interface PostflopInput {
   canRaise?: boolean;
   /** As-tu checké sur cette street ? Une relance n'est un « check-raise » qu'après ton check. */
   heroCheckedThisStreet?: boolean;
+  /** Mise la plus haute de la street (montant « à ») : base de la relance conseillée. Absent : le montant à payer. */
+  betLevel?: number;
+  /** Relance minimale (montant « à ») d'après le moteur de règles. */
+  minRaiseTo?: number | null;
 }
 
 export interface PostflopAdvice {
@@ -64,10 +68,13 @@ const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x
 const r5 = (x: number) => Math.round(x / 5) * 5;
 const halfBB = (x: number) => Math.round(x * 2) / 2;
 
+/** Taille d'une mise : `pct` % du pot arrondi à la demi-bb, jamais sous la mise minimale de 1 bb ; tapis (tout ce qu'il
+ *  te reste, au centième) au-delà de `jamAt` × ton tapis. `pct` rendu : la part du pot vraiment misée (D35). */
 function sizeOf(pct: number, pot: number, stack: number, jamAt = 0.7) {
-  const bb = halfBB((pct / 100) * pot);
+  const bb = Math.max(1, halfBB((pct / 100) * pot));
   const allIn = bb >= stack * jamAt;
-  return { sizeBB: allIn ? halfBB(stack) : Math.max(0.5, bb), allIn };
+  const sizeBB = allIn ? Math.round(stack * 100) / 100 : bb;
+  return { sizeBB, allIn, pct: bb > halfBB((pct / 100) * pot) && pot > 0 ? Math.round((sizeBB / pot) * 100) : pct };
 }
 
 export function advisePostflop(inp: PostflopInput): PostflopAdvice {
@@ -110,6 +117,12 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     const reqPct = Math.round(required * 1000) / 10;
     const checkRaise = inp.heroCheckedThisStreet ?? (!ip && inp.villainCheckedThisStreet === false);
     const noRaise = inp.canRaise === false;
+    // relance « à » ≈ 3 × la mise de l'adversaire (pas 3 × ce qu'il te reste à payer), jamais sous la relance minimale
+    const raiseSize = () => {
+      const to = Math.max(3 * (inp.betLevel ?? toCallBB), inp.minRaiseTo ?? 0);
+      const z = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
+      return { sizeBB: !z.allIn && inp.minRaiseTo && z.sizeBB < inp.minRaiseTo ? inp.minRaiseTo : z.sizeBB, allIn: z.allIn };
+    };
     const callLabel = `Call ${toCallBB} BB${toCallBB >= heroStackBB - 1e-6 ? " (tapis)" : ""}`;
     reasons.push(`Ton équité ${nOpp > 1 ? `contre les ${nOpp} adversaires` : "contre sa range"} : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);
     // face à un tapis (ou quand ton tapis ne couvre pas la mise) : seuls payer ou se coucher sont possibles
@@ -121,8 +134,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     // (banc maison / solveur : river, relances de value jouées 0 % du temps ; turn avec relance au pot permise,
     // le solveur paie dans 5 cas sur 6, −1,5 bb en moyenne). Le flop garde la relance de value.
     if (role === "nuts" || (role === "value" && hEq >= T(0.75) && street === "Flop")) {
-      const to = 3 * toCallBB;
-      const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
+      const { sizeBB, allIn } = raiseSize();
       reasons.push("Ta main est en haut de ta range : relance pour la value.");
       plan.push(allIn ? "Tu es engagé : tapis." : "S'il relance à son tour : tapis avec cette main.");
       return {
@@ -135,8 +147,7 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     }
     if (role === "draw" && street !== "River" && !noRaise) {
       const semi = Math.round(35 * (adj.heroBluffMult ?? 1));
-      const to = 3 * toCallBB;
-      const { sizeBB, allIn } = sizeOf((to / potBB) * 100, potBB, heroStackBB, 0.45);
+      const { sizeBB, allIn } = raiseSize();
       const canCall = hEq >= required;
       reasons.push(`Tirage (${outs} outs) : ${canCall ? "la cote permet de payer" : "la cote ne suffit pas à payer seul"}, la relance en semi-bluff ajoute de la fold equity.`);
       plan.push("Si ton tirage rentre au turn/river : mise pour la value.");
@@ -209,14 +220,14 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
   if ((adj.valueSizeTierDelta ?? 0) > 0 && (role === "nuts" || role === "value") && kind !== "check") tierPct = Math.round(tierPct * (1 + 0.35 * adj.valueSizeTierDelta!));
   if (multiway && kind !== "check") rangeFreq = Math.round(rangeFreq * 0.7);
   rangeFreq = r5(rangeFreq);
-  const { sizeBB, allIn } = sizeOf(tierPct, potBB, heroStackBB);
+  const { sizeBB, allIn, pct: shownPct } = sizeOf(tierPct, potBB, heroStackBB);
   const bluffMult = adj.heroBluffMult ?? 1;
 
   // place de ta main dans ce plan
   const betVerb = allIn ? "TAPIS" : kind === "overbet" ? "OVERBET" : kind === "donk" ? "DONK BET" : kind === "probe" ? "PROBE" : kind === "delayed" ? "C-BET RETARDÉ" : "MISE";
-  const betLabel = `${allIn ? "Tapis" : kind === "overbet" ? "Overbet" : kind === "donk" ? "Donk bet" : kind === "probe" ? "Probe" : kind === "delayed" ? "C-bet retardé" : "Mise"} ${allIn ? `${sizeBB} BB` : `${tierPct} % = ${sizeBB} BB`}`;
+  const betLabel = `${allIn ? "Tapis" : kind === "overbet" ? "Overbet" : kind === "donk" ? "Donk bet" : kind === "probe" ? "Probe" : kind === "delayed" ? "C-bet retardé" : "Mise"} ${allIn ? `${sizeBB} BB` : `${shownPct} % = ${sizeBB} BB`}`;
   const mk = (action: ActionKind, verb: string, label: string, pct: number, mix: PostflopAdvice["mix"]): PostflopAdvice =>
-    ({ action, verb, label, pct, mix, sizePct: action === "check" ? undefined : tierPct, sizeBB: action === "check" ? undefined : sizeBB, allIn: action !== "check" && allIn, role, reasons, plan, stats });
+    ({ action, verb, label, pct, mix, sizePct: action === "check" ? undefined : shownPct, sizeBB: action === "check" ? undefined : sizeBB, allIn: action !== "check" && allIn, role, reasons, plan, stats });
 
   if (kind === "check") {
     if ((role === "nuts" || role === "value") && inp.villainAggressive) {
@@ -226,17 +237,19 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     if (role === "nuts") {
       // les nuts ne se contentent pas de payer : contre un joueur qui mise peu, mise toi-même ; sinon check pour relancer
       const lead = sizeOf(street === "River" ? 75 : 66, potBB, heroStackBB);
-      const label = lead.allIn ? `Tapis ${lead.sizeBB} BB` : `Mise ${street === "River" ? 75 : 66} % = ${lead.sizeBB} BB`;
+      const label = lead.allIn ? `Tapis ${lead.sizeBB} BB` : `Mise ${lead.pct} % = ${lead.sizeBB} BB`;
       reasons.push("Tu as les nuts : un simple check-call laisserait de la value. Mise toi-même : un joueur qui ne mise pas souvent ne fera pas grossir le pot pour toi.");
       plan.push(lead.allIn ? "Tu es engagé : tapis." : "S'il relance : tapis.");
       plan.push("Si tu choisis de checker : s'il mise, relance (check-raise ≈ 3× sa mise), ne te contente pas de payer.");
-      return { ...mk("bet", lead.allIn ? "TAPIS" : "MISE", label, 65, [{ label, pct: 65 }, { label: "Check (check-raise)", pct: 35 }]), sizePct: street === "River" ? 75 : 66, sizeBB: lead.sizeBB, allIn: lead.allIn };
+      return { ...mk("bet", lead.allIn ? "TAPIS" : "MISE", label, 65, [{ label, pct: 65 }, { label: "Check (check-raise)", pct: 35 }]), sizePct: lead.pct, sizeBB: lead.sizeBB, allIn: lead.allIn };
     }
     if (street === "River" && (role === "showdown" || (role === "value" && hEq < T(0.65)))) {
       const bp = inp.villainAggressive ? 60 : 35;
       const bs = sizeOf(25, potBB, heroStackBB);
       reasons.push("Main correcte mais pas assez forte pour une grosse mise : une petite mise prend un peu de value et évite une grosse mise de sa part.");
-      return { ...mk("block", "BLOCK BET", `Block bet 25 % = ${bs.sizeBB} BB`, bp, [{ label: "Block bet 25 %", pct: bp }, { label: "Check-call", pct: 100 - bp }]), sizePct: 25, sizeBB: bs.sizeBB, allIn: false };
+      // l'adversaire n'a presque plus rien derrière : la petite mise le met à tapis, et le libellé le dit
+      const blockLabel = bs.allIn ? `Tapis ${bs.sizeBB} BB` : `Block bet ${bs.pct} % = ${bs.sizeBB} BB`;
+      return { ...mk("block", bs.allIn ? "TAPIS" : "BLOCK BET", blockLabel, bp, [{ label: bs.allIn ? "Tapis" : `Block bet ${bs.pct} %`, pct: bp }, { label: "Check-call", pct: 100 - bp }]), sizePct: bs.pct, sizeBB: bs.sizeBB, allIn: bs.allIn };
     }
     plan.push(role === "air" ? "S'il mise : couche-toi (sauf gros tirage)." : "S'il mise : paie si ton équité dépasse la cote (le site te le dira).");
     return mk("check", "CHECK", "Check", 100, [{ label: "Check", pct: 100 }]);

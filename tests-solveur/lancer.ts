@@ -98,6 +98,8 @@ L.push(
   "- Les conseils dans le détail : seule leur légalité est contrôlée (action permise, montant dans le tapis, rien quand la main est finie), pas leur qualité. Les conseillers sont appelés avec des ranges simples (top 40 %), pas celles de la page.",
   "- Les valeurs du héros (à payer, pot jouable, tapis effectif) ne sont comparées qu'à ton tour : entre-temps, la page suppose couchés ceux qui n'ont pas encore parlé.",
   "- Le rake : les comparaisons se font sans rake.",
+  "- La dictée (voix ou texte) : elle enregistre « Tapis 100 » et des calls à 100 sans regarder les tapis saisis ; le pot et les conseils restent justes (moteur de règles), mais les étiquettes des sièges affichent ces montants.",
+  "- Les mains revues depuis l'historique : l'historique ne garde qu'un tapis pour tous les sièges, une main revue peut donc différer de la main jouée.",
 );
 L.push("");
 

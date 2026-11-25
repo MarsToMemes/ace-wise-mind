@@ -15,6 +15,8 @@ export interface CashPreflopInput {
   facingRaise: boolean;
   raiseSizeBB?: number;          // size of biggest raise to call
   opponents: number;             // live opponents at table
+  /** Une relance est-elle encore possible ? Non face au tapis du seul adversaire qui a encore des jetons. Absent : oui. */
+  canRaise?: boolean;
 }
 
 export interface CashPreflopOutput {
@@ -186,6 +188,12 @@ export function analyzePreflop(inp: CashPreflopInput): CashPreflopOutput {
     if (cat === "Speculative" && !ip) action = "Fold";
     if (cat === "Marginal") action = "Fold";
     badges.push("Multiway pot");
+  }
+
+  // Plus de relance possible (tapis du seul adversaire qui a des jetons) : une main de relance paie (D35)
+  if (inp.canRaise === false && (action === "Raise" || action === "3-bet")) {
+    action = "Call";
+    reason += " No raise is possible here (the only opponent with chips is all-in): call.";
   }
 
   // Stack-depth context badge

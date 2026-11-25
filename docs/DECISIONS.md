@@ -736,3 +736,33 @@ fin de la main, relance conseillée impossible ou trop petite, mise de 0,5 bb) ;
 
 **Écarté.** Comparer au moteur lui-même (l'ancien `settleFuzz` ne le faisait que contre lui) ; recopier les formules de
 la page dans le banc (elles auraient pu diverger du site sans le voir).
+
+## D35 — Corrections des bugs trouvés par le banc (A3 : 12 / 12) · retenu · 2026-11-25
+
+**Demande.** « Oui, corrige-les » (bugs 1 à 6 du rapport du banc, D34). Les deux conventions (BB à tapis pour moins
+d'une blinde, relance face à des joueurs tous à tapis) restent à trancher.
+
+**Corrections.**
+1. **Pot avec un call à tapis** : le menu propose un « à payer » plafonné au tapis du siège (`menuToCall`) ; le pot de
+   la table vient du moteur de règles quand toute la main est saisie (`siteView.tablePot`), ce qui corrige aussi les
+   mains déjà enregistrées avec la mise entière. Écarté : corriger seulement le menu (les anciennes saisies resteraient
+   fausses), ou seulement le pot (le siège afficherait toujours la mise entière).
+2. **Relance minimale du menu** : mise en cours + plus grande relance de la street, d'après le moteur de règles
+   (`siteView.minRaiseTo`) ; l'ancienne approximation (2 × la mise) ne sert plus que sans bouton placé.
+3. **Pas de conseil quand tu ne peux plus agir** : main finie (river close, tout le monde couché, plus personne pour
+   payer), tu t'es couché ou tu es à tapis → la décision synthétique affiche la raison (`siteView.done`). Calculé sur les
+   seules actions saisies : un joueur qui n'a pas encore parlé n'est pas couché d'office (sinon « main terminée » dès
+   qu'UTG ouvre).
+4. **Conseil préflop** : `canRaise` ; une main de relance paie quand plus aucune relance n'est possible.
+5. **Relance conseillée** : relance « à » = max(3 × la mise de l'adversaire, relance minimale) au lieu de 3 × le montant à
+   payer (entrées `betLevel`, `minRaiseTo`).
+6. **Mise minimale** : jamais sous 1 bb ; le libellé donne la part du pot vraiment misée ; tapis = ce qu'il te reste au
+   centième (plus d'arrondi à la demi-bb au-dessus du tapis) ; un « block bet » qui met l'adversaire à tapis s'appelle
+   « Tapis ».
+
+**Mesures.** Banc : A1 28 / 28, A3 12 / 12 ; A2 sur 20 000 mains (graines 20261125 et 7) : 0 écart du moteur, de la
+page et des conseils ; il ne reste que les deux conventions. Suite du site : 601 tests (6 ajoutés, `siteView.test.ts`).
+Aperçu (site local, tapis 80 / 150 / 30) : pot 191,5 bb.
+
+**Reste.** La dictée enregistre « Tapis 100 » sans regarder les tapis saisis (étiquettes des sièges) ; l'historique ne
+garde qu'un tapis pour tous (main revue).

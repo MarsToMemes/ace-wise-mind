@@ -5,7 +5,7 @@
 import { buildHandState, type BuildResult } from "@/core/handState";
 import { settleHand } from "@/core/settle";
 import { rank7 } from "@/engines/handEval7";
-import { siteView, actionBounds, type SiteView } from "@/lib/siteView";
+import { siteView, actionBounds, menuToCall, type SiteView } from "@/lib/siteView";
 import { analyzePreflop } from "@/engines/cashPreflopEngine";
 import { advisePostflop } from "@/engines/postflopAdvisor";
 import { expandRange } from "@/engines/rangeVsRange";
@@ -65,9 +65,8 @@ export function siteRecord(a: Act, street: PlayerAction["street"], v: SiteView, 
   if (a.kind === "fold") return { seatIdx: seat, street, type: "Fold", amountBB: 0 };
   if (a.kind === "check") return { seatIdx: seat, street, type: "Check", amountBB: 0 };
   if (a.kind === "call") {
-    // menu : currentBet = mise la plus haute de la street − ce que le siège a déjà mis (sans tenir compte de son tapis)
-    const menuToCall = Math.max(0, v.currentBet - (v.potState.contribs[seat] ?? 0));
-    return { seatIdx: seat, street, type: "Call", amountBB: Math.round(menuToCall * 100) / 100 };
+    // menu : « à payer » affiché par la table (même fonction que PokerTable.tsx)
+    return { seatIdx: seat, street, type: "Call", amountBB: menuToCall(v.currentBet, v.potState.contribs[seat] ?? 0, v.stakes?.allInTo[seat]) };
   }
   const to = a.to!;
   // bouton « Tapis » du menu : le montant « relance à » calculé par la page
@@ -225,7 +224,7 @@ function playHand(k: number, su: HandSetup, r: Rng, o: FuzzOptions, res: FuzzRes
     if (t.toAct >= 0) {
       const L = t.legal()!, s = t.seats[t.toAct];
       const allInTo = v.stakes ? v.stakes.allInTo[t.toAct] : bbOf(s.street + s.stack);
-      const b = actionBounds(v.currentBet, STREETS[t.street], allInTo);
+      const b = actionBounds(v.currentBet, STREETS[t.street], allInTo, v.minRaiseTo);
       const agg = L.raise ? { min: L.raise.minTo, max: L.raise.maxTo } : L.bet ? { min: s.street + L.bet.min, max: s.street + L.bet.max } : null;
       if (agg) {
         const minOk = Math.min(b.minAmt, b.maxAmt);
@@ -241,13 +240,16 @@ function playHand(k: number, su: HandSetup, r: Rng, o: FuzzOptions, res: FuzzRes
     const heroTurn = t.toAct === hero;
     const over = t.handOver() || me.allIn;
     if (!heroTurn && !over) return;        // le conseil n'est contrôlé qu'à ton tour, ou quand tu ne peux plus agir
+    // la page remplace le conseil par un message quand tu ne peux plus agir (v.done)
+    if (over) { if (!v.done) div("conseil", "conseil affiché alors que tu ne peux plus agir", t.handOver() ? "main finie" : "héros à tapis", "message « plus de décision »", "conseil affiché"); return; }
+    if (v.done) { div("conseil", "décision masquée alors que c'est à toi de jouer", STREETS[t.street], "un conseil", v.done); return; }
     const L = heroTurn ? t.legal()! : null;
     const board = boardNow();
     res.advisorCalls++;
     const pos = engine().state.seats[hero].position;
     const where = over ? "main finie ou héros à tapis" : STREETS[t.street];
     if (t.street === 0) {
-      const p = analyzePreflop({ hole: holes[hero], position: pos, stackBB: v.effLeft, facingRaise: v.facingBet, raiseSizeBB: v.currentBet, opponents: t.live().length - 1 });
+      const p = analyzePreflop({ hole: holes[hero], position: pos, stackBB: v.effLeft, facingRaise: v.facingBet, raiseSizeBB: v.currentBet, opponents: t.live().length - 1, canRaise: v.stakes?.canRaise });
       const a = p.recommendedAction;
       if (over) { if (a !== "Fold" && a !== "Check") div("conseil", "conseil préflop alors que tu ne peux plus agir", where, "aucun conseil", a); return; }
       if (a === "Check" && !L!.check) div("conseil", "conseil préflop : check face à une mise", "", "fold / call / relance", a);
@@ -259,7 +261,7 @@ function playHand(k: number, su: HandSetup, r: Rng, o: FuzzOptions, res: FuzzRes
     const adv = advisePostflop({
       street: STREETS[t.street] as "Flop" | "Turn" | "River", board, hole: holes[hero], heroRange: range, villainRange: range,
       heroInPosition: false, heroIsPfr: true, potBB: v.dynamicPot, toCallBB: v.userToCall, heroStackBB: v.effLeft,
-      canRaise: v.stakes?.canRaise, opponents: Math.max(1, t.live().length - 1), villainCheckedThisStreet: false, samples: 120,
+      canRaise: v.stakes?.canRaise, betLevel: v.currentBet, minRaiseTo: v.minRaiseTo, opponents: Math.max(1, t.live().length - 1), villainCheckedThisStreet: false, samples: 120,
     });
     const act = adv.action, agg = BET_KINDS.has(act) || act === "raise" || act === "checkRaise" || act === "jam";
     if (over) { if (agg || act === "call") div("conseil", "conseil alors que tu ne peux plus agir", where, "aucun conseil", adv.label); return; }

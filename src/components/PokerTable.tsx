@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { Crown, User, Coins } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { ActionMenu, PlayerAction, ActionType } from "@/components/ActionMenu";
+import { menuToCall } from "@/lib/siteView";
 import { useState } from "react";
 import { stackHealth, icmThreat, stageLabel, type TournamentState } from "@/lib/tournamentEngine";
 import { SUIT_SYMBOLS } from "@/lib/pokerEngine";
@@ -89,6 +90,8 @@ interface Props {
   seatStacksBB?: number[];
   /** Montant « relance à » d'un tapis pour chaque siège (ce qui lui reste + ce qu'il a déjà mis sur la street). */
   seatAllInTo?: number[];
+  /** Relance minimale d'après le moteur de règles (menu d'action). */
+  minRaiseTo?: number | null;
   levelTimerSec?: number;
   flashMRatio?: boolean;
   /** Pseudo et profil du joueur associé à chaque siège (fiches joueurs). */
@@ -107,7 +110,7 @@ interface Props {
 export const PokerTable = ({
   size, dealerIdx, userIdx, mode, folded, streetContribs, lastActions,
   currentBet, toCallBB, defaultRaise, onSeatClick, onPlayerAction, onModeChange, onSizeChange,
-  tournamentState, seatStacksBB, seatAllInTo, levelTimerSec, flashMRatio, seatNames, street, potBB, stackBB,
+  tournamentState, seatStacksBB, seatAllInTo, minRaiseTo, levelTimerSec, flashMRatio, seatNames, street, potBB, stackBB,
   board = [], hole = [], heroHand,
 }: Props) => {
   const { t, lang } = useI18n();
@@ -356,12 +359,13 @@ export const PokerTable = ({
             open={actionSeat != null}
             onOpenChange={(o) => { if (!o) setActionSeat(null); }}
             anchor={anchor}
-            currentBet={Math.max(0, currentBet - (actionSeat != null ? (streetContribs[actionSeat] || 0) : 0))}
+            currentBet={actionSeat != null ? menuToCall(currentBet, streetContribs[actionSeat] || 0, seatAllInTo?.[actionSeat]) : currentBet}
             defaultRaise={defaultRaise}
             street={street}
             potBB={potBB}
             stackBB={actionSeat != null && seatAllInTo?.[actionSeat] != null ? seatAllInTo[actionSeat] : actionSeat != null && seatStacksBB?.[actionSeat] ? seatStacksBB[actionSeat] : stackBB}
             betLevel={currentBet}
+            minRaiseTo={minRaiseTo}
             onAction={({ type, amountBB }) => {
               if (actionSeat != null) onPlayerAction(actionSeat, type, amountBB);
             }}

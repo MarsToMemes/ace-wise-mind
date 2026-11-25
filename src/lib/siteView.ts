@@ -6,6 +6,8 @@ import { trackPot, type PotOptions, type PotState } from "@/lib/potTracker";
 import { heroStakes, type HeroStakes } from "@/lib/heroStakes";
 import { effectiveStack } from "@/lib/tableStacks";
 import type { LiveHand } from "@/lib/liveHand";
+import { buildHandState } from "@/core/handState";
+import type { TableSize } from "@/components/PokerTable";
 
 export type Street = PlayerAction["street"];
 
@@ -41,6 +43,10 @@ export interface SiteView {
   /** Mise la plus haute de la street. */
   currentBet: number;
   facingBet: boolean;
+  /** Relance minimale (montant « à ») d'après le moteur de règles : mise en cours + plus grande relance de la street. */
+  minRaiseTo: number | null;
+  /** Tu ne peux plus agir (main finie, couché ou à tapis) : la raison, affichée à la place du conseil ; sinon null. */
+  done: string | null;
 }
 
 export const streetOf = (boardLen: number): Street =>
@@ -81,20 +87,47 @@ export function siteView(i: SiteViewInput): SiteView {
   // peux gagner, relance encore possible ; avec le tapis saisi pour tous si les tapis ne sont pas suivis siège par siège
   const stakes = userIdx >= 0 && dealerIdx >= 0
     ? heroStakes({ ...live, stacks: tracked ? seatStacks : Array(tableSize).fill(stack) }) : null;
-  const tablePot = potState.pot;
+  // pot de la table : celui du moteur de règles quand toute la main est saisie (un call à tapis ne met que ce que le
+  // joueur a, même si la saisie a enregistré la mise entière) ; sinon le pot tapé à la main + les actions saisies
+  const tablePot = potFromActions && stakes ? stakes.fullPot : potState.pot;
   // la part d'un adversaire que tu ne peux pas couvrir lui revient : elle n'est pas dans le pot que tu joues
-  const dynamicPot = stakes ? Math.round((potState.pot - Math.max(0, stakes.fullPot - stakes.pot)) * 100) / 100 : potState.pot;
+  const dynamicPot = stakes ? Math.round((tablePot - Math.max(0, stakes.fullPot - stakes.pot)) * 100) / 100 : potState.pot;
   const userToCall = userIdx >= 0 ? (stakes ? Math.min(potState.toCall(userIdx), stakes.remaining) : potState.toCall(userIdx)) : callTyped;
   const effLeft = stakes ? stakes.effective : effStack;
   // Une vraie mise / relance à payer (et pas seulement la grosse blinde)
   const blindLevel = street === "Preflop" && potFromActions && dealerIdx >= 0 ? 1 : 0;
   const facingBet = userIdx >= 0 ? userToCall > 0 && currentBet > blindLevel : userToCall > 0;
-  return { street, sbIdx, bbIdx, potFromActions, potOpts, potState, effStack, stakes, tablePot, dynamicPot, userToCall, effLeft, currentBet, facingBet };
+  // moteur de règles sur les seules actions saisies (sans coucher d'office ceux qui n'ont pas encore parlé)
+  const rules = dealerIdx >= 0 && potFromActions ? buildHandState({
+    tableSize: tableSize as TableSize, dealerIdx, heroIdx: userIdx, stacksBB: tracked ? seatStacks : Array(tableSize).fill(stack),
+    hole: live.hole, board: live.board, actions,
+  }).state : null;
+  const minRaiseTo = rules ? Math.round((rules.currentBet > 0 ? rules.currentBet + rules.lastRaiseBB : rules.blinds.bb) * 100) / 100 : null;
+  let done: string | null = null;
+  if (rules && userIdx >= 0) {
+    const me = rules.seats[userIdx];
+    const live2 = rules.seats.filter(x => !x.folded && !folded[x.idx]);
+    const canBet = live2.filter(x => !x.allIn);
+    if (me.folded || folded[userIdx]) done = "Tu t'es couché : plus de décision à prendre.";
+    else if (me.allIn) done = "Tu es à tapis : plus de décision à prendre, la main se joue jusqu'au bout.";
+    else if (live2.length <= 1) done = "Main terminée : tout le monde s'est couché.";
+    else if (rules.toAct < 0 && (rules.street === "River" && live.board.length === 5 || canBet.length <= 1)) {
+      done = canBet.length <= 1 ? "Main terminée : les autres joueurs sont à tapis, plus de mise possible." : "Main terminée : les enchères de la river sont closes.";
+    }
+  }
+  return { street, sbIdx, bbIdx, potFromActions, potOpts, potState, effStack, stakes, tablePot, dynamicPot, userToCall, effLeft, currentBet, facingBet, minRaiseTo, done };
 }
 
-/** Bornes du menu d'action (components/ActionMenu.tsx) : relance minimale et tapis, en montant « relance à ». */
-export function actionBounds(level: number, street: Street, stackBB: number): { minAmt: number; maxAmt: number } {
-  const minAmt = level > 0 ? Math.max(level * 2, level + 1) : street === "Preflop" ? 2 : 1;
+/** « À payer » proposé par le menu d'action pour un siège : jamais plus que ce qu'il lui reste (call à tapis). */
+export function menuToCall(betLevel: number, contrib: number, allInTo?: number | null): number {
+  const level = allInTo != null ? Math.min(betLevel, allInTo) : betLevel;
+  return Math.round(Math.max(0, level - contrib) * 100) / 100;
+}
+
+/** Bornes du menu d'action (components/ActionMenu.tsx) : relance minimale et tapis, en montant « relance à » (D35). */
+export function actionBounds(level: number, street: Street, stackBB: number, minRaiseTo?: number | null): { minAmt: number; maxAmt: number } {
+  // relance minimale : celle du moteur de règles quand elle est connue ; sinon l'ancienne approximation
+  const minAmt = minRaiseTo != null && minRaiseTo > 0 ? minRaiseTo : level > 0 ? Math.max(level * 2, level + 1) : street === "Preflop" ? 2 : 1;
   // tapis = tout ce qui reste au joueur (un tapis plus court que la relance minimum reste permis)
   const maxAmt = stackBB > 0 ? stackBB : minAmt;
   return { minAmt, maxAmt };

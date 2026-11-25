@@ -179,7 +179,7 @@ const Index = () => {
   );
   // pot, à payer, tapis effectif : calcul commun à la page et au banc de test (lib/siteView.ts)
   const view = useMemo(() => siteView({ live: liveHand, tracked, stack, potTyped: pot, callTyped: call }), [liveHand, tracked, stack, pot, call]);
-  const { potFromActions, potOpts, potState, effStack, currentBet, stakes, tablePot, dynamicPot, userToCall, effLeft, facingBet } = view;
+  const { potFromActions, potOpts, potState, effStack, currentBet, stakes, tablePot, dynamicPot, userToCall, effLeft, facingBet, minRaiseTo } = view;
   const streetContribs = useMemo(
     () => Array.from({ length: tableSize }, (_, i) => potState.contribs[i] ?? 0),
     [potState, tableSize],
@@ -455,7 +455,7 @@ const Index = () => {
     const advice = advisePostflop({
       street: currentStreet as PostStreet, board, hole, heroRange, villainRange,
       heroInPosition: !heroFirst, heroIsPfr, potBB: dynamicPot, toCallBB: userToCall, heroStackBB: effLeft,
-      canRaise: stakes?.canRaise, heroCheckedThisStreet: actionHistory.some(a => a.street === currentStreet && a.seatIdx === userIdx && a.type === "Check")
+      canRaise: stakes?.canRaise, betLevel: currentBet, minRaiseTo, heroCheckedThisStreet: actionHistory.some(a => a.street === currentStreet && a.seatIdx === userIdx && a.type === "Check")
         && !actionHistory.some(a => a.street === currentStreet && a.seatIdx === userIdx && (a.type === "Bet" || a.type === "Raise")),
       opponents: exploit.realOpponents,
       otherRanges,
@@ -928,6 +928,7 @@ const Index = () => {
     <DecisionVerdict
       street={currentStreet}
       engine={engine}
+      done={view.done}
       polar={polarization}
       pot={dynamicPot}
       toCall={userToCall}
@@ -1078,6 +1079,7 @@ const Index = () => {
                     stackBB={heroStart}
                     seatStacksBB={seatRemaining}
                     seatAllInTo={stakes?.allInTo}
+                    minRaiseTo={minRaiseTo}
                     board={board}
                     hole={hole}
                     heroHand={hole.length === 2 && board.length >= 3 ? engine?.category : undefined}
@@ -1216,6 +1218,7 @@ const Index = () => {
                         facingRaise: facingBet,
                         raiseSizeBB: currentBet,
                         opponents,
+                        canRaise: stakes?.canRaise,
                       }) : null}
                       street={currentStreet}
                       stackBB={stack}

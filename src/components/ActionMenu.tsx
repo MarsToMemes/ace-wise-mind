@@ -28,16 +28,18 @@ interface Props {
   stackBB?: number;
   /** Mise la plus haute de la street (montant « relance à »). */
   betLevel?: number;
+  /** Relance minimale d'après le moteur de règles (montant « relance à »). */
+  minRaiseTo?: number | null;
 }
 
 /** Lit « 2,5 », « 2.5 », « 60 » ; renvoie NaN si vide ou invalide. */
 const parseAmount = (text: string) => parseFloat(text.replace(",", ".").replace(/[^0-9.]/g, ""));
 const fmt = (x: number) => (Math.round(x * 10) / 10).toString().replace(".", ",");
 
-export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRaise, onAction, street = "Preflop", potBB = 0, stackBB = 100, betLevel }: Props) => {
+export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRaise, onAction, street = "Preflop", potBB = 0, stackBB = 100, betLevel, minRaiseTo }: Props) => {
   const { t } = useI18n();
   const level = betLevel ?? currentBet;
-  const { minAmt, maxAmt } = actionBounds(level, street, stackBB);
+  const { minAmt, maxAmt } = actionBounds(level, street, stackBB, minRaiseTo);
   const [text, setText] = useState<string>(fmt(Math.min(maxAmt, Math.max(minAmt, defaultRaise))));
   const amt = parseAmount(text);
   // à chaque ouverture, repartir de la taille proposée
