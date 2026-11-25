@@ -12,7 +12,8 @@
 // that e.g. top-pair on a wet board vs a polarized 3-bettor is
 // no longer mis-classified as "Strong".
 
-import { evaluateBest, parseCard, RANKS, SUITS, type Card } from "./pokerEngine";
+import { parseCard, RANKS, SUITS, type Card } from "./pokerEngine";
+import { rank7 } from "@/engines/handEval7";
 import type { OpponentRange, RangeType } from "./rangeInference";
 
 // ---------------- Chen-style preflop strength ----------------
@@ -110,6 +111,8 @@ export interface HandVsRangeInput {
   board: Card[];
   opponentRanges: OpponentRange[];
   sims?: number;
+  /** Mains de chaque adversaire données directement (banc de test) ; sinon déduites de `opponentRanges`. */
+  combos?: [Card, Card][][];
 }
 
 export type HandVsRangeStrength = "Strong vs Range" | "Medium vs Range" | "Weak vs Range";
@@ -130,10 +133,12 @@ export interface HandVsRangeResult {
  */
 export function evaluateHandVsRange(inp: HandVsRangeInput): HandVsRangeResult | null {
   const { hole, board, opponentRanges } = inp;
-  if (hole.length !== 2 || opponentRanges.length === 0) return null;
+  if (hole.length !== 2 || (inp.combos ?? opponentRanges).length === 0) return null;
 
   const dead = new Set<Card>([...hole, ...board]);
-  const oppCombos = opponentRanges.map(o => buildOpponentCombos(o, opponentRanges.length, dead));
+  const oppCombos = inp.combos
+    ? inp.combos.map(list => list.filter(c => !dead.has(c[0]) && !dead.has(c[1])))
+    : opponentRanges.map(o => buildOpponentCombos(o, opponentRanges.length, dead));
   if (oppCombos.some(list => list.length === 0)) return null;
 
   const remainingBoard = 5 - board.length;
@@ -141,66 +146,62 @@ export function evaluateHandVsRange(inp: HandVsRangeInput): HandVsRangeResult | 
 
   let wins = 0;
   let ties = 0;
+  let done = 0;        // simulations menées à bout (une simulation sans combinaison possible ne compte pas)
   let beatCount = 0;   // total opp-combos hero beats across sims (for percentile)
   let totalOppHands = 0;
 
-  for (let s = 0; s < N; s++) {
-    // Build live deck excluding dead cards
-    const live: Card[] = [];
-    for (const r of RANKS) for (const su of SUITS) {
-      const c = r + su;
-      if (!dead.has(c)) live.push(c);
-    }
+  const live: Card[] = [];
+  for (const r of RANKS) for (const su of SUITS) {
+    const c = r + su;
+    if (!dead.has(c)) live.push(c);
+  }
 
-    // Sample opp hands without replacement
-    const usedThisSim = new Set<Card>();
-    const oppHands: [Card, Card][] = [];
-    let abort = false;
-    for (const list of oppCombos) {
-      // Try a few random picks until we find one that doesn't collide
-      let picked: [Card, Card] | null = null;
-      for (let attempt = 0; attempt < 12; attempt++) {
+  for (let s = 0; s < N; s++) {
+    // mains adverses tirées toutes ensemble, combinaison rejetée en entier si deux mains partagent une carte :
+    // distribution jointe exacte, sans dépendance à l'ordre des adversaires (D38)
+    let oppHands: [Card, Card][] | null = null;
+    for (let attempt = 0; attempt < 1000 && !oppHands; attempt++) {
+      const used = new Set<Card>();
+      const hands: [Card, Card][] = [];
+      for (const list of oppCombos) {
         const cand = list[Math.floor(Math.random() * list.length)];
-        if (!usedThisSim.has(cand[0]) && !usedThisSim.has(cand[1])) {
-          picked = cand;
-          break;
-        }
+        if (used.has(cand[0]) || used.has(cand[1])) break;
+        used.add(cand[0]); used.add(cand[1]);
+        hands.push(cand);
       }
-      if (!picked) { abort = true; break; }
-      usedThisSim.add(picked[0]);
-      usedThisSim.add(picked[1]);
-      oppHands.push(picked);
+      if (hands.length === oppCombos.length) oppHands = hands;
     }
-    if (abort) continue;
+    if (!oppHands) continue;
+    const usedThisSim = new Set<Card>(oppHands.flat());
 
     // Remove opp cards from live, shuffle, draw remaining board
     const deckMinusOpps = live.filter(c => !usedThisSim.has(c));
     const drawn = shuffle(deckMinusOpps).slice(0, remainingBoard);
     const finalBoard = [...board, ...drawn];
 
-    const heroEval = evaluateBest([...hole, ...finalBoard]);
-    const heroVal = (heroEval.score) * 1e6 + tieScore(heroEval.bestFive);
-
-    let bestOpp = -Infinity;
+    // abattage : rank7 (le même évaluateur que le conseiller, les solveurs et le règlement)
+    const heroVal = rank7([...hole, ...finalBoard]);
+    let bestOpp = -Infinity, atBest = 0;
     let beatLocal = 0;
     for (const oh of oppHands) {
-      const oe = evaluateBest([...oh, ...finalBoard]);
-      const ov = oe.score * 1e6 + tieScore(oe.bestFive);
-      if (ov > bestOpp) bestOpp = ov;
+      const ov = rank7([...oh, ...finalBoard]);
+      if (ov > bestOpp) { bestOpp = ov; atBest = 1; } else if (ov === bestOpp) atBest++;
       if (heroVal > ov) beatLocal++;
     }
     totalOppHands += oppHands.length;
     beatCount += beatLocal;
+    done++;
 
     if (heroVal > bestOpp) wins++;
-    else if (heroVal === bestOpp) ties += 1 / (1 + oppHands.filter(_ => true).length);
+    else if (heroVal === bestOpp) ties += 1 / (1 + atBest);   // partage entre les seuls joueurs à égalité
   }
+  if (!done) return null;
 
-  const equity = ((wins + ties) / N) * 100;
+  const equity = ((wins + ties) / done) * 100;
   const percentile = totalOppHands > 0 ? (beatCount / totalOppHands) * 100 : 0;
 
   // Multiway-adjusted classification thresholds
-  const k = opponentRanges.length;
+  const k = oppCombos.length;
   const strongEq = 58 + (k - 1) * 8;   // HU 58, 3-way 66, 4-way 74
   const mediumEq = 40 + (k - 1) * 5;
 
@@ -227,9 +228,3 @@ export function evaluateHandVsRange(inp: HandVsRangeInput): HandVsRangeResult | 
   };
 }
 
-// Stable tiebreaker — sum hand vals
-function tieScore(cards: Card[]): number {
-  let s = 0;
-  for (const c of cards) s = s * 15 + parseCard(c).val;
-  return s;
-}

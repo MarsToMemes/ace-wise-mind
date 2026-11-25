@@ -796,3 +796,24 @@ serveur par table : 50 bb de 1 022 à 1 472 itérations (+52 min), écart 0,0065
 **Comparaison aux tables remplacées.** Aucune ligne gagnée ni perdue ; action principale changée pour 0,4 % (50 bb)
 et 0,5 % (75 bb) des mains ; les gros écarts de fréquence sont tous dans des pots 4-bettés multiway (lignes rares,
 peu entraînées par le calcul court). Cinq des six tables cash sont maintenant à l'écart visé ; seule 150 bb reste au-dessus (0,0038).
+
+## D38 — Équité multiway corrigée (A4 : 16 / 16 et 8 / 8 sans biais) · retenu · 2026-11-25
+
+**Demande.** « Oui, corrige-les » (les deux bugs mesurés en D36).
+
+**Corrections.**
+- `handEquityMulti` (conseiller postflop) : toute la combinaison de mains adverses est tirée d'un coup, chaque main selon
+  son poids, et rejetée en entier dès que deux mains partagent une carte (jusqu'à 1 000 essais ; sinon le tirage ne
+  compte pas). C'est la distribution jointe exacte de D9. Écarté : garder le tirage main par main en mélangeant l'ordre
+  des adversaires à chaque tirage (le biais se moyenne mais la distribution reste fausse).
+- `evaluateHandVsRange` (moteur de base) : abattage avec `rank7` (l'ancien départage par l'ordre des 5 cartes se
+  trompait dans 5,46 % des abattages) ; égalité partagée entre les seuls joueurs à égalité ; seules les simulations
+  menées à bout comptent ; même tirage joint. Nouvelle entrée facultative `combos` (mains adverses données directement)
+  pour le banc de test.
+
+**Mesures après correction** (banc, A4, 20 graines × 4 000 tirages par ordre) : conseiller 16 / 16 cas sans biais
+détectable (cas connu : 66,77 % et 66,52 % pour 66,67 % exacts) ; moteur de base 8 / 8 (66,74 % et 66,57 %) ; écart
+entre ordres au plus 0,5 point, dans l'erreur d'échantillonnage. Suite du site : 604 tests (3 ajoutés, `equityOrder.test.ts`).
+
+**Conséquence.** Les équités affichées et les seuils du conseiller changent légèrement dans les pots à plusieurs
+adversaires (moins d'un point sur des ranges réalistes, beaucoup plus quand les ranges se gênent).

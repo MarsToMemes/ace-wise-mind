@@ -172,19 +172,22 @@ export function handEquityMulti(hole: string[], ranges: Combo[][], board: string
   const pick = live.map(r => picker(r, rand));
   let score = 0, done = 0;
   for (let i = 0; i < samples; i++) {
-    const used = new Set(dead);
-    const hands: [string, string][] = [];
-    for (const p of pick) {
-      let c: Combo | null = null;
-      for (let t = 0; t < 20 && !c; t++) {
+    // tirage de TOUTE la combinaison d'un coup, chaque main selon son poids, rejetée en entier dès qu'une carte est
+    // partagée : c'est exactement la distribution jointe des mains adverses (D9), quel que soit l'ordre des adversaires
+    // (D38 ; l'ancien tirage, une main après l'autre, dépendait de l'ordre : 75 % ou 50 % pour 66,67 % exacts)
+    let used: Set<string> | null = null, hands: [string, string][] = [];
+    for (let t = 0; t < 1000 && !used; t++) {
+      const u = new Set(dead);
+      hands = [];
+      for (const p of pick) {
         const x = p();
-        if (!used.has(x.cards[0]) && !used.has(x.cards[1])) c = x;
+        if (u.has(x.cards[0]) || u.has(x.cards[1])) break;
+        u.add(x.cards[0]); u.add(x.cards[1]);
+        hands.push(x.cards);
       }
-      if (!c) break;
-      used.add(c.cards[0]); used.add(c.cards[1]);
-      hands.push(c.cards);
+      if (hands.length === pick.length) used = u;
     }
-    if (hands.length < pick.length) continue;
+    if (!used) continue;
     const run = [...board];
     while (run.length < 5) {
       const c = FULL_DECK[Math.floor(rand() * 52)];
