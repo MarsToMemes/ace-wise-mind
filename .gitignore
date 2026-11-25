@@ -26,3 +26,6 @@ dist-ssr
 # lot 8 : tables candidates et archives, gardées sur cette machine (npm run promote)
 solver-candidates/
 solver-archive/
+
+# banc de test : rapports générés
+tests-solveur/rapports/

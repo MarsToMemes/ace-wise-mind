@@ -710,3 +710,29 @@ les ranges à tous les tapis.
 
 **Incident.** La première nuit de calcul a été perdue : sur batterie, le Mac s'est mis en veille forcée à 1 %
 (`caffeinate` n'empêche pas la veille quand la batterie est vide). Les tables à 150 et 75 bb ont été recalculées.
+
+## D34 — Banc de test du moteur de table (partie A) · retenu · 2026-11-25
+
+**Demande.** Un banc automatique, séparé du code du site, qui dit si le moteur de table est juste (A) avant toute
+mesure de la stratégie (B). Commande : `npm run test:solveur` (rapport daté dans `tests-solveur/rapports/`, non suivi
+par git) ; `npm run test:solveur -- rejouer GRAINE MAIN` rejoue une main.
+
+**Choix.**
+- **Arbitre indépendant** (`tests-solveur/oracle/`) : règles et évaluateur de mains réécrits sans aucun import du site
+  (vérifié à chaque lancement), montants en centièmes de bb. Règles écrites en tête du fichier ; deux points tranchés
+  à part : BB à tapis pour moins d'une blinde → on paie la blinde entière (règle TDA) ; pas de relance quand tous les
+  autres sont à tapis. Les écarts du site sur ces deux points sont rangés en « convention » (à trancher), pas en bug.
+- **Saisie comme la table du site** : un call enregistre le montant affiché par le menu, le bouton « Tapis » le
+  montant de la page. C'est ce qui fait apparaître le pot faux (241,5 au lieu de 191,5).
+- **Extraction sans changement de calcul** (accord de l'utilisateur) : le pot, le montant à payer et le tapis effectif
+  de la page (`lib/siteView.ts`, ex-`pages/Index.tsx`) et les bornes du menu (`actionBounds`, ex-`ActionMenu.tsx`).
+- Valeurs propres au héros (à payer, pot jouable, tapis effectif) comparées à son tour seulement : entre-temps, la page
+  suppose couchés ceux qui n'ont pas encore parlé (convention de saisie, D1).
+- Conseillers : seule la légalité est contrôlée (action permise, montant dans le tapis, rien quand tu ne peux plus agir).
+
+**Premiers résultats** (graine 20261125, 20 000 mains, 154 008 actions) : aucun écart du moteur de règles ni du
+règlement des pots ; 8 bugs classés (pot de la table avec un call à tapis, relance minimale du menu, conseils après la
+fin de la main, relance conseillée impossible ou trop petite, mise de 0,5 bb) ; 3 cas figés sur 12 réussis.
+
+**Écarté.** Comparer au moteur lui-même (l'ancien `settleFuzz` ne le faisait que contre lui) ; recopier les formules de
+la page dans le banc (elles auraient pu diverger du site sans le voir).

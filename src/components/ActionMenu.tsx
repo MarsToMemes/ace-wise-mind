@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { useI18n } from "@/lib/i18n";
+import { actionBounds } from "@/lib/siteView";
 
 export type ActionType = "Fold" | "Check" | "Call" | "Bet" | "Raise";
 export interface PlayerAction {
@@ -36,9 +37,7 @@ const fmt = (x: number) => (Math.round(x * 10) / 10).toString().replace(".", ","
 export const ActionMenu = ({ open, onOpenChange, anchor, currentBet, defaultRaise, onAction, street = "Preflop", potBB = 0, stackBB = 100, betLevel }: Props) => {
   const { t } = useI18n();
   const level = betLevel ?? currentBet;
-  const minAmt = level > 0 ? Math.max(level * 2, level + 1) : street === "Preflop" ? 2 : 1;
-  // tapis = tout ce qui reste au joueur (un tapis plus court que la relance minimum reste permis)
-  const maxAmt = stackBB > 0 ? stackBB : minAmt;
+  const { minAmt, maxAmt } = actionBounds(level, street, stackBB);
   const [text, setText] = useState<string>(fmt(Math.min(maxAmt, Math.max(minAmt, defaultRaise))));
   const amt = parseAmount(text);
   // à chaque ouverture, repartir de la taille proposée

@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "vite-node --mode production scripts/bench.ts",
-    "promote": "vite-node --mode production scripts/promote.ts"
+    "promote": "vite-node --mode production scripts/promote.ts",
+    "test:solveur": "vite-node --mode production tests-solveur/lancer.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

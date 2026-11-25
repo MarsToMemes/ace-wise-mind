@@ -40,7 +40,7 @@ import { HandHistory } from "@/components/HandHistory";
 import { saveHand, type SavedHand } from "@/lib/handHistory";
 import { gapsOf, recordGaps, heroJustActed, endsOnHeroDecision, type Gap } from "@/lib/gapLog";
 import { loadSeat, saveSeat, nextHandSeat, seatNumber, type TableSeat } from "@/lib/tableSeat";
-import { loadStacks, saveStacks, effectiveStack } from "@/lib/tableStacks";
+import { loadStacks, saveStacks } from "@/lib/tableStacks";
 import { settleLive, replayLive, type LiveHand } from "@/lib/liveHand";
 import { WinnerDialog, type PotToAsk } from "@/components/WinnerDialog";
 import { StacksPanel } from "@/components/StacksPanel";
@@ -82,7 +82,8 @@ import { countAnalyzedHand } from "@/engines/playerStats";
 import { getSeatPlayers, addStatsMany, loadPlayers, clearTable, addShownRecord, creditableSeats } from "@/lib/playersStore";
 import { RangeTrackerPanel } from "@/components/RangeTrackerPanel";
 import { FooterDisclaimer } from "@/components/FooterDisclaimer";
-import { trackPot, type PotOptions } from "@/lib/potTracker";
+import { trackPot } from "@/lib/potTracker";
+import { siteView } from "@/lib/siteView";
 import { VoiceInput } from "@/components/VoiceInput";
 import type { VoiceResult, VoiceTable } from "@/lib/voiceInput";
 
@@ -165,18 +166,6 @@ const Index = () => {
     () => actionHistory.filter(a => a.street === currentStreet),
     [actionHistory, currentStreet],
   );
-  // === Pot : suivi action par action (montants « relance à », blindes postées) ===
-  // Main saisie dès le préflop → pot calculé ; main saisie à partir du flop → départ = pot tapé à la main.
-  const potFromActions = actionHistory.length > 0 ? actionHistory[0].street === "Preflop" : currentStreet === "Preflop";
-  const potOpts = useMemo<PotOptions>(() => ({
-    blinds: potFromActions && dealerIdx >= 0 ? { sbIdx, bbIdx } : null,
-    startPot: potFromActions ? (dealerIdx >= 0 ? 0 : 1.5) : pot,
-  }), [potFromActions, dealerIdx, sbIdx, bbIdx, pot]);
-  const potState = useMemo(() => trackPot(actionHistory, potOpts, currentStreet), [actionHistory, potOpts, currentStreet]);
-  const streetContribs = useMemo(
-    () => Array.from({ length: tableSize }, (_, i) => potState.contribs[i] ?? 0),
-    [potState, tableSize],
-  );
   // tapis suivis (cash, table en cours) : tapis de départ de chaque siège, ce qu'il lui reste, tapis effectif pour les conseils
   const tracked = analyzerMode === "cash" && !reviewId && userIdx >= 0 && seatStacks.length === tableSize;
   const heroStart = tracked ? seatStacks[userIdx] : stack;
@@ -188,39 +177,18 @@ const Index = () => {
     () => (tracked ? replayLive(liveHand).state.seats.map(s => Math.round(s.remainingBB * 10) / 10) : undefined),
     [tracked, liveHand],
   );
-  const effStack = useMemo(() => {
-    if (!tracked) return stack;
-    const out = new Set(actionHistory.filter(a => a.type === "Fold").map(a => a.seatIdx));
-    folded.forEach((f, i) => { if (f) out.add(i); });
-    const acted = new Set(actionHistory.filter(a => a.type !== "Fold").map(a => a.seatIdx));
-    // préflop : tous ceux qui peuvent encore jouer ; après le flop : ceux qui sont dans le coup
-    const opps = Array.from({ length: tableSize }, (_, i) => i)
-      .filter(i => i !== userIdx && !out.has(i) && (currentStreet === "Preflop" || acted.has(i)));
-    return Math.round(effectiveStack(seatStacks, userIdx, opps) * 10) / 10;
-  }, [tracked, stack, actionHistory, folded, tableSize, userIdx, currentStreet, seatStacks]);
+  // pot, à payer, tapis effectif : calcul commun à la page et au banc de test (lib/siteView.ts)
+  const view = useMemo(() => siteView({ live: liveHand, tracked, stack, potTyped: pot, callTyped: call }), [liveHand, tracked, stack, pot, call]);
+  const { potFromActions, potOpts, potState, effStack, currentBet, stakes, tablePot, dynamicPot, userToCall, effLeft, facingBet } = view;
+  const streetContribs = useMemo(
+    () => Array.from({ length: tableSize }, (_, i) => potState.contribs[i] ?? 0),
+    [potState, tableSize],
+  );
   const lastActions = useMemo(() => {
     const arr: (PlayerAction | null)[] = Array(tableSize).fill(null);
     for (const a of streetActions) arr[a.seatIdx] = a;
     return arr;
   }, [streetActions, tableSize]);
-  const currentBet = useMemo(
-    () => streetContribs.reduce((m, v) => Math.max(m, v), 0),
-    [streetContribs],
-  );
-  // ce qui est vraiment en jeu pour toi (moteur de règles) : tapis restants, à payer plafonné à ton tapis, pot que tu
-  // peux gagner, relance encore possible ; avec le tapis saisi pour tous si les tapis ne sont pas suivis siège par siège
-  const stakes = useMemo(() => (userIdx >= 0 && dealerIdx >= 0
-    ? heroStakes({ ...liveHand, stacks: tracked ? seatStacks : Array(tableSize).fill(stack) }) : null),
-  [userIdx, dealerIdx, liveHand, tracked, seatStacks, tableSize, stack]);
-  const tablePot = potState.pot;
-  // la part d'un adversaire que tu ne peux pas couvrir lui revient : elle n'est pas dans le pot que tu joues
-  const dynamicPot = stakes ? Math.round((potState.pot - Math.max(0, stakes.fullPot - stakes.pot)) * 100) / 100 : potState.pot;
-  const userToCall = userIdx >= 0 ? (stakes ? Math.min(potState.toCall(userIdx), stakes.remaining) : potState.toCall(userIdx)) : call;
-  /** Tapis effectif restant (affichage, SPR, conseiller) ; `effStack` garde le tapis de départ (profondeur des tables). */
-  const effLeft = stakes ? stakes.effective : effStack;
-  // Une vraie mise / relance à payer (et pas seulement la grosse blinde)
-  const blindLevel = currentStreet === "Preflop" && potFromActions && dealerIdx >= 0 ? 1 : 0;
-  const facingBet = userIdx >= 0 ? userToCall > 0 && currentBet > blindLevel : userToCall > 0;
   const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(tablePot * 0.66));
 
   const engine = useMemo<EngineResult | null>(() => {
