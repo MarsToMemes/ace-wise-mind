@@ -1,6 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { getRange, slotsFor, actsFirstPostflop, preflopStrength } from "@/engines/matchupRanges";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { getRange, getBaseRange, slotsFor, actsFirstPostflop, preflopStrength } from "@/engines/matchupRanges";
 import { saveMyRange } from "@/engines/myRanges";
+import { setSolverBaseGame } from "@/engines/solverSpots";
+
+const cash100 = () => JSON.parse(readFileSync(join(process.cwd(), "public/solver/cash100.json"), "utf8"));
 
 describe("matchupRanges", () => {
   beforeEach(() => localStorage.clear());
@@ -16,17 +21,24 @@ describe("matchupRanges", () => {
     expect(slotsFor("BB", "BTN", "3bet")).toEqual({ pfr: "3bet:BB:vs:BTN", caller: "call3bet:BTN:vs:BB" });
   });
 
-  it("base ranges come from the site's catalog", () => {
+  afterEach(() => setSolverBaseGame(null));
+
+  it("ouverture : une seule source, la bibliothèque du solveur (plus de table écrite en dur) ; défense : tables de base", () => {
+    // sans bibliothèque chargée, aucune range d'ouverture n'est inventée
+    expect(getRange("open:UTG")).toMatchObject({ source: "estimated", weights: {} });
+    setSolverBaseGame(cash100());
     const open = getRange("open:UTG");
-    expect(open.source).toBe("base");
+    expect(open.source).toBe("solver");
     expect(open.weights["AA"]).toBe(1);
     expect(open.weights["72o"] ?? 0).toBe(0);
-    expect(getRange("call:BB:vs:BTN").source).toBe("base");
-    expect(getRange("call:BB:vs:UTG").source).toBe("estimated");
+    expect(getBaseRange("open:UTG").weights).toEqual(open.weights);
+    expect(getBaseRange("call:BB:vs:BTN").source).toBe("base");
+    expect(getBaseRange("call:BB:vs:UTG").source).toBe("estimated");
   });
 
   it("estimated call-vs-3bet keeps the top of the open range without AA/KK", () => {
-    const r = getRange("call3bet:BTN:vs:BB");
+    setSolverBaseGame(cash100());
+    const r = getBaseRange("call3bet:BTN:vs:BB");
     expect(r.source).toBe("estimated");
     expect(r.weights["AA"] ?? 0).toBe(0);
     expect(r.weights["QQ"]).toBeGreaterThan(0);

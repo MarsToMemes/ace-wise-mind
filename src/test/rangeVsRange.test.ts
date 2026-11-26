@@ -1,6 +1,13 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll, afterAll } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { expandRange, boardAdvantage } from "@/engines/rangeVsRange";
 import { getRange } from "@/engines/matchupRanges";
+import { setSolverBaseGame } from "@/engines/solverSpots";
+
+// ranges d'ouverture : une seule source, la bibliothèque du solveur (chargée par le site au démarrage)
+beforeAll(() => setSolverBaseGame(JSON.parse(readFileSync(join(process.cwd(), "public/solver/cash100.json"), "utf8"))));
+afterAll(() => setSolverBaseGame(null));
 
 describe("expandRange", () => {
   it("expands combos and removes dead cards", () => {
@@ -26,7 +33,9 @@ describe("boardAdvantage", () => {
 
   it("UTG open has equity edge vs BB defense on a high board", () => {
     const a = boardAdvantage(getRange("open:UTG").weights, getRange("call:BB:vs:UTG").weights, ["As", "Kd", "7c"], { samples: 3000, seed: 7 });
-    expect(a.pfrEquity).toBeGreaterThan(0.55);
+    // seuil réglé autrefois sur l'ancienne range d'ouverture écrite en dur (UTG 10,2 %) ; avec celle de la bibliothèque
+    // (UTG 17,8 %), l'avantage reste net : 54,95 % mesurés
+    expect(a.pfrEquity).toBeGreaterThan(0.53);
   });
 
   it("is deterministic for a given seed", () => {

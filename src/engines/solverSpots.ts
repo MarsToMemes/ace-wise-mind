@@ -159,15 +159,46 @@ export const setSolverBaseGame = (g: SolverGame | null) => { baseGame = g; };
 export const getSolverBaseGame = () => baseGame;
 
 const raiseOrJam = (a: string) => isRaise(a) || isJam(a);
+/** Combos d'une classe de mains : paire 6, assortie 4, dépareillée 12 (1 326 au total). */
+const handCombos = (h: string) => (h.length === 2 ? 6 : h.endsWith("s") ? 4 : 12);
+
+/** Ouverture d'une position dans la bibliothèque : actions du nœud, fréquences de chaque main (en %, telles quelles),
+ *  part d'ouverture de chaque main (relance + tapis, 0..1) et % d'ouverture pondéré par les combos (sur 1 326). */
+export interface OpenRange { pos: string; acts: string[]; freqs: Record<string, number[]>; open: Record<string, number>; pct: number }
+
+/**
+ * Seule fonction d'accès aux ranges d'ouverture : le conseiller (solverRangeForSlot, et la range de secours de
+ * matchupRanges) et le Range Explorer la lisent tous les deux. Une main mixte compte pour sa fréquence d'ouverture.
+ */
+export function getOpenRange(pos: string, g: SolverGame | null = baseGame): OpenRange | null {
+  if (!g) return null;
+  const spot = firstInSpot(g, pos);
+  if (!spot || !Object.keys(spot.h).length) return null;
+  const idx = spot.acts.map((a, i) => (raiseOrJam(a) ? i : -1)).filter(i => i >= 0);
+  const open: Record<string, number> = {};
+  let combos = 0;
+  for (const [hand, probs] of Object.entries(spot.h)) {
+    open[hand] = idx.reduce((t, i) => t + (probs[i] ?? 0), 0) / 100;
+    combos += handCombos(hand) * open[hand];
+  }
+  return { pos, acts: spot.acts, freqs: spot.h, open, pct: (combos / 1326) * 100 };
+}
 
 /** Range d'une situation du site (open:POS, call:POS:vs:X, 3bet:POS:vs:X, call3bet:X:vs:Y) depuis le solveur. */
 export function solverRangeForSlot(slot: string, g: SolverGame | null = baseGame): RangeWeights | null {
   if (!g) return null;
   const [kind, pos, , vs] = slot.split(":");
+  if (kind === "open") {
+    // même arrondi que rangeOf : poids au centième, mains sous 0,5 % retirées
+    const o = getOpenRange(pos, g);
+    if (!o) return null;
+    const r: RangeWeights = {};
+    for (const [hand, p] of Object.entries(o.open)) if (p > 0.005) r[hand] = Math.min(1, Math.round(p * 100) / 100);
+    return Object.keys(r).length ? r : null;
+  }
   let spot: SolverSpot | undefined;
   let pick: (a: string) => boolean;
-  if (kind === "open") { spot = firstInSpot(g, pos); pick = raiseOrJam; }
-  else if (kind === "call") { spot = spotAfter(g, [[vs, isRaise]], pos); pick = isCall; }
+  if (kind === "call") { spot = spotAfter(g, [[vs, isRaise]], pos); pick = isCall; }
   else if (kind === "3bet") { spot = spotAfter(g, [[vs, isRaise]], pos); pick = raiseOrJam; }
   else if (kind === "call3bet") { spot = spotAfter(g, [[pos, isRaise], [vs, raiseOrJam]], pos); pick = isCall; }
   else return null;

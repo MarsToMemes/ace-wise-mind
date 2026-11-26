@@ -2,7 +2,7 @@
 //   range de l'utilisateur ("Mes ranges") > range de base du site > range estimée.
 // Slots : open:POS · call:POS:vs:OPENER · 3bet:POS:vs:OPENER · call3bet:OPENER:vs:3BETTOR
 
-import { POSITION_RANGE_CATALOG, BB_DEFENSE_MATRIX } from "@/engines/positionRangeCatalog";
+import { BB_DEFENSE_MATRIX } from "@/engines/positionRangeCatalog";
 import {
   RANGE_VS_UTG_OPEN_100BB,
   RANGE_CO_VS_MP_OPEN_100BB,
@@ -11,7 +11,7 @@ import {
 } from "@/engines/preflopRanges";
 import { loadMyRanges, RangeWeights, handCombos } from "@/engines/myRanges";
 import { EQ_VS_RANDOM } from "@/engines/preflopEquity";
-import { solverRangeForSlot } from "@/engines/solverSpots";
+import { solverRangeForSlot, getOpenRange } from "@/engines/solverSpots";
 
 export type Pos = "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
 export const POSITIONS: Pos[] = ["UTG", "MP", "CO", "BTN", "SB", "BB"];
@@ -92,8 +92,12 @@ export function preflopStrength(hand: string): number {
 function baseRange(slot: string): { weights: RangeWeights; source: RangeSource } {
   const [kind, pos, , vs] = slot.split(":");
   if (kind === "open") {
-    const cat = POSITION_RANGE_CATALOG[pos];
-    return cat ? { weights: fromFreqMap(Object.values(cat.matrix), "raise"), source: "base" } : { weights: {}, source: "estimated" };
+    // une seule source d'ouverture : la bibliothèque du solveur (getOpenRange), sans table écrite en dur
+    const o = getOpenRange(pos);
+    if (!o) return { weights: {}, source: "estimated" };
+    const w: RangeWeights = {};
+    for (const [hand, p] of Object.entries(o.open)) if (p > 0.005) w[hand] = Math.min(1, Math.round(p * 100) / 100);
+    return { weights: w, source: "solver" };
   }
   if (kind === "call" || kind === "3bet") {
     const action = kind === "call" ? "call" : "raise";

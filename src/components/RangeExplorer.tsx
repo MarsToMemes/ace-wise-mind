@@ -17,6 +17,8 @@ import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_RANGES } from "@/lib/teachContent";
 import { loadMyRanges } from "@/engines/myRanges";
 import { MyRangesDialog } from "@/components/MyRangesDialog";
+import { explorerOpen } from "@/lib/explorerOpen";
+import { loadSolverGame, cashCoverage, type SolverGame } from "@/engines/solverSpots";
 
 type RangeType = "open" | "3bet" | "defense" | "jam" | "scenarios";
 type GameType = "cash" | "mtt";
@@ -72,15 +74,19 @@ export function RangeExplorer() {
       ),
     [positionScenarios],
   );
-  const openRaiseScenarios = useMemo(
-    () => positionScenarios.filter((s) => s.category === "openRaise"),
-    [positionScenarios],
-  );
   const showScenarioInThreeBet =
     rangeType === "3bet" && threeBetScenarios.length > 0;
   const showScenarioInJam = rangeType === "jam" && jamScenarios.length > 0;
-  const showScenarioInOpen =
-    rangeType === "open" && openRaiseScenarios.length > 0;
+  // onglet « Open » : la bibliothèque du solveur (cash), table la plus proche de la profondeur choisie — la même source
+  // que le conseiller (getOpenRange) ; plus de table ni de scénario d'ouverture écrits en dur
+  const libDepth = cashCoverage(Number(stackDepth)).depth;
+  const [libGame, setLibGame] = useState<{ depth: number; g: SolverGame } | null>(null);
+  useEffect(() => {
+    if (libDepth === null) return;
+    let alive = true;
+    loadSolverGame(`cash${libDepth}`).then(g => { if (alive) setLibGame({ depth: libDepth, g }); }).catch(() => { /* bibliothèque absente */ });
+    return () => { alive = false; };
+  }, [libDepth]);
   // « Mes ranges » : la range d'ouverture saisie par l'utilisateur remplace la grille de base.
   const [myVersion, setMyVersion] = useState(0);
   useEffect(() => {
@@ -94,11 +100,14 @@ export function RangeExplorer() {
     [rangeType, position, myVersion],
   );
   const hasUserOpen = !!userOpen && Object.keys(userOpen).length > 0;
+  const libOpen = useMemo(
+    () => (rangeType === "open" && position !== "BB" && libGame && libGame.depth === libDepth ? explorerOpen(position, libGame.g) : null),
+    [rangeType, position, libGame, libDepth],
+  );
   const isScenarioMode = !hasUserOpen && (
     rangeType === "scenarios" ||
     showScenarioInThreeBet ||
-    showScenarioInJam ||
-    showScenarioInOpen);
+    showScenarioInJam);
   const visibleScenarios = positionScenarios.length
     ? positionScenarios
     : scenariosAtStack;
@@ -106,9 +115,7 @@ export function RangeExplorer() {
     ? threeBetScenarios
     : showScenarioInJam
       ? jamScenarios
-      : showScenarioInOpen
-        ? openRaiseScenarios
-        : visibleScenarios;
+      : visibleScenarios;
   const scenario =
     activeScenarios.find((s) => s.id === scenarioId) ??
     activeScenarios[0] ??
@@ -137,14 +144,18 @@ export function RangeExplorer() {
         combos: hand.length === 2 ? 6 : hand.endsWith("s") ? 4 : 12,
         frequencies: w >= 1 ? { raise: 100 } : { raise: Math.round(w * 100), fold: 100 - Math.round(w * 100) },
       }]))
-    : rangeType === "3bet" && info.matrix3bet ? info.matrix3bet : info.matrix;
+    : rangeType === "3bet" && info.matrix3bet ? info.matrix3bet
+    : rangeType === "open" && position !== "BB" ? libOpen?.matrix ?? {}
+    : info.matrix ?? {};
+  // ouverture sans bibliothèque à cette profondeur (ou pas encore chargée) : on le dit, sans grille de remplacement
+  const openMissing = rangeType === "open" && position !== "BB" && !hasUserOpen && !libOpen;
 
-  // Derived metrics
+  // Derived metrics : combos pondérés par la fréquence de chaque main, sur 1 326
   const totalCombos = Object.values(matrix).reduce(
     (acc, h) => acc + h.combos * (((h.frequencies.raise ?? 0) + (h.frequencies.call ?? 0) + (h.frequencies.jam ?? 0)) / 100),
     0
   );
-  const continuePct = (totalCombos / 1326) * 100;
+  const continuePct = libOpen && !hasUserOpen ? libOpen.pct : (totalCombos / 1326) * 100;
 
   return (
     <>
@@ -351,7 +362,20 @@ export function RangeExplorer() {
                     {continuePct.toFixed(1)}% combos
                   </div>
                 </div>
-                <RangeMatrix data={matrix} onHover={setHovered} />
+                {openMissing ? (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-muted-foreground">
+                    {libDepth === null
+                      ? `Pas de table du solveur cash à ${stackDepth} bb : les ranges d'ouverture ne sont calculées qu'à 20, 30, 50, 75, 100 et 150 bb.`
+                      : "Chargement de la bibliothèque du solveur…"}
+                  </div>
+                ) : (
+                  <RangeMatrix data={matrix} onHover={setHovered} />
+                )}
+                {libOpen && !hasUserOpen && (
+                  <div className="mt-1 text-[10px] text-muted-foreground">
+                    Bibliothèque du solveur (cash {libGame?.depth} bb), la même que le conseiller · mains mixtes comptées à leur fréquence.
+                  </div>
+                )}
 
                 {/* Legend */}
                 <div className="flex flex-wrap gap-3 mt-2 text-[10px]">
@@ -411,9 +435,11 @@ export function RangeExplorer() {
                 <div className="flex items-center gap-2 mb-2">
                   <Filter className="w-3 h-3 text-primary" />
                   <span className="text-xs font-semibold">{info.label} · {info.archetype}</span>
-                  <Badge variant="secondary" className="text-[10px] ml-auto">
-                    {info.openFrequencyPct}% RFI
-                  </Badge>
+                  {libOpen && (
+                    <Badge variant="secondary" className="text-[10px] ml-auto">
+                      {libOpen.pct.toFixed(1)}% RFI
+                    </Badge>
+                  )}
                 </div>
                 <ul className="space-y-1">
                   {info.insights.map((tip, i) => (
