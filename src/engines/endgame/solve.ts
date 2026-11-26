@@ -23,7 +23,21 @@ export interface EndgameInput {
   timeBudgetMs?: number;
   targetPct?: number;           // précision visée, % du pot
   onProgress?: (fraction: number) => void;
+  /** Temps (ms) après lequel un premier résultat est envoyé si la précision visée n'est pas encore atteinte (D41). */
+  firstResultMs?: number;
+  /** Reçoit ce premier résultat ; le calcul continue jusqu'à la précision visée ou à la limite. */
+  onPartial?: (r: EndgameResult) => void;
 }
+
+/**
+ * Limites du calcul (D41). Turn : 30 s et 1 000 itérations au plus, sur tous les cœurs ; si la précision visée n'est pas
+ * atteinte à 15 s, un premier conseil est affiché puis affiné. River : 3 s, 1 500 itérations (la précision visée est
+ * atteinte bien avant).
+ */
+export const ENDGAME_LIMITS: Record<EndStreet, { budgetMs: number; maxIter: number; firstResultMs: number }> = {
+  Turn: { budgetMs: 30000, maxIter: 1000, firstResultMs: 15000 },
+  River: { budgetMs: 3000, maxIter: 1500, firstResultMs: Infinity },
+};
 
 export interface EndgameAction { kind: ActKind; to: number; label: string; freq: number; ev: number }
 export interface EndgameRangeLine { label: string; freq: number; with: string[] }
@@ -83,12 +97,14 @@ function prepare(inp: EndgameInput) {
   const target = s.pathNode;
   const hi = s.hs[hero].key.get(hk);
   if (!target || target.player !== hero || hi === undefined || !s.hs[vil].n) return null;
-  const maxIter = inp.maxIter ?? (inp.street === "River" ? 1500 : 500);
-  const budget = inp.timeBudgetMs ?? (inp.street === "River" ? 3000 : 15000);
+  const lim = ENDGAME_LIMITS[inp.street];
+  const maxIter = inp.maxIter ?? lim.maxIter;
+  const budget = inp.timeBudgetMs ?? lim.budgetMs;
+  const firstMs = inp.firstResultMs ?? lim.firstResultMs;
   const goal = inp.targetPct ?? 0.3;
   // la précision coûte deux parcours : on la mesure moins souvent à la turn
   const chunk = inp.street === "River" ? 50 : 10, checkEvery = 50;
-  return { s, opts, hero, vil, hi, heroInRange, target, maxIter, budget, goal, chunk, checkEvery };
+  return { s, opts, hero, vil, hi, heroInRange, target, maxIter, budget, goal, chunk, checkEvery, firstMs };
 }
 type Prepared = NonNullable<ReturnType<typeof prepare>>;
 
@@ -146,18 +162,25 @@ export function solveEndgame(inp: EndgameInput): EndgameResult | null {
   const t0 = Date.now();
   const p = prepare(inp);
   if (!p) return null;
-  const { s, maxIter, budget, goal, chunk, checkEvery } = p;
+  const { s, maxIter, budget, goal, chunk, checkEvery, firstMs } = p;
   const deadline = clock() + budget;
+  const result = (exploit: number) => {
+    const reach = pathReach(p);
+    return assemble(inp, p, reach, p.target.children.map(c => s.values(c, p.hero, reach[p.vil])), exploit, t0);
+  };
+  let sent = false;
   while (s.iterations < maxIter) {
     const done = s.run(Math.min(chunk, maxIter - s.iterations), deadline);
     inp.onProgress?.(Math.min(0.99, Math.max(s.iterations / maxIter, (Date.now() - t0) / budget)));
     if (done === 0) break;
-    if (s.iterations % checkEvery === 0 && s.exploitabilityPct() <= goal) break;
+    if (s.iterations % checkEvery === 0) {
+      const e = s.exploitabilityPct();
+      if (e <= goal) break;
+      // premier conseil : la précision visée n'est pas atteinte à mi-chemin, le calcul continue
+      if (!sent && inp.onPartial && Date.now() - t0 >= firstMs && s.iterations < maxIter) { sent = true; inp.onPartial(result(e)); }
+    }
   }
-  const exploit = s.exploitabilityPct();
-  const reach = pathReach(p);
-  const childVals = p.target.children.map(c => s.values(c, p.hero, reach[p.vil]));
-  return assemble(inp, p, reach, childVals, exploit, t0);
+  return result(s.exploitabilityPct());
 }
 
 /**
@@ -169,18 +192,25 @@ export async function solveEndgameAsync(inp: EndgameInput, start: (o: SolverOpti
   const t0 = Date.now();
   const p = prepare(inp);
   if (!p) return null;
-  const { s, maxIter, budget, goal, chunk, checkEvery } = p;
+  const { s, maxIter, budget, goal, chunk, checkEvery, firstMs } = p;
   const ask = await start(p.opts);
   const deadline = clock() + budget;
+  const result = async (exploit: number) => {
+    const reach = pathReach(p);
+    const childVals: Float32Array[] = [];
+    for (const c of p.target.children) childVals.push(await s.valuesAsync(c, p.hero, reach[p.vil], ask));
+    return assemble(inp, p, reach, childVals, exploit, t0);
+  };
+  let sent = false;
   while (s.iterations < maxIter) {
     const done = await s.runAsync(Math.min(chunk, maxIter - s.iterations), deadline, ask);
     inp.onProgress?.(Math.min(0.99, Math.max(s.iterations / maxIter, (Date.now() - t0) / budget)));
     if (done === 0) break;
-    if (s.iterations % checkEvery === 0 && (await s.exploitabilityPctAsync(ask)) <= goal) break;
+    if (s.iterations % checkEvery === 0) {
+      const e = await s.exploitabilityPctAsync(ask);
+      if (e <= goal) break;
+      if (!sent && inp.onPartial && Date.now() - t0 >= firstMs && s.iterations < maxIter) { sent = true; inp.onPartial(await result(e)); }
+    }
   }
-  const exploit = await s.exploitabilityPctAsync(ask);
-  const reach = pathReach(p);
-  const childVals: Float32Array[] = [];
-  for (const c of p.target.children) childVals.push(await s.valuesAsync(c, p.hero, reach[p.vil], ask));
-  return assemble(inp, p, reach, childVals, exploit, t0);
+  return result(await s.exploitabilityPctAsync(ask));
 }

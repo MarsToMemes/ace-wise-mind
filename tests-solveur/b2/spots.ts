@@ -1,12 +1,12 @@
 // B2 — Tête-à-tête réel, turn et river, tailles de mise du site. Pour chaque spot :
 //  1) la stratégie que le site affiche : solveur de fin de main (src/engines/endgame) avec les réglages de la décision
-//     synthétique (même boucle d'arrêt que solve.ts : précision visée 0,3 % du pot, 1 500 itérations et 3 s à la river,
-//     500 itérations et 15 s à la turn, rake cash ; à la turn, rivers réparties sur des ouvriers comme sur le site, D41) ;
+//     synthétique (même boucle d'arrêt et mêmes limites que solve.ts, ENDGAME_LIMITS : précision visée 0,3 % du pot ;
+//     river 3 s et 1 500 itérations ; turn 30 s et 1 000 itérations, rivers réparties sur des ouvriers, D41 ; rake cash) ;
 //  2) son exploitabilité exacte, calculée à part (tests-solveur/oracle/hu.ts) sur le même arbre de mises ;
 //  3) un solveur de référence écrit à part (CFR+) sur le même arbre, poussé plus loin, pour comparer la valeur du jeu
 //     et, à la première décision, la fréquence et l'EV de chaque action.
 import { Solver } from "@/engines/endgame/cfr";
-import { solveEndgame, solveEndgameAsync } from "@/engines/endgame/solve";
+import { solveEndgame, solveEndgameAsync, ENDGAME_LIMITS } from "@/engines/endgame/solve";
 import { startCores, riverCards } from "@/engines/endgame/parallel";
 import { cpus } from "node:os";
 import { nodePool } from "./ouvriers";
@@ -64,7 +64,7 @@ export async function runSpot(sp: Spot, refIters?: number): Promise<ResultatSpot
   const s = new Solver(opts);
   const ask = pool ? await startCores(pool, opts, riverCards(opts)) : null;
   const t0 = Date.now();
-  const maxIter = sp.street === "River" ? 1500 : 500, budget = sp.street === "River" ? 3000 : 15000, goal = 0.3;
+  const maxIter = ENDGAME_LIMITS[sp.street].maxIter, budget = ENDGAME_LIMITS[sp.street].budgetMs, goal = 0.3;
   const deadline = performance.now() + budget, chunk = sp.street === "River" ? 50 : 10, checkEvery = 50;
   let reached = false;
   while (s.iterations < maxIter) {

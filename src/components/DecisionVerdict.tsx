@@ -137,7 +137,7 @@ export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stac
       ...(cov?.details.filter(d => d !== solverNote) ?? []),
       solver.pct < 100 ? "Stratégie mixte : le solveur alterne entre ces actions avec cette main." : "Le solveur joue cette main toujours de la même façon ici.",
     ];
-  } else if ((street === "Turn" || street === "River") && endgame?.status === "done" && endgame.result && !endgame.guard) {
+  } else if ((street === "Turn" || street === "River") && (endgame?.status === "done" || endgame?.status === "running") && endgame.result && !endgame.guard) {
     const r = endgame.result;
     // multiway : la plus rentable si le calcul n'a pas fini de régler ta main (D32)
     const pick = r.players && r.players > 2 ? pickMain(r.actions, pot) : null;
@@ -203,7 +203,9 @@ export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stac
           )}
           {endgame?.status === "running" && endgame.live === undefined && (street === "Turn" || street === "River") && (
             <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-              Solveur : calcul {Math.round(endgame.progress * 100)} %
+              {endgame.result
+                ? `Solveur : premier conseil (précision ${endgame.result.exploitPct.toFixed(2).replace(".", ",")} % du pot), affinage en cours`
+                : `Solveur : calcul ${Math.round(endgame.progress * 100)} %`}
               <span className="w-14 h-1 rounded-full bg-border overflow-hidden"><span className="block h-full bg-primary transition-[width]" style={{ width: `${Math.round(endgame.progress * 100)}%` }} /></span>
             </span>
           )}

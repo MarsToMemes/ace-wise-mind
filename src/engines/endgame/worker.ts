@@ -11,9 +11,11 @@ ctx.onmessage = async (e) => {
   const pool = ports && ports.length >= 2 && input.street === "Turn" ? portPool(ports) : null;
   try {
     const onProgress = (progress: number) => ctx.postMessage({ id, progress });
+    // turn : premier conseil à mi-chemin si la précision visée n'est pas atteinte, puis affinage (D41)
+    const onPartial = (partial: unknown) => ctx.postMessage({ id, partial });
     const result = pool
-      ? await solveEndgameAsync({ ...input, onProgress }, o => startCores(pool, o, riverCards(o)))
-      : solveEndgame({ ...input, onProgress });
+      ? await solveEndgameAsync({ ...input, onProgress, onPartial }, o => startCores(pool, o, riverCards(o)))
+      : solveEndgame({ ...input, onProgress, onPartial });
     ctx.postMessage({ id, result, workers: pool?.size ?? 0 });
   } catch (err) {
     ctx.postMessage({ id, error: String(err) });

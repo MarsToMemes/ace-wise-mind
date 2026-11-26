@@ -37,9 +37,11 @@ export function useEndgameSolve(input: Omit<EndgameInput, "onProgress"> | null, 
       const nCores = input.street === "Turn" && cpus >= 3 ? Math.min(8, cpus - 1) : 0;
       cores.current = Array.from({ length: nCores }, () => new Worker(new URL("../engines/endgame/coreWorker.ts", import.meta.url), { type: "module" }));
       const ports = cores.current.map(c => { const ch = new MessageChannel(); c.postMessage({ port: ch.port2 }, [ch.port2]); return ch.port1; });
-      w.onmessage = (e: MessageEvent<{ progress?: number; result?: EndgameResult | null; error?: string }>) => {
+      w.onmessage = (e: MessageEvent<{ progress?: number; partial?: EndgameResult; result?: EndgameResult | null; error?: string }>) => {
         const d = e.data;
         if (d.progress != null) { setState(s => ({ ...s, progress: d.progress! })); return; }
+        // premier conseil (turn, D41) : affiché tout de suite, le calcul continue
+        if (d.partial) { setState(s => ({ ...s, status: "running", result: d.partial! })); return; }
         if (d.error) { setState({ status: "error", progress: 0, result: null }); stopAll(); return; }
         cache.set(key, d.result ?? null);
         setState({ status: d.result ? "done" : "none", progress: 1, result: d.result ?? null });

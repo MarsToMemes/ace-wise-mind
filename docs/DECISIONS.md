@@ -861,7 +861,7 @@ possible (non appliquée) : plus de temps à la turn, calcul sur tous les cœurs
 (0,27 à 0,40 % à la turn) ; flop non résolu par le site ; temps dépendants de la machine (une première passe faite
 pendant la veille du Mac sur batterie a été jetée).
 
-## D41 — Solveur de fin de main à la turn sur tous les cœurs · retenu (en cours) · 2026-11-26
+## D41 — Solveur de fin de main à la turn sur tous les cœurs, 30 s avec un premier conseil à 15 s · retenu · 2026-11-26
 
 **Demande.** « Corrige la turn » (B2, D40 : la limite de 15 s arrêtait la turn à 0,66-0,95 % du pot), « sur 10 cœurs ».
 
@@ -878,5 +878,15 @@ plafond de ce Mac, D31). B2 : T1 0,246 % en 9,6 s, T2 0,292 % en 7,5 s, T3 0,246
 0,68 / 0,95 / 0,13 %). Site local, vraie main à la turn (ranges de la page : 394 contre 514 mains, plus grandes que
 celles de B2), navigateur affiché : 228 itérations en 15,4 s, 0,67 % du pot (masqué : 196 itérations, 0,82 %).
 
-**Reste.** Avec les ranges de la page, 15 s ne suffisent pas encore pour 0,3 % : à trancher (plus de temps, ranges
-allégées des mains presque impossibles, ou résultat affiché au fil de l'eau).
+**Ranges allégées : écarté (mesuré).** Les ranges de la page sont larges et à poids presque égaux : retirer les mains
+pesant moins de 1, 2, 5 ou 10 % de la plus fréquente n'en retire que 0, 3, 6 ou 14 sur 908 (main d'exemple) ; aucun
+gain de vitesse.
+
+**Limites (choix de l'utilisateur : « 30 s progressif »).** Turn : 30 s et 1 000 itérations au plus (avant : 15 s et
+500) ; si la précision visée (0,3 % du pot) n'est pas atteinte à 15 s, un premier conseil s'affiche (« premier conseil
+(précision x %), affinage en cours ») puis est remplacé par le conseil final. River inchangée (3 s, 1 500 itérations).
+Une seule source pour ces limites : `ENDGAME_LIMITS` (solve.ts), reprise par le banc B2.
+
+**Aperçu** (site local, 9♥9♣ en BB, turn K♠9♦4♣7♥, 394 contre 514 mains, 8 ouvriers) : premier conseil à ≈ 15 s,
+précision 0,60 % ; conseil final 0,25 % du pot, 449 itérations, 30,4 s (Check, fréquences affinées : check 36 → 43 %).
+Sans ouvriers ni affinage, la même main s'arrêtait vers 1,5-2 % (estimation) ; avec ouvriers et 15 s : 0,67 %.
