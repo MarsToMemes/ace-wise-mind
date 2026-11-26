@@ -948,3 +948,43 @@ la range suivie : 0 sur 3 361 décisions observées ; aucune action refusée par
 tapis 355 fois et le site se couche 72 % du temps. Sur les rivers de B2, contre le solveur seul, il ne trouve que 0 à
 0,3 jeton par main (parfois moins que la stratégie elle-même) : la faille est au flop et à la turn, jouées par le conseiller
 maison dans ce banc.
+
+## D44 — Banc, partie B5 : multiway (3 à 6 joueurs) · 2026-11-26
+
+**Ces résultats ne prouvent pas un équilibre multiway** : au-delà de deux joueurs, aucun équilibre n'est garanti et
+l'exploitabilité n'a pas de définition simple ; elle n'est pas calculée.
+
+**Méthode.** `tests-solveur/b5/`.
+- Moteur et équité : rappel de la partie A du même lancement (A1, A2 de 2 à 6 joueurs, A3, A4 de 3 à 6 joueurs).
+- Le solveur multiway compte juste (`sommeNulle.ts`) : sur 3 rivers (à 3 et 4 joueurs, avec et sans argent mort, avec
+  et sans rake), la somme des gains attendus de tous les joueurs vaut l'argent mort (sans rake) ou reste entre l'argent
+  mort moins le plafond et l'argent mort (avec rake), pour la stratégie uniforme et pour la stratégie calculée.
+- Matchs (`joueur.ts`, `match.ts`) : joueur « site » à partir du flop = conseiller maison avec tous les adversaires
+  encore en jeu, ranges construites comme la page (`Index.tsx`, postflopCtx) ; empaqueté avec le code actuel et avec
+  `f85a236`. Préflop fixé (une ouverture à 2,5 bb, les autres de la ligne paient) ; arbitre A1, 6 sièges, 100 bb ;
+  duplicate tournant (la version testée prend chaque place de la ligne) ; score = son gain − somme des gains de la
+  ligne / n (argent mort des blindes partagé : une version contre elle-même donne 0, contrôlé) ; à chaque main, somme
+  des gains des 6 sièges = 0 au millionième de centime près et refus de l'arbitre comptés. Premier lancement : 106 mains
+  « fausses » à un écart de 1e-13 centime : un pot partagé en trois (blinde morte de 0,5 bb) n'a pas un nombre entier de
+  centimes, l'arbitre le partage exactement en virgule flottante ; ce n'était pas une erreur de compte, le contrôle
+  exigeait une égalité exacte.
+
+**Choix.**
+- Conseiller maison partout : à 3 joueurs, la page passe turn et river au solveur multiway (60 à 90 s par décision),
+  impossible sur des milliers de mains ; à 4 joueurs et plus, la page fait déjà comme ici.
+- Cartes tirées dans les ranges de la ligne de la table du solveur (celles que la page utilise) ; la ligne à 6 (tout le
+  monde paie l'ouverture d'UTG) est « rare » dans la table (ranges de 1 ou 2 mains pour certains) : cartes tirées dans
+  « ouverture » et « call face à l'ouverture » (pas de vraies ranges de surcall).
+- Pas de correction de la chance : la partielle de B4 réduisait peu la variance, et à n joueurs elle demande l'équité
+  jointe de toutes les mains à chaque carte.
+- Écartés : NashConv sur les vrais spots (définie, mais ne dit pas si la stratégie est bonne à plusieurs, D11) ; matchs
+  avec le solveur multiway (trop lents) ; tables à 5 joueurs (même code, une ligne de plus à choisir).
+
+**Résultats** (graine 20261125, rapport 2026-11-26-2114 ; 2 000 donnes par match, bb/100, intervalle à 95 %, sans
+correction de la chance). Solveur multiway : somme des gains juste 12 / 12. Actuelle contre elle-même : 0 à 3, 4 et
+6 joueurs. Somme des gains des 6 sièges : 0 sur 104 000 mains ; aucune action refusée par l'arbitre sur 1 237 077
+décisions, aucun repli. Contre l'ancienne version (f85a236) : −6,1 ± 8,6 (3 joueurs), −12,5 ± 12,7 (4), −7,8 ± 15,8 (6),
+pas de différence démontrée. Contre « toujours call » : +1 030 ± 69, +1 821 ± 107, +3 463 ± 139. Contre « agressif » :
++1 650 ± 144, +2 075 ± 163, +2 648 ± 176. Contre « serré » : +20,9 ± 55,2 (pas de différence démontrée), +76,3 ± 59,3,
++317,2 ± 92,7. Partie A du même lancement : A1 28 / 28, A2 20 000 mains (2 à 6 joueurs, environ 4 000 chacun), 0 écart
+moteur, page ou conseil ; A3 12 / 12 ; A4 16 / 16 et 8 / 8.

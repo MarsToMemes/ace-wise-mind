@@ -12,7 +12,7 @@ export interface Stat { bb100: number; ci: number; sdPerHand: number }
 
 const root = resolve(process.cwd());
 
-async function bundle(entry: string, src: string, out: string) {
+export async function bundle(entry: string, src: string, out: string) {
   await build({
     entryPoints: [entry], bundle: true, platform: "node", format: "cjs", outfile: out, logLevel: "error",
     alias: { "@": src }, nodePaths: [join(root, "node_modules")], jsx: "automatic", loader: { ".css": "empty", ".svg": "empty", ".png": "empty" },
@@ -21,7 +21,7 @@ async function bundle(entry: string, src: string, out: string) {
 }
 
 /** Dossier de travail git pour une ancienne version (supprimé à la fin). */
-function worktree(commit: string): string {
+export function worktree(commit: string): string {
   const dir = join(mkdtempSync(join(tmpdir(), "banc-version-")), commit);
   execFileSync("git", ["worktree", "add", "--detach", dir, commit], { cwd: root, stdio: "ignore" });
   return dir;
