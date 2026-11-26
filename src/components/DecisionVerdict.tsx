@@ -12,6 +12,7 @@ import { saveExploit } from "@/lib/exploitSettings";
 import type { EndgameState } from "@/hooks/use-endgame-solve";
 import type { ActKind } from "@/engines/endgame/tree";
 import { pickMain } from "@/engines/multiway/display";
+import { EMPTY_NODE_LABEL, type EmptyNodeAdvice } from "@/engines/emptyNodeAdvice";
 import type { Coverage } from "@/engines/solverSpots";
 import type { RakeRule } from "@/core/rake";
 
@@ -65,6 +66,8 @@ interface Props {
   rake?: RakeRule | null;
   /** D'où viennent les ranges après le flop (« ligne jouée · pot 4-betté », « situations types »). */
   rangeSource?: string | null;
+  /** Nœud vide de la bibliothèque préflop (aucune solution) : étiquette, et décision par l'EV pour un call terminal. */
+  emptyNode?: EmptyNodeAdvice | null;
 }
 
 const VERB_STYLE = (verb: string) =>
@@ -90,7 +93,7 @@ const bb = (x: number) => `${x >= 0 ? "+" : ""}${(Math.round(x * 10) / 10).toStr
 const SOLVER_VERB = (a: string) =>
   a === "F" ? "FOLD" : a === "X" ? "CHECK" : a === "C" ? "CALL" : a === "L" ? "LIMP" : a.startsWith("A") ? "TAPIS" : a.startsWith("R") ? "RELANCE" : a;
 
-export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat, solverNote, rake, rangeSource }: Props) => {
+export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stack, solver, postflop, endgame, exploit, format, onFormat, solverNote, rake, rangeSource, emptyNode }: Props) => {
   if (!engine) {
     return (
       <Card className="glass-panel p-5 border-primary/30 text-center text-muted-foreground text-sm">
@@ -182,6 +185,20 @@ export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stac
     mix = [{ label: verb, pct: 100 }];
     reasons = [`Équité ${Math.round(engine.equityPct)} %${engine.reqEquity ? ` vs cote ${pct1(engine.reqEquity)} %` : ""} · board ${engine.texture}.`];
     if (street !== "Preflop") reasons.push("Place le bouton et ton siège sur la table pour un conseil plus précis (ranges et position).");
+    if (street === "Preflop" && emptyNode) {
+      // nœud vide : jamais présenté comme du GTO (problème 2e)
+      source = EMPTY_NODE_LABEL;
+      sourceTone = "text-amber-300 border-amber-500/50";
+      context = emptyNode.line;
+      const why = "Le solveur n'arrive jamais à cette ligne : aucune solution calculée ici.";
+      if (emptyNode.scope === "call-terminal" && emptyNode.ev !== undefined) {
+        const f1 = (x: number) => x.toFixed(1).replace(".", ",");
+        reasons = [
+          `Payer ce tapis rapporte ${emptyNode.ev >= 0 ? "+" : ""}${f1(emptyNode.ev)} bb (se coucher = 0) : équité ${f1(100 * emptyNode.equity!)} % contre la range de tapis de ${emptyNode.shover} (bibliothèque du solveur), il en faut ${f1(100 * emptyNode.required!)} % (rake compris).`,
+          why,
+        ];
+      } else reasons.push(why);
+    }
   }
 
   const ex = exploit?.mode ? exploit : undefined;

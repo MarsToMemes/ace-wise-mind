@@ -72,6 +72,8 @@ import { cashCoverage, CASH_DEPTHS, getSolverBaseGame } from "@/engines/solverSp
 import { lineRanges, type LinePotType } from "@/engines/lineRanges";
 import { loadMyRanges } from "@/engines/myRanges";
 import { CASH_RAKE } from "@/core/rake";
+import { emptyNodeAdvice } from "@/engines/emptyNodeAdvice";
+import { handKey } from "@/lib/baseEquity";
 import { runExploits, deriveLine, HeroStrength } from "@/engines/exploitEngine";
 import { classify, familyOf, FAMILY_SHORT, Family } from "@/engines/playerStats";
 import { analyzeBoard } from "@/engines/boardTexture";
@@ -191,7 +193,7 @@ const Index = () => {
   }, [streetActions, tableSize]);
   const defaultRaise = Math.max(currentBet * 3, currentBet + 2, Math.round(tablePot * 0.66));
 
-  const engine = useMemo<EngineResult | null>(() => {
+  const engineBase = useMemo<EngineResult | null>(() => {
     if (hole.length < 2) return null;
     const all = [...hole, ...board];
     const ev = evaluateBest(all);
@@ -315,6 +317,32 @@ const Index = () => {
       handClass,
     } as EngineResult;
   }, [hole, board, position, dynamicPot, userToCall, currentStreet, opponents, actionHistory, dealerIdx, userIdx, tableSize, folded, potOpts, facingBet]);
+
+  // Nœud vide de la bibliothèque préflop (problème 2) : étiquette « conseil indicatif » ; pour un call terminal en
+  // tête-à-tête, l'équité affichée et la décision viennent de la même range de tapis et des mêmes montants (EV du call).
+  const [libTick, setLibTick] = useState(0);
+  useEffect(() => {
+    const on = () => setLibTick(t => t + 1);
+    window.addEventListener("ace:myRanges", on);
+    return () => window.removeEventListener("ace:myRanges", on);
+  }, []);
+  const emptyNode = useMemo(() => {
+    if (currentStreet !== "Preflop" || hole.length < 2 || analyzerMode !== "cash" || dealerIdx < 0 || userIdx < 0) return null;
+    return emptyNodeAdvice({
+      game: getSolverBaseGame(), seatPos: Array.from({ length: tableSize }, (_, i) => labelToPosition(seatLabel(i, dealerIdx, tableSize))),
+      heroSeat: userIdx, actions: actionHistory, stackBB: effStack, hand: handKey(hole),
+      potBB: dynamicPot, toCallBB: userToCall, heroStackBB: effLeft, rake: CASH_RAKE,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStreet, hole, analyzerMode, dealerIdx, userIdx, tableSize, actionHistory, effStack, dynamicPot, userToCall, effLeft, libTick]);
+  const engine = useMemo<EngineResult | null>(() => {
+    if (!engineBase || !emptyNode || emptyNode.scope !== "call-terminal" || !emptyNode.action) return engineBase;
+    return {
+      ...engineBase,
+      equityPct: 100 * emptyNode.equity!, reqEquity: 100 * emptyNode.required!, suggestedAction: emptyNode.action,
+      decisionReason: `EV du call contre la range de tapis de ${emptyNode.shover} : ${emptyNode.ev!.toFixed(1)} bb.`,
+    };
+  }, [engineBase, emptyNode]);
 
   // === Moteur d'exploits : adversaire de la main + ligne jouée ===
   useSolverBase(effStack);
@@ -950,6 +978,7 @@ const Index = () => {
       format={solverFormat}
       solverNote={cashCover.note}
       rake={analyzerMode === "cash" ? CASH_RAKE : null}
+      emptyNode={currentStreet === "Preflop" ? emptyNode : null}
       rangeSource={postflopCtx?.rangeSource ?? null}
       exploit={{
         mode: exploitSettings.mode,
