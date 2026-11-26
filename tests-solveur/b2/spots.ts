@@ -1,12 +1,15 @@
 // B2 — Tête-à-tête réel, turn et river, tailles de mise du site. Pour chaque spot :
 //  1) la stratégie que le site affiche : solveur de fin de main (src/engines/endgame) avec les réglages de la décision
 //     synthétique (même boucle d'arrêt que solve.ts : précision visée 0,3 % du pot, 1 500 itérations et 3 s à la river,
-//     500 itérations et 15 s à la turn, rake cash) ;
+//     500 itérations et 15 s à la turn, rake cash ; à la turn, rivers réparties sur des ouvriers comme sur le site, D41) ;
 //  2) son exploitabilité exacte, calculée à part (tests-solveur/oracle/hu.ts) sur le même arbre de mises ;
 //  3) un solveur de référence écrit à part (CFR+) sur le même arbre, poussé plus loin, pour comparer la valeur du jeu
 //     et, à la première décision, la fréquence et l'EV de chaque action.
 import { Solver } from "@/engines/endgame/cfr";
-import { solveEndgame } from "@/engines/endgame/solve";
+import { solveEndgame, solveEndgameAsync } from "@/engines/endgame/solve";
+import { startCores, riverCards } from "@/engines/endgame/parallel";
+import { cpus } from "node:os";
+import { nodePool } from "./ouvriers";
 import { expandRange } from "@/engines/rangeVsRange";
 import { parseRangeText } from "@/engines/myRanges";
 import { CASH_RAKE } from "@/core/rake";
@@ -51,32 +54,43 @@ const toH = (n: unknown): HNode => {
   return { t: "chance", cards: x.cards, children: x.children.map(toH) };
 };
 
-export function runSpot(sp: Spot, refIters?: number): ResultatSpot {
+export async function runSpot(sp: Spot, refIters?: number): Promise<ResultatSpot> {
   const ranges = [expandRange(parseRangeText(sp.oop), sp.board), expandRange(parseRangeText(sp.ip), sp.board)] as const;
-  // 1) la boucle de la décision synthétique (solve.ts), recopiée ici pour garder le solveur et ses stratégies
+  // 1) la boucle de la décision synthétique (solve.ts), recopiée ici pour garder le solveur et ses stratégies ;
+  //    à la turn, comme sur le site depuis D41 : les cartes de river réparties sur des ouvriers (un par cœur moins un, 8 au plus)
+  const nW = sp.street === "Turn" && cpus().length >= 3 ? Math.min(8, cpus().length - 1) : 0;
+  const pool = nW ? await nodePool(nW) : null;
+  const opts = { street: sp.street, board: sp.board, startPot: sp.startPot, stack: sp.stack, ranges: [ranges[0], ranges[1]] as [typeof ranges[0], typeof ranges[1]], rake: CASH_RAKE };
+  const s = new Solver(opts);
+  const ask = pool ? await startCores(pool, opts, riverCards(opts)) : null;
   const t0 = Date.now();
-  const s = new Solver({ street: sp.street, board: sp.board, startPot: sp.startPot, stack: sp.stack, ranges: [ranges[0], ranges[1]], rake: CASH_RAKE });
   const maxIter = sp.street === "River" ? 1500 : 500, budget = sp.street === "River" ? 3000 : 15000, goal = 0.3;
   const deadline = performance.now() + budget, chunk = sp.street === "River" ? 50 : 10, checkEvery = 50;
   let reached = false;
   while (s.iterations < maxIter) {
-    const done = s.run(Math.min(chunk, maxIter - s.iterations), deadline);
+    const done = ask ? await s.runAsync(Math.min(chunk, maxIter - s.iterations), deadline, ask) : s.run(Math.min(chunk, maxIter - s.iterations), deadline);
     if (done === 0) break;
-    if (s.iterations % checkEvery === 0 && s.exploitabilityPct() <= goal) { reached = true; break; }
+    if (s.iterations % checkEvery === 0 && (ask ? await s.exploitabilityPctAsync(ask) : s.exploitabilityPct()) <= goal) { reached = true; break; }
   }
-  const exploitSite = s.exploitabilityPct(), ms = Date.now() - t0;
-  // le vrai solveEndgame sur la même entrée : mêmes itérations et même précision attendues (contrôle de la recopie)
+  const exploitSite = ask ? await s.exploitabilityPctAsync(ask) : s.exploitabilityPct(), ms = Date.now() - t0;
+  // le vrai solveEndgame (ou sa version répartie) sur la même entrée : mêmes itérations et même précision attendues
   const heroCards = s.hs[0].cards[0];
-  const se = solveEndgame({ street: sp.street, board: sp.board, startPot: sp.startPot, stack: sp.stack, ranges: [ranges[0], ranges[1]], hero: 0, heroCards, path: [], rake: CASH_RAKE } as never);
+  const inp = { street: sp.street, board: sp.board, startPot: sp.startPot, stack: sp.stack, ranges: [ranges[0], ranges[1]], hero: 0, heroCards, path: [], rake: CASH_RAKE } as never;
+  const se = pool ? await solveEndgameAsync(inp, o => startCores(pool, o, riverCards(o))) : solveEndgame(inp);
+  pool?.kill();
+  // les stratégies des nœuds de river sont chez les ouvriers : on les relit avec un calcul sur un cœur qui refait
+  // exactement les mêmes itérations (même résultat au bit près, D41)
+  const s1 = ask ? new Solver(opts) : s;
+  if (ask) s1.run(s.iterations);
 
   // 2) mesure indépendante sur le même arbre
   const spec: HUSpec = {
-    root: toH(s.root), board: sp.board, startPot: sp.startPot, rake: { pct: CASH_RAKE.pct, cap: CASH_RAKE.capBB },
-    hands: [s.hs[0].cards, s.hs[1].cards], weights: [s.hs[0].weights, s.hs[1].weights],
+    root: toH(s1.root), board: sp.board, startPot: sp.startPot, rake: { pct: CASH_RAKE.pct, cap: CASH_RAKE.capBB },
+    hands: [s1.hs[0].cards, s1.hs[1].cards], weights: [s1.hs[0].weights, s1.hs[1].weights],
   };
   const hu = new HU(spec);
-  const byId = new Map(s.nodes.map(n => [n.id, n]));
-  const siteStrat = (id: number) => s.averageStrategy(byId.get(id)!);
+  const byId = new Map(s1.nodes.map(n => [n.id, n]));
+  const siteStrat = (id: number) => s1.averageStrategy(byId.get(id)!);
   const m = hu.exploitability(siteStrat);
 
   // 3) solveur de référence, plus loin que le site
@@ -87,8 +101,8 @@ export function runSpot(sp: Spot, refIters?: number): ResultatSpot {
   const refMs = Date.now() - t1;
 
   // première décision (OOP) : fréquence et EV de chaque action, pour la range entière
-  const root = s.root as unknown as { id: number; actions: { kind: string; to: number }[]; children: unknown[] };
-  const n0 = s.hs[0].n, w0 = Float64Array.from(s.hs[0].weights), w1 = Float64Array.from(s.hs[1].weights);
+  const root = s1.root as unknown as { id: number; actions: { kind: string; to: number }[]; children: unknown[] };
+  const n0 = s1.hs[0].n, w0 = Float64Array.from(s1.hs[0].weights), w1 = Float64Array.from(s1.hs[1].weights);
   const comp = hu.compatMass(0, w1);
   const actionEv = (strat: (id: number) => ArrayLike<number>) => {
     const st = strat(root.id);
@@ -115,6 +129,8 @@ export function runSpot(sp: Spot, refIters?: number): ResultatSpot {
   };
 }
 
-export function runB2(o: { only?: string[]; refIters?: number } = {}): ResultatSpot[] {
-  return SPOTS.filter(sp => !o.only || o.only.includes(sp.id)).map(sp => runSpot(sp, o.refIters));
+export async function runB2(o: { only?: string[]; refIters?: number } = {}): Promise<ResultatSpot[]> {
+  const out: ResultatSpot[] = [];
+  for (const sp of SPOTS.filter(x => !o.only || o.only.includes(x.id))) out.push(await runSpot(sp, o.refIters));
+  return out;
 }

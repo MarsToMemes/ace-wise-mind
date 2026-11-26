@@ -860,3 +860,23 @@ possible (non appliquée) : plus de temps à la turn, calcul sur tous les cœurs
 **Limites.** Spots choisis à la main, ranges plausibles et non celles que la page déduit ; référence non poussée à zéro
 (0,27 à 0,40 % à la turn) ; flop non résolu par le site ; temps dépendants de la machine (une première passe faite
 pendant la veille du Mac sur batterie a été jetée).
+
+## D41 — Solveur de fin de main à la turn sur tous les cœurs · retenu (en cours) · 2026-11-26
+
+**Demande.** « Corrige la turn » (B2, D40 : la limite de 15 s arrêtait la turn à 0,66-0,95 % du pot), « sur 10 cœurs ».
+
+**Choix.** Les 48 cartes de river sont réparties entre des ouvriers (Web Workers, un par cœur moins un, 8 au plus) ;
+le chef garde la turn. Le parcours de l'arbre est écrit une seule fois (`gen`, générateur) : à un nœud de hasard, il
+demande les valeurs des 48 sous-arbres de river, que le pilote calcule lui-même (`walk`, un cœur) ou fait calculer par
+les ouvriers (`walkAsync`). Toutes les demandes d'un parcours partent ensemble (ce qui arrive à une river ne dépend que
+des stratégies au-dessus), et le chef additionne dans l'ordre des cartes : même résultat au bit près qu'un calcul sur un
+cœur (testé : stratégies, précision, fréquences et EV identiques). Écarté : copier la logique du parcours pour la
+version répartie (risque d'écart), ou répartir par nœud de la turn (trop peu de nœuds).
+
+**Mesures.** Hors navigateur (fils Node, même code) : 95 → 28 ms par itération à la turn avec 8 ouvriers (×3,4,
+plafond de ce Mac, D31). B2 : T1 0,246 % en 9,6 s, T2 0,292 % en 7,5 s, T3 0,246 % en 12 s, T4 0,129 % (avant : 0,66 /
+0,68 / 0,95 / 0,13 %). Site local, vraie main à la turn (ranges de la page : 394 contre 514 mains, plus grandes que
+celles de B2), navigateur affiché : 228 itérations en 15,4 s, 0,67 % du pot (masqué : 196 itérations, 0,82 %).
+
+**Reste.** Avec les ranges de la page, 15 s ne suffisent pas encore pour 0,3 % : à trancher (plus de temps, ranges
+allégées des mains presque impossibles, ou résultat affiché au fil de l'eau).

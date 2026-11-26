@@ -5,7 +5,7 @@
 import { rakeOf, type RakeRule } from "@/core/rake";
 import { rank7 } from "@/engines/handEval7";
 import { FULL_DECK, type Combo } from "@/engines/rangeVsRange";
-import { buildTree, type ActNode, type EndStreet, type Node, type PathAct, type Sizes } from "@/engines/endgame/tree";
+import { buildTree, type ActNode, type ChanceNode, type EndStreet, type Node, type PathAct, type Sizes } from "@/engines/endgame/tree";
 
 const CARD = new Map(FULL_DECK.map((c, i) => [c, i]));
 const keyOf = (a: string, b: string) => (a < b ? a + b : b + a);
@@ -103,6 +103,11 @@ export function showdownCFV(a: HandSet, b: HandSet, reach: Float32Array, uWin: n
   return out;
 }
 
+/** Demande des valeurs des sous-arbres de river d'un nœud de hasard (calcul réparti, D41). */
+export interface ChanceAsk { chance: number; i: 0 | 1; reach: Float32Array; mode: 0 | 1 | 2; d: [number, number, number] }
+/** Toutes les demandes d'un parcours d'un coup (un aller-retour avec les ouvriers), réponses dans le même ordre. */
+export type ChanceDelegate = (qs: ChanceAsk[]) => Promise<Float32Array[][]>;
+
 export interface SolverOptions {
   street: EndStreet;
   board: string[];
@@ -130,6 +135,9 @@ export class Solver {
   private riverStr: [Strength, Strength][] = [];    // turn : force par carte de river
   private blocked: [Uint8Array, Uint8Array][] = [];  // turn : main contenant la carte de river
   private nChance = 44;
+  /** Nœuds de hasard (turn), dans l'ordre de l'arbre : le même indice chez le chef et chez les ouvriers. */
+  readonly chances: ChanceNode[] = [];
+  private chanceIndex = new Map<Node, number>();
 
   constructor(o: SolverOptions) {
     const t = buildTree({ street: o.street, startPot: o.startPot, stack: o.stack, board: o.board, path: o.path, sizes: o.sizes });
@@ -140,6 +148,11 @@ export class Solver {
     this.same = [crossIndex(this.hs[0], this.hs[1]), crossIndex(this.hs[1], this.hs[0])];
     this.regret = this.nodes.map(n => new Float32Array(n.actions.length * this.hs[n.player].n));
     this.sum = this.nodes.map(n => new Float32Array(n.actions.length * this.hs[n.player].n));
+    const collect = (n: Node) => {
+      if (n.t === "chance") { this.chanceIndex.set(n, this.chances.length); this.chances.push(n); n.children.forEach(collect); }
+      else if (n.t === "act") n.children.forEach(collect);
+    };
+    collect(this.root);
     if (o.street === "Turn") {
       const cards = FULL_DECK.filter(c => !o.board.includes(c));
       this.nChance = cards.length - 4;
@@ -192,17 +205,22 @@ export class Solver {
     return null;
   }
 
-  /** mode : 0 = CFR (mise à jour), 1 = meilleure réponse, 2 = valeur des stratégies moyennes. */
-  private walk(n: Node, i: 0 | 1, reach: Float32Array, ctx: number, mode: 0 | 1 | 2, d: [number, number, number]): Float32Array {
+  /**
+   * Parcours de l'arbre, écrit une seule fois pour le calcul sur un cœur et pour le calcul réparti (D41) : à un nœud de
+   * hasard (carte de river), il demande les valeurs des sous-arbres de chaque carte (`ChanceAsk`) ; le pilote les calcule
+   * lui-même (`walk`) ou les fait calculer par les ouvriers (`walkAsync`). L'addition se fait ici, dans l'ordre des
+   * cartes : le résultat est le même au bit près dans les deux cas.
+   * mode : 0 = CFR (mise à jour), 1 = meilleure réponse, 2 = valeur des stratégies moyennes.
+   */
+  private *gen(n: Node, i: 0 | 1, reach: Float32Array, ctx: number, mode: 0 | 1 | 2, d: [number, number, number]): Generator<ChanceAsk, Float32Array, Float32Array[]> {
     const t = this.terminal(n, i, reach, ctx);
     if (t) return t;
     const ni = this.hs[i].n, o = (1 - i) as 0 | 1;
     if (n.t === "chance") {
+      const vs = yield { chance: this.chanceIndex.get(n)!, i, reach, mode, d };
       const out = new Float32Array(ni);
-      n.children.forEach((ch, k) => {
-        const bo = this.blocked[k][o], bi = this.blocked[k][i];
-        const r2 = Float32Array.from(reach, (x, j) => (bo[j] ? 0 : x));
-        const v = this.walk(ch, i, r2, k, mode, d);
+      n.children.forEach((_ch, k) => {
+        const bi = this.blocked[k][i], v = vs[k];
         for (let h = 0; h < ni; h++) if (!bi[h]) out[h] += v[h];
       });
       const inv = 1 / this.nChance;
@@ -212,7 +230,8 @@ export class Solver {
     const node = n as ActNode, nA = node.actions.length;
     if (node.player === i) {
       const sig = mode === 0 ? this.strategy(node) : this.averageStrategy(node);
-      const vals = node.children.map(ch => this.walk(ch, i, reach, ctx, mode, d));
+      const vals: Float32Array[] = [];
+      for (const ch of node.children) vals.push(yield* this.gen(ch, i, reach, ctx, mode, d));
       const out = new Float32Array(ni);
       if (mode === 1) {
         for (let h = 0; h < ni; h++) { let m = -Infinity; for (let a = 0; a < nA; a++) m = Math.max(m, vals[a][h]); out[h] = m; }
@@ -238,10 +257,97 @@ export class Solver {
       for (let j = 0; j < no; j++) { const x = reach[j] * sig[a * no + j]; r2[j] = x; if (x > 0) any = true; }
       if (mode === 0) for (let j = 0; j < no; j++) sum[a * no + j] = sum[a * no + j] * d[2] + r2[j];
       if (!any) continue;
-      const v = this.walk(node.children[a], i, r2, ctx, mode, d);
+      const v = yield* this.gen(node.children[a], i, r2, ctx, mode, d);
       for (let h = 0; h < ni; h++) out[h] += v[h];
     }
     return out;
+  }
+
+  /** Pilote sur un cœur : les cartes de river sont calculées ici, l'une après l'autre. */
+  private walk(n: Node, i: 0 | 1, reach: Float32Array, ctx: number, mode: 0 | 1 | 2, d: [number, number, number]): Float32Array {
+    const g = this.gen(n, i, reach, ctx, mode, d);
+    let r = g.next();
+    while (!r.done) r = g.next(this.chanceChildren(r.value as ChanceAsk));
+    return r.value;
+  }
+
+  /**
+   * Demandes de river qu'un parcours fera, dans l'ordre, sans rien calculer ni modifier : ce qui arrive à un nœud de
+   * hasard ne dépend que des stratégies au-dessus (celles de l'adversaire, inchangées pendant le parcours), pas des
+   * valeurs en dessous. Elles partent donc toutes ensemble aux ouvriers.
+   */
+  private collect(n: Node, i: 0 | 1, reach: Float32Array, mode: 0 | 1 | 2, d: [number, number, number], out: ChanceAsk[]) {
+    if (n.t === "fold" || n.t === "show") return;
+    if (n.t === "chance") { out.push({ chance: this.chanceIndex.get(n)!, i, reach, mode, d }); return; }
+    const node = n as ActNode;
+    if (node.player === i) { for (const ch of node.children) this.collect(ch, i, reach, mode, d, out); return; }
+    const o = (1 - i) as 0 | 1, no = this.hs[o].n, nA = node.actions.length;
+    const sig = mode === 0 ? this.strategy(node) : this.averageStrategy(node);
+    for (let a = 0; a < nA; a++) {
+      const r2 = new Float32Array(no);
+      let any = false;
+      for (let j = 0; j < no; j++) { const x = reach[j] * sig[a * no + j]; r2[j] = x; if (x > 0) any = true; }
+      if (any) this.collect(node.children[a], i, r2, mode, d, out);
+    }
+  }
+
+  /** Pilote réparti : toutes les cartes de river du parcours sont calculées d'un coup par `ask` (les ouvriers). */
+  private async walkAsync(n: Node, i: 0 | 1, reach: Float32Array, ctx: number, mode: 0 | 1 | 2, d: [number, number, number], ask: ChanceDelegate): Promise<Float32Array> {
+    const qs: ChanceAsk[] = [];
+    this.collect(n, i, reach, mode, d, qs);
+    const answers = qs.length ? await ask(qs) : [];
+    const g = this.gen(n, i, reach, ctx, mode, d);
+    let r = g.next(), k = 0;
+    while (!r.done) {
+      const q = r.value as ChanceAsk;
+      if (k >= qs.length || qs[k].chance !== q.chance) throw new Error("calcul réparti : demandes de river dans un ordre inattendu");
+      r = g.next(answers[k++]);
+    }
+    return r.value;
+  }
+
+  /** Valeurs des sous-arbres de river d'un nœud de hasard, pour les cartes `ks` (toutes par défaut). */
+  chanceChildren(q: ChanceAsk, ks?: number[]): Float32Array[] {
+    const node = this.chances[q.chance], o = (1 - q.i) as 0 | 1;
+    const out: Float32Array[] = [];
+    for (const k of ks ?? node.children.map((_, k) => k)) {
+      const bo = this.blocked[k][o];
+      const r2 = Float32Array.from(q.reach, (x, j) => (bo[j] ? 0 : x));
+      out[k] = this.walk(node.children[k], q.i, r2, k, q.mode, q.d);
+    }
+    return out;
+  }
+
+  /** Itérations avec les ouvriers ; mêmes opérations, même ordre que `run`. */
+  async runAsync(iters: number, deadline: number, ask: ChanceDelegate): Promise<number> {
+    const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+    let done = 0;
+    for (; done < iters && now() < deadline; done++) {
+      const t = ++this.iterations;
+      const p = Math.pow(t - 1, 1.5);
+      const d: [number, number, number] = [p / (p + 1), 0.5, Math.pow((t - 1) / t, 2)];
+      for (const i of [0, 1] as const) await this.walkAsync(this.root, i, Float32Array.from(this.hs[1 - i].weights), -1, 0, d, ask);
+    }
+    return done;
+  }
+
+  private async valueAsync(i: 0 | 1, mode: 1 | 2, ask: ChanceDelegate): Promise<number> {
+    const o = (1 - i) as 0 | 1;
+    const reach = Float32Array.from(this.hs[o].weights);
+    const v = await this.walkAsync(this.root, i, reach, -1, mode, [1, 1, 1], ask);
+    const comp = compatible(this.hs[i], this.hs[o], reach, this.same[i]);
+    let num = 0, den = 0;
+    for (let h = 0; h < this.hs[i].n; h++) { const w = this.hs[i].weights[h]; num += w * v[h]; den += w * comp[h]; }
+    return den > 0 ? num / den : 0;
+  }
+
+  async exploitabilityPctAsync(ask: ChanceDelegate): Promise<number> {
+    const e = ((await this.valueAsync(0, 1, ask)) - (await this.valueAsync(0, 2, ask)) + (await this.valueAsync(1, 1, ask)) - (await this.valueAsync(1, 2, ask))) / 2;
+    return Math.max(0, (e / this.startPot) * 100);
+  }
+
+  valuesAsync(n: Node, i: 0 | 1, reach: Float32Array, ask: ChanceDelegate, ctx = -1): Promise<Float32Array> {
+    return this.walkAsync(n, i, reach, ctx, 2, [1, 1, 1], ask);
   }
 
   /** Lance des itérations ; s'arrête aussi à l'heure limite (ms, horloge performance/Date). */

@@ -107,12 +107,12 @@ for (const c of b1) {
 }
 
 // --- B2 ---
-const b2 = process.env.B2 === "0" ? [] : runB2();
+const b2 = process.env.B2 === "0" ? [] : await runB2({ only: process.env.B2_SPOTS?.split(",") });
 const f3 = (x: number) => (Number.isFinite(x) ? x.toFixed(3).replace(".", ",") : "—");
 const b2tient = b2.filter(r => r.site.exploitIndep <= 0.3 + 1e-9).length;
 if (b2.length) {
   L.push(`## B2 — Tête-à-tête réel (turn, river) : ${b2tient} / ${b2.length} spots sous 0,3 % du pot`, "");
-  L.push("Stratégie affichée par le site : solveur de fin de main avec les réglages de la décision synthétique (précision visée 0,3 % du pot ; au plus 1 500 itérations et 3 s à la river, 500 itérations et 15 s à la turn ; rake cash). Exploitabilité exacte calculée à part (tests-solveur/oracle/hu.ts) sur le même arbre de mises, et comparée à celle que mesure le site ; solveur de référence écrit à part (CFR+) sur le même arbre. Les temps dépendent de la machine : à la turn, la limite de 15 s peut arrêter le calcul avant la précision visée.", "");
+  L.push("Stratégie affichée par le site : solveur de fin de main avec les réglages de la décision synthétique (précision visée 0,3 % du pot ; au plus 1 500 itérations et 3 s à la river, 500 itérations et 15 s à la turn, rivers réparties sur un ouvrier par cœur moins un (8 au plus) comme sur le site depuis D41 ; rake cash). Exploitabilité exacte calculée à part (tests-solveur/oracle/hu.ts) sur le même arbre de mises, et comparée à celle que mesure le site ; solveur de référence écrit à part (CFR+) sur le même arbre. Les temps dépendent de la machine : à la turn, la limite de 15 s peut arrêter le calcul avant la précision visée.", "");
   L.push("| Spot | Mains (OOP / IP) | Site : itérations, temps | Exploitabilité du site (indépendante / site), % du pot | Perte en bb | solveEndgame (contrôle) | Référence : itérations, exploitabilité | Valeur OOP site / référence (bb) | 0,3 % tenu ? |", "|---|---|---|---|---|---|---|---|---|");
   for (const r of b2) {
     L.push(`| ${r.spot.id} — ${r.spot.titre} (${r.spot.board.join("")}, pot ${r.spot.startPot}, tapis ${r.spot.stack}) | ${r.combos.join(" / ")} | ${fr(r.site.iterations)} it., ${(r.site.ms / 1000).toFixed(1).replace(".", ",")} s${r.site.atteint ? "" : " (arrêt : limite)"} | ${f3(r.site.exploitIndep)} / ${f3(r.site.exploitSite)} | ${f3((r.site.exploitIndep * r.spot.startPot) / 100)} | ${fr(r.solveEndgame.iterations)} it., ${f3(r.solveEndgame.exploitPct)} % | ${fr(r.ref.iterations)} it., ${f3(r.ref.exploit)} % | ${f3(r.site.ev0)} / ${f3(r.ref.ev0)} | ${r.site.exploitIndep <= 0.3 + 1e-9 ? "oui" : "**non**"} |`);

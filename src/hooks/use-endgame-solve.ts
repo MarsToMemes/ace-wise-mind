@@ -11,6 +11,13 @@ const cache = new Map<string, EndgameResult | null>();
 export function useEndgameSolve(input: Omit<EndgameInput, "onProgress"> | null, key: string): EndgameState {
   const [state, setState] = useState<EndgameState>({ status: "idle", progress: 0, result: null });
   const worker = useRef<Worker | null>(null);
+  const cores = useRef<Worker[]>([]);
+  const stopAll = () => {
+    worker.current?.terminate();
+    worker.current = null;
+    cores.current.forEach(c => c.terminate());
+    cores.current = [];
+  };
 
   useEffect(() => {
     if (!input) { setState({ status: "idle", progress: 0, result: null }); return; }
@@ -22,24 +29,27 @@ export function useEndgameSolve(input: Omit<EndgameInput, "onProgress"> | null, 
     setState({ status: "running", progress: 0, result: null });
     // petite attente : on ne lance pas un calcul à chaque frappe
     const timer = setTimeout(() => {
-      worker.current?.terminate();
+      stopAll();
       const w = new Worker(new URL("../engines/endgame/worker.ts", import.meta.url), { type: "module" });
       worker.current = w;
+      // turn : un ouvrier par cœur (moins un, 8 au plus) qui se partagent les cartes de river (D41)
+      const cpus = typeof navigator !== "undefined" ? navigator.hardwareConcurrency || 2 : 2;
+      const nCores = input.street === "Turn" && cpus >= 3 ? Math.min(8, cpus - 1) : 0;
+      cores.current = Array.from({ length: nCores }, () => new Worker(new URL("../engines/endgame/coreWorker.ts", import.meta.url), { type: "module" }));
+      const ports = cores.current.map(c => { const ch = new MessageChannel(); c.postMessage({ port: ch.port2 }, [ch.port2]); return ch.port1; });
       w.onmessage = (e: MessageEvent<{ progress?: number; result?: EndgameResult | null; error?: string }>) => {
         const d = e.data;
         if (d.progress != null) { setState(s => ({ ...s, progress: d.progress! })); return; }
-        if (d.error) { setState({ status: "error", progress: 0, result: null }); w.terminate(); return; }
+        if (d.error) { setState({ status: "error", progress: 0, result: null }); stopAll(); return; }
         cache.set(key, d.result ?? null);
         setState({ status: d.result ? "done" : "none", progress: 1, result: d.result ?? null });
-        w.terminate();
-        if (worker.current === w) worker.current = null;
+        stopAll();
       };
-      w.postMessage({ id: 1, input });
+      w.postMessage({ id: 1, input, ports }, ports);
     }, 350);
     return () => {
       clearTimeout(timer);
-      worker.current?.terminate();
-      worker.current = null;
+      stopAll();
     };
     // la clé résume l'entrée
     // eslint-disable-next-line react-hooks/exhaustive-deps

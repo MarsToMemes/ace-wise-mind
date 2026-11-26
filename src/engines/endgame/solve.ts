@@ -4,7 +4,7 @@
 import type { Combo } from "@/engines/rangeVsRange";
 import { relStrength } from "@/engines/postflopRanges";
 import { detectDraws } from "@/lib/pokerEngine";
-import { Solver } from "@/engines/endgame/cfr";
+import { Solver, type SolverOptions, type ChanceDelegate } from "@/engines/endgame/cfr";
 import type { RakeRule } from "@/core/rake";
 import type { ActKind, ActNode, EndStreet, PathAct, Action, Sizes } from "@/engines/endgame/tree";
 
@@ -68,8 +68,8 @@ export function category(cards: [string, string], board: string[], street: EndSt
   return "pas de main";
 }
 
-export function solveEndgame(inp: EndgameInput): EndgameResult | null {
-  const t0 = Date.now();
+/** Préparation commune (un cœur ou réparti) : ranges (ta main ajoutée si absente), solveur, nœud où tu joues. */
+function prepare(inp: EndgameInput) {
   const hero = inp.hero, vil = (1 - hero) as 0 | 1;
   const ranges: [Combo[], Combo[]] = [inp.ranges[0], inp.ranges[1]];
   const hk = keyOf(inp.heroCards[0], inp.heroCards[1]);
@@ -78,40 +78,41 @@ export function solveEndgame(inp: EndgameInput): EndgameResult | null {
     const maxW = ranges[hero].reduce((m, c) => Math.max(m, c.w), 0) || 1;
     ranges[hero] = [...ranges[hero], { cards: inp.heroCards, w: maxW * 0.001 }];
   }
-  const s = new Solver({ street: inp.street, board: inp.board, startPot: inp.startPot, stack: inp.stack, ranges, path: inp.path, rake: inp.rake, sizes: inp.sizes });
+  const opts: SolverOptions = { street: inp.street, board: inp.board, startPot: inp.startPot, stack: inp.stack, ranges, path: inp.path, rake: inp.rake, sizes: inp.sizes };
+  const s = new Solver(opts);
   const target = s.pathNode;
   const hi = s.hs[hero].key.get(hk);
   if (!target || target.player !== hero || hi === undefined || !s.hs[vil].n) return null;
-
   const maxIter = inp.maxIter ?? (inp.street === "River" ? 1500 : 500);
   const budget = inp.timeBudgetMs ?? (inp.street === "River" ? 3000 : 15000);
   const goal = inp.targetPct ?? 0.3;
-  const deadline = (typeof performance !== "undefined" ? performance.now() : Date.now()) + budget;
-  const startMs = Date.now();
-  let exploit = Infinity;
   // la précision coûte deux parcours : on la mesure moins souvent à la turn
-  const chunk = inp.street === "River" ? 50 : 10, checkEvery = inp.street === "River" ? 50 : 50;
-  while (s.iterations < maxIter) {
-    const done = s.run(Math.min(chunk, maxIter - s.iterations), deadline);
-    inp.onProgress?.(Math.min(0.99, Math.max(s.iterations / maxIter, (Date.now() - startMs) / budget)));
-    if (done === 0) break;
-    if (s.iterations % checkEvery === 0 && (exploit = s.exploitabilityPct()) <= goal) break;
-  }
-  exploit = s.exploitabilityPct();
+  const chunk = inp.street === "River" ? 50 : 10, checkEvery = 50;
+  return { s, opts, hero, vil, hi, heroInRange, target, maxIter, budget, goal, chunk, checkEvery };
+}
+type Prepared = NonNullable<ReturnType<typeof prepare>>;
 
-  // chemin jusqu'au héros : portée de chaque joueur selon les stratégies moyennes
-  const reach = [Float32Array.from(s.hs[0].weights), Float32Array.from(s.hs[1].weights)];
+/** Portée de chaque joueur jusqu'au nœud où tu joues (stratégies moyennes). */
+function pathReach(p: Prepared): [Float32Array, Float32Array] {
+  const { s, target } = p;
+  const reach: [Float32Array, Float32Array] = [Float32Array.from(s.hs[0].weights), Float32Array.from(s.hs[1].weights)];
   let node = s.root as ActNode;
   while (node !== target && node.onPath !== undefined) {
     const a = node.onPath, st = s.averageStrategy(node), n = s.hs[node.player].n, r = reach[node.player];
     for (let h = 0; h < n; h++) r[h] *= st[a * n + h];
     node = node.children[a] as ActNode;
   }
+  return reach;
+}
+
+/** Résultat affiché : actions de ta main (fréquence, EV) et jeu de toute ta range à ce nœud. */
+function assemble(inp: EndgameInput, p: Prepared, reach: [Float32Array, Float32Array], childVals: Float32Array[], exploit: number, t0: number): EndgameResult {
+  const { s, target, hero, vil, hi, heroInRange } = p;
   const n = s.hs[hero].n;
   const st = s.averageStrategy(target);
   const comp = s.compatibleWeights(hero, reach[vil])[hi];
   const actions: EndgameAction[] = target.actions.map((a, k) => {
-    const v = s.values(target.children[k], hero, reach[vil])[hi];
+    const v = childVals[k][hi];
     return { kind: a.kind, to: a.to, label: actionLabel(a, target), freq: st[k * n + hi], ev: comp > 0 ? v / comp + target.c[hero] : 0 };
   });
 
@@ -127,7 +128,7 @@ export function solveEndgame(inp: EndgameInput): EndgameResult | null {
       tot += x;
       byCat.set(cats[h], (byCat.get(cats[h]) ?? 0) + x);
     }
-    const withCats = [...byCat.entries()].filter(([, x]) => tot > 0 && x / tot >= 0.2).sort((p, q) => q[1] - p[1]).slice(0, 2).map(([c]) => c);
+    const withCats = [...byCat.entries()].filter(([, x]) => tot > 0 && x / tot >= 0.2).sort((p2, q) => q[1] - p2[1]).slice(0, 2).map(([c]) => c);
     return { label: actionLabel(a, target), freq: totalReach > 0 ? tot / totalReach : 0, with: withCats };
   });
 
@@ -137,4 +138,49 @@ export function solveEndgame(inp: EndgameInput): EndgameResult | null {
     iterations: s.iterations, ms: Date.now() - t0,
     combos: [s.hs[0].n, s.hs[1].n], heroInRange,
   };
+}
+
+const clock = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+export function solveEndgame(inp: EndgameInput): EndgameResult | null {
+  const t0 = Date.now();
+  const p = prepare(inp);
+  if (!p) return null;
+  const { s, maxIter, budget, goal, chunk, checkEvery } = p;
+  const deadline = clock() + budget;
+  while (s.iterations < maxIter) {
+    const done = s.run(Math.min(chunk, maxIter - s.iterations), deadline);
+    inp.onProgress?.(Math.min(0.99, Math.max(s.iterations / maxIter, (Date.now() - t0) / budget)));
+    if (done === 0) break;
+    if (s.iterations % checkEvery === 0 && s.exploitabilityPct() <= goal) break;
+  }
+  const exploit = s.exploitabilityPct();
+  const reach = pathReach(p);
+  const childVals = p.target.children.map(c => s.values(c, p.hero, reach[p.vil]));
+  return assemble(inp, p, reach, childVals, exploit, t0);
+}
+
+/**
+ * Même calcul, les cartes de river réparties sur des ouvriers (D41) : `start` reçoit les options du solveur (pour que
+ * chaque ouvrier construise le même arbre) et rend la fonction qui leur demande les sous-arbres de river.
+ * Mêmes opérations dans le même ordre que solveEndgame : même résultat au bit près, plus vite.
+ */
+export async function solveEndgameAsync(inp: EndgameInput, start: (o: SolverOptions) => Promise<ChanceDelegate>): Promise<EndgameResult | null> {
+  const t0 = Date.now();
+  const p = prepare(inp);
+  if (!p) return null;
+  const { s, maxIter, budget, goal, chunk, checkEvery } = p;
+  const ask = await start(p.opts);
+  const deadline = clock() + budget;
+  while (s.iterations < maxIter) {
+    const done = await s.runAsync(Math.min(chunk, maxIter - s.iterations), deadline, ask);
+    inp.onProgress?.(Math.min(0.99, Math.max(s.iterations / maxIter, (Date.now() - t0) / budget)));
+    if (done === 0) break;
+    if (s.iterations % checkEvery === 0 && (await s.exploitabilityPctAsync(ask)) <= goal) break;
+  }
+  const exploit = await s.exploitabilityPctAsync(ask);
+  const reach = pathReach(p);
+  const childVals: Float32Array[] = [];
+  for (const c of p.target.children) childVals.push(await s.valuesAsync(c, p.hero, reach[p.vil], ask));
+  return assemble(inp, p, reach, childVals, exploit, t0);
 }
