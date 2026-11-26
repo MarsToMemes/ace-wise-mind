@@ -50,7 +50,7 @@ function linesOf(v: View): [LineEvent[], LineEvent[]] {
   return out;
 }
 
-function ranges(v: View): [ReturnType<typeof expandRange>, ReturnType<typeof expandRange>] {
+export function ranges(v: View): [ReturnType<typeof expandRange>, ReturnType<typeof expandRange>] {
   const slots = slotsFor(v.pfrPos, v.callPos, "srp");
   const raw = (slot: string, pct: number) => { const w = getRange(slot).weights; return expandRange(Object.keys(w).length ? w : topPercentRange(pct), v.board); };
   const base = v.pfr === 0 ? [raw(slots.pfr, 30), raw(slots.caller, 35)] : [raw(slots.caller, 35), raw(slots.pfr, 30)];
@@ -95,17 +95,25 @@ function advisor(v: View): Choice {
   return adv.allIn ? clampTo(v, "bet", v.legal.bet?.max ?? 0) : clampTo(v, "bet", size);
 }
 
-function riverSolver(v: View): Choice | null {
+/** Entrée du solveur de la river pour cette vue (partagée avec B3). */
+export function riverInput(v: View) {
   const [r0, r1] = ranges(v);
   const riverActs = v.history.filter(a => a.street === "River");
-  const startPot = v.streetStartPot, startEff = v.streetStartEff;
-  const res = solveEndgame({
-    street: "River", board: v.board, startPot, stack: startEff, ranges: [r0, r1], hero: v.me, heroCards: v.hole,
+  return {
+    street: "River" as const, board: v.board, startPot: v.streetStartPot, stack: v.streetStartEff, ranges: [r0, r1] as [typeof r0, typeof r1], hero: v.me, heroCards: v.hole,
     path: riverActs.map(a => (a.kind === "bet" || a.kind === "raise" ? { player: a.who, kind: a.kind, to: a.to } : { player: a.who, kind: a.kind })),
     rake: CASH_RAKE, timeBudgetMs: 1e9,
-  } as never);
+  };
+}
+
+function riverSolver(v: View): Choice | null {
+  const res = solveEndgame(riverInput(v) as never);
   if (!res) return null;
-  const best = res.actions.reduce((b, x) => (x.freq > b.freq ? x : b));
+  return riverChoice(v, res.actions.reduce((b, x) => (x.freq > b.freq ? x : b)));
+}
+
+/** Action la plus jouée par la main au solveur de la river → choix joué (partagé avec B3, qui lit toute la range d'un coup). */
+export function riverChoice(v: View, best: { kind: string; to: number }): Choice {
   if (best.kind === "fold") return v.legal.check ? { kind: "check", how: "fold→check" } : { kind: "fold", how: "solveur" };
   if (best.kind === "check") return v.legal.check ? { kind: "check", how: "solveur" } : { kind: "call", how: "check→call" };
   if (best.kind === "call") return { kind: v.legal.call > 0 ? "call" : "check", how: "solveur" };

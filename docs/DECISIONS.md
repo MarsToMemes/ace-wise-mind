@@ -914,3 +914,37 @@ l'arbitre, aucun repli (146 173 décisions). La correction de la chance ne retir
 **Lecture.** Les corrections de D35 et D38 ne montrent pas de gain mesurable en tête-à-tête contre l'ancienne version
 (elles changent surtout des cas rares) ; le site bat nettement les profils qui paient tout ou misent tout le temps ; contre
 un profil serré, 6 000 mains ne suffisent pas pour conclure.
+
+## D43 — Banc, partie B3 : exploiteur (Local Best Response), borne basse · 2026-11-26
+
+**Méthode.** `tests-solveur/b3/` : un exploiteur (Lisý et Bowling, arXiv 1612.07547) joue en duplicate contre le joueur
+« site » de B4 (et contre deux profils simples), sur les donnes de B4, arbitre A1, 9 fils de calcul. Il connaît la
+stratégie de la cible (une fonction : vue → choix de chaque main), jamais ses cartes. Range suivie : range préflop de la
+place de la cible, filtrée après chaque décision de la cible (mains qui auraient fait exactement ce choix ; le conseiller
+maison est déterministe, graine fixe : filtre exact). À chaque décision : valeur de chaque action en supposant la main
+finie en check jusqu'à l'abattage ; pour une mise (moitié du pot, pot, tapis), réponse de la cible lue main par main.
+Contrôles : sur Kuhn, Leduc et les 8 rivers de B2, sa valeur exacte ne dépasse jamais la meilleure réponse exacte ; la
+vraie main de la cible reste toujours dans la range suivie ; la river du site lue pour toute la range en un seul calcul
+donne, main par main, le même choix que `decide`.
+
+**Choix.**
+- Lu comme une borne basse, jamais comme une note : l'exploiteur est une stratégie réelle, donc ce qu'il gagne, la
+  meilleure réponse le gagne au moins. En duplicate (les deux places), la valeur du jeu est nulle : son gain moyen est
+  une borne basse de l'exploitabilité de la stratégie jouée.
+- Part de pot contre les seules mains qui paient (l'article prend toute la range) : plus juste, et toute règle reste une
+  stratégie valable, donc la borne reste valable. Une relance de la cible est comptée comme un call dans ses calculs.
+- Tailles moitié du pot, pot, tapis (proche du « FC + ½P + P + tapis » de l'article) : plus de tailles rendent chaque
+  décision plus lente (une lecture de toute la range de la cible par taille).
+- River du site résolue une fois pour toute la range (même boucle que `solveEndgame`) au lieu d'une fois par main
+  (0,4 s × 500 mains) ; une main absente de la range du solveur (qui changerait le jeu) est demandée à `decide`.
+- Écartés : la meilleure réponse exacte sur flop-turn-river (arbre bien trop gros) ; l'exploiteur contre le solveur de
+  turn de 30 s (des heures par main) ; le préflop.
+
+**Résultats** (graine 20261125, rapport 2026-11-26-2004 ; bb/100, intervalle à 95 %, corrigé de la chance) :
+contrôles 24 / 24 (Kuhn, Leduc) et 32 / 32 (rivers de B2) sous la meilleure réponse exacte ; river lue en un seul calcul :
+81 mains sur 81 identiques à `decide`. Exploiteur contre le site : **+664 ± 148** sur 800 mains (au moins 516 bb/100) ;
+contre « toujours call » +2 568 ± 366 ; contre « serré » +291 ± 109 (400 mains chacun). Vraie main de la cible hors de
+la range suivie : 0 sur 3 361 décisions observées ; aucune action refusée par l'arbitre. Contre le site, l'exploiteur fait
+tapis 355 fois et le site se couche 72 % du temps. Sur les rivers de B2, contre le solveur seul, il ne trouve que 0 à
+0,3 jeton par main (parfois moins que la stratégie elle-même) : la faille est au flop et à la turn, jouées par le conseiller
+maison dans ce banc.

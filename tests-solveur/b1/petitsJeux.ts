@@ -39,7 +39,7 @@ function explicite(id: string, titre: string, root: JNode, valeur0: number, iter
 }
 
 /** Partie commune aux rivers : arbre du solveur → arbre pour la meilleure réponse indépendante. */
-function riverGame(s: Solver, board: string[]) {
+export function riverGame(s: Solver, board: string[]) {
   const conv = (n: unknown): RNode => {
     const x = n as { t: string; id: number; player: 0 | 1; children: unknown[]; c: [number, number]; folder: 0 | 1 };
     if (x.t === "act") return { t: "act", id: x.id, player: x.player, c: x.c, children: x.children.map(conv) };

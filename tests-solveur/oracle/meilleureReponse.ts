@@ -83,7 +83,7 @@ export interface RiverGame {
 }
 
 /** Gains de i (main h) contre o (main j) à un terminal : ce qu'il reçoit du pot moins ce qu'il a mis dans la river. */
-function payoff(g: RiverGame, n: RNode, i: 0 | 1, si: number, sj: number): number {
+export function payoff(g: RiverGame, n: RNode, i: 0 | 1, si: number, sj: number): number {
   const o = 1 - i;
   if (n.t === "fold") return n.folder === i ? -n.c[i] : g.startPot + n.c[o];
   if (n.t === "show") {

@@ -12,7 +12,17 @@ import { Table, c as cents, bbOf } from "../oracle/regles";
 import { rng, DECK } from "../outils/hasard";
 import type { View, Choice, HAct, Kind } from "./joueur";
 
-export type Player = { name: string; decide: (v: View, r: () => number) => Choice };
+/** Ce que la partie offre à un joueur qui réfléchit sur les réponses de l'autre (B3) : la vue de l'adversaire après une
+ *  action envisagée (null si la street ou la main se ferme). */
+export interface Ctx { after(kind: Kind, to?: number): View | null }
+export type Player = {
+  name: string;
+  decide: (v: View, r: () => number, ctx?: Ctx) => Choice;
+  /** Début de main (B3) : place du joueur (0 relanceur, 1 payeur), positions et ses propres cartes. */
+  begin?: (role: 0 | 1, info: { pfrPos: string; callPos: string; hole: [string, string] }) => void;
+  /** Chaque décision de l'adversaire (B3) : sa vue et son choix. Les cartes de la vue ne servent qu'au contrôle. */
+  observe?: (v: View, ch: Choice) => void;
+};
 export const PAIRS: [string, string][] = [["BTN", "BB"], ["CO", "BB"], ["MP", "BB"], ["SB", "BB"], ["CO", "BTN"], ["UTG", "BB"]];
 const SEAT: Record<string, number> = { UTG: 0, MP: 1, CO: 2, BTN: 3, SB: 4, BB: 5 };
 
@@ -97,6 +107,9 @@ export const BASELINES: Player[] = [
   },
 ];
 
+/** Copie de l'arbitre (pour essayer une action sans la jouer). */
+export const cloneTable = (t: Table): Table => Object.setPrototypeOf(structuredClone({ ...t }), Table.prototype);
+
 /** Une main : `players[0]` joue la place du relanceur, `players[1]` celle du payeur. */
 export function playGame(d: Deal, players: [Player, Player], aivat: boolean): GameOut {
   const t = new Table({ n: 6, dealer: 3, stacks: Array(6).fill(100) });
@@ -114,6 +127,8 @@ export function playGame(d: Deal, players: [Player, Player], aivat: boolean): Ga
   const who = (seat: number): 0 | 1 => (seat === oopSeat ? 0 : 1);
   const pfr = who(sp);
   const playerOf = (seat: number) => (seat === sp ? players[0] : players[1]);
+  players[0].begin?.(0, { pfrPos: d.pfrPos, callPos: d.callPos, hole: d.pfrCards });
+  if (players[1] !== players[0]) players[1].begin?.(1, { pfrPos: d.pfrPos, callPos: d.callPos, hole: d.callCards });
   const hist: HAct[] = [];
   const out: GameOut = { net: [0, 0], corr: [0, 0], fallbacks: 0, illegal: 0, decisions: 0 };
   const names = ["Flop", "Turn", "River"] as const;
@@ -131,16 +146,31 @@ export function playGame(d: Deal, players: [Player, Player], aivat: boolean): Ga
       streetStartPot = bbOf(t.pot); streetStartEff = bbOf(t.effective(oopSeat));
       continue;
     }
-    const seat = t.toAct, L = t.legal()!, s = t.seats[seat];
+    const seat = t.toAct;
     const street = names[boardLen - 3];
-    const v: View = {
-      me: who(seat), pfr, pfrPos: d.pfrPos, callPos: d.callPos, hole: holes[seat], board: d.board.slice(0, boardLen), street,
-      flopPot, preflopPut, startStack: 100, history: hist.map(h => ({ ...h })),
-      pot: bbOf(t.pot), toCall: bbOf(Math.min(t.toCallOf(seat), s.stack)), remaining: bbOf(s.stack), effRemaining: bbOf(t.effective(seat)),
-      myStreet: bbOf(s.street), currentBet: bbOf(t.currentBet), streetStartPot, streetStartEff,
-      legal: { check: L.check, call: bbOf(L.call), bet: L.bet && { min: bbOf(L.bet.min), max: bbOf(L.bet.max) }, raise: L.raise && { minTo: bbOf(L.raise.minTo), maxTo: bbOf(L.raise.maxTo) } },
+    const viewOf = (tb: Table, st: number, h: HAct[]): View => {
+      const L = tb.legal(st)!, s = tb.seats[st];
+      return {
+        me: who(st), pfr, pfrPos: d.pfrPos, callPos: d.callPos, hole: holes[st], board: d.board.slice(0, boardLen), street,
+        flopPot, preflopPut, startStack: 100, history: h.map(x => ({ ...x })),
+        pot: bbOf(tb.pot), toCall: bbOf(Math.min(tb.toCallOf(st), s.stack)), remaining: bbOf(s.stack), effRemaining: bbOf(tb.effective(st)),
+        myStreet: bbOf(s.street), currentBet: bbOf(tb.currentBet), streetStartPot, streetStartEff,
+        legal: { check: L.check, call: bbOf(L.call), bet: L.bet && { min: bbOf(L.bet.min), max: bbOf(L.bet.max) }, raise: L.raise && { minTo: bbOf(L.raise.minTo), maxTo: bbOf(L.raise.maxTo) } },
+      };
     };
-    const ch = playerOf(seat).decide(v, rr);
+    const L = t.legal()!;
+    const v = viewOf(t, seat, hist);
+    const ctx: Ctx = {
+      after(kind, to) {
+        const u = cloneTable(t);
+        if (u.apply({ seat, kind, to: to !== undefined ? cents(to) : undefined })) return null;
+        if (u.handOver() || u.streetClosed()) return null;
+        return viewOf(u, u.toAct, [...hist, { street, who: who(seat), kind, to: bbOf(u.seats[seat].street) }]);
+      },
+    };
+    const me = playerOf(seat), other = playerOf(seat === sp ? sc : sp);
+    const ch = me.decide(v, rr, ctx);
+    if (other !== me) other.observe?.(v, ch);
     out.decisions++;
     if (ch.how && ch.how !== "solveur") out.fallbacks++;
     let kind: Kind = ch.kind;

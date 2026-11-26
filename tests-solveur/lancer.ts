@@ -13,6 +13,8 @@ import { runA4 } from "./a4/equite";
 import { runB1 } from "./b1/petitsJeux";
 import { runB2 } from "./b2/spots";
 import { runB4 } from "./b4/run";
+import { runB3 } from "./b3/run";
+import { petitsJeux, rivers } from "./b3/petits";
 
 const root = resolve(process.cwd());
 const args = process.argv.slice(2);
@@ -32,7 +34,7 @@ const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate
 const L: string[] = [];
 const fr = (x: number) => x.toLocaleString("fr-FR");
 
-L.push(`# Banc de test du solveur — partie A (moteur de table, équité), B1 (petits jeux), B2 (tête-à-tête réel) et B4 (matchs)`, "", `Rapport du ${now.toLocaleString("fr-FR")}. Graine de A2 : **${SEED}**, ${fr(HANDS)} mains.`, "");
+L.push(`# Banc de test du solveur — partie A (moteur de table, équité), B1 (petits jeux), B2 (tête-à-tête réel), B4 (matchs) et B3 (exploiteur, borne basse)`, "", `Rapport du ${now.toLocaleString("fr-FR")}. Graine de A2 : **${SEED}**, ${fr(HANDS)} mains.`, "");
 L.push("Partie A : justesse du moteur de table, de ce que la page affiche et de l'équité, par comparaison à un arbitre indépendant. Partie B1 : convergence des solveurs sur des petits jeux à solution connue. Rien ici ne prouve qu'une stratégie du site est un équilibre sur les vrais spots (parties B2 à B5).", "");
 
 // --- A1 ---
@@ -143,9 +145,47 @@ if (b4) {
   L.push("");
 }
 
+// --- B3 ---
+const B3_DEALS = Number(process.env.B3_DEALS ?? 400), B3_PROFILS = Number(process.env.B3_PROFILS ?? 200), B3_CONTROLE = Number(process.env.B3_CONTROLE ?? 18);
+const b3j = petitsJeux(), b3r = rivers();
+const b3 = process.env.B3 === "0" ? null : await runB3({ seed: SEED, deals: B3_DEALS, baselineDeals: B3_PROFILS, checkDeals: B3_CONTROLE, onProgress: m => console.log(`B3 · ${m}`) });
+{
+  const f1 = (x: number) => x.toFixed(1).replace(".", ","), f4 = (x: number) => x.toFixed(4).replace(".", ",");
+  L.push(`## B3 — Gros arbres : exploiteur (Local Best Response), borne basse`, "");
+  L.push("**Ce chiffre est une borne basse, jamais un score de qualité.** L'exploiteur connaît la stratégie de l'adversaire (pas ses cartes), suit sa range en gardant les mains qui auraient fait les actions vues, et joue à chaque décision l'action la plus rentable en supposant que la main se finit ensuite en check (un coup d'avance ; tailles essayées : moitié du pot, pot, tapis). Ce qu'il gagne, un adversaire parfait le gagne au moins ; s'il gagne peu, ça ne prouve pas que la stratégie est solide (Lisý et Bowling, arXiv 1612.07547).", "");
+  const jko = b3j.filter(l => !l.ok), rko = b3r.filter(l => !l.ok);
+  L.push(`### Contrôles de l'exploiteur (meilleure réponse exacte connue)`, "");
+  L.push(`Petits jeux (Kuhn, Leduc ; valeurs exactes, sans tirage) : **${b3j.length - jko.length} / ${b3j.length}** lignes où l'exploiteur ne dépasse pas la meilleure réponse${jko.length ? " — **ÉCHEC** : " + jko.map(l => `${l.jeu} ${l.strategie} J${l.joueur}`).join(", ") : ""}.`, "");
+  L.push("| Jeu | Stratégie de l'adversaire | Joueur exploiteur | Valeur de la stratégie | Exploiteur | Meilleure réponse |", "|---|---|---|---|---|---|");
+  for (const l of b3j) L.push(`| ${l.jeu} | ${l.strategie} | ${l.joueur + 1} | ${f4(l.ev)} | ${f4(l.lbr)} | ${f4(l.br)} |`);
+  L.push("", `Rivers de B2 (stratégie du solveur du site, et « toujours check / payer » ; jetons par main, sans rake) : **${b3r.length - rko.length} / ${b3r.length}** sous la meilleure réponse${rko.length ? " — **ÉCHEC** : " + rko.map(l => `${l.spot} ${l.strategie} J${l.joueur}`).join(", ") : ""}. « Part trouvée » = (exploiteur − stratégie) / (meilleure réponse − stratégie) : la part du gain maximal que l'exploiteur trouve (négative s'il joue moins bien que la stratégie elle-même).`, "");
+  L.push("| Spot | Stratégie | Joueur | Stratégie | Exploiteur | Meilleure réponse | Part trouvée |", "|---|---|---|---|---|---|---|");
+  for (const l of b3r) L.push(`| ${l.spot} | ${l.strategie} | ${l.joueur === 0 ? "hors position" : "en position"} | ${f4(l.ev)} | ${f4(l.lbr)} | ${f4(l.br)} | ${Math.round(100 * l.part)} % |`);
+  L.push("");
+  if (b3) {
+    const ck = b3.check;
+    L.push(`### Contre le site et deux profils simples`, "");
+    L.push(`Le site joue comme en B4 : conseiller maison au flop et à la turn, solveur de fin de main à la river (action la plus jouée par la main). Donnes de B4 (graine ${SEED}), jouées deux fois, places échangées ; score de l'exploiteur = (son gain − celui de la cible) / 2 par donne, sans rake, en bb pour 100 mains ; ± = intervalle de confiance à 95 %. ${b3.workers} fils de calcul.`, "");
+    L.push(`Contrôle de la river lue en un seul calcul : ${fr(ck.same)} mains identiques à decide, ${fr(ck.diff)} différentes, sur ${fr(ck.nodes)} rivers (${fr(ck.deals)} donnes à part)${ck.diff ? ` — **ÉCHEC** : ${ck.fails.join(" ; ")}` : " (OK)"}.`, "");
+    L.push("| Cible | Mains | Brut (bb/100) | Corrigé de la chance (bb/100) | Lecture | Vraie main hors de la range suivie | Range vide | Refus de l'arbitre | Durée |", "|---|---|---|---|---|---|---|---|---|");
+    for (const l of b3.lignes) {
+      const lo = l.adj.bb100 - l.adj.ci;
+      const lecture = lo > 0 ? `faille démontrée : au moins ${f1(lo)} bb/100` : "aucune faille démontrée (ce qui ne prouve rien)";
+      L.push(`| ${l.cible} | ${fr(l.hands)} | ${f1(l.raw.bb100)} ± ${f1(l.raw.ci)} | ${f1(l.adj.bb100)} ± ${f1(l.adj.ci)} | ${lecture} | ${fr(l.stats.horsRange)} sur ${fr(l.stats.observed)} | ${fr(l.stats.vide)} | ${fr(l.illegal)} sur ${fr(l.decisions)} | ${Math.round(l.ms / 60000)} min |`);
+    }
+    L.push("");
+    for (const l of b3.lignes) {
+      const acts = Object.entries(l.stats.actions).sort((a, b) => b[1] - a[1]).map(([a, x]) => `${a} ${fr(x)}`).join(", ");
+      const rep = Object.entries(l.stats.reponses).map(([a, m]) => { const t = Object.values(m).reduce((x, y) => x + y, 0); return `${a} : ${Object.entries(m).sort((x, y) => y[1] - x[1]).map(([k, x]) => `${k} ${Math.round((100 * x) / t)} %`).join(", ")} (${fr(t)})`; }).join(" ; ");
+      L.push(`- **${l.cible}** — actions de l'exploiteur : ${acts}. Réponses de la cible : ${rep || "—"}.`);
+    }
+    L.push("");
+  }
+}
+
 // --- classement ---
 L.push("## Bugs trouvés, du plus grave au moins grave (corrections proposées, NON appliquées)", "");
-L.push("Gravité : 1 = montant ou légalité faux pour le jeu ; 2 = conseil ou saisie impossible ; 3 = conseil hors règle mais sans effet sur les montants ; 4 = règle différente (convention à trancher).", "");
+L.push("Gravité : 1 = montant ou légalité faux pour le jeu ; 2 = conseil ou saisie impossible ; 3 = conseil hors règle ou exploitable, sans effet sur les montants ; 4 = règle différente (convention à trancher).", "");
 const seen = new Map<string, { fiche: ReturnType<typeof ficheDe>; checks: string[]; n: number; hands: number }>();
 const biais = a4.cas.filter(c => !c.ok);
 if (biais.length) {
@@ -158,6 +198,13 @@ const b2ko = b2.filter(r => r.site.exploitIndep > 0.3 + 1e-9);
 if (b2ko.length) seen.set("B2-turn", { fiche: { gravite: 3,
   cause: `Solveur de fin de main : la stratégie affichée dépasse la précision annoncée (0,3 % du pot) sur ${b2ko.map(r => `${r.spot.id} (${f3(r.site.exploitIndep)} %${r.site.atteint ? "" : ", arrêt sur la limite de temps"})`).join(", ")}. La limite de temps a arrêté le calcul avant la précision visée.`,
   correction: "Au choix : prolonger le calcul à la turn (temps ou itérations), le répartir sur les cœurs (comme le multiway), réduire les ranges aux mains qui comptent, ou afficher la précision atteinte au lieu de « 0,3 % »." }, checks: [`B2, spots ${b2ko.map(r => r.spot.id).join(", ")}`], n: b2ko.length, hands: 0 });
+const b3site = b3?.lignes.find(l => l.cible === "site");
+if (b3site && b3site.adj.bb100 - b3site.adj.ci > 0) {
+  const sh = b3site.stats.reponses["mise tapis"], tot = sh ? Object.values(sh).reduce((a, b) => a + b, 0) : 0;
+  seen.set("B3-exploit", { fiche: { gravite: 3,
+    cause: `Joueur « site » (conseiller maison au flop et à la turn, solveur à la river) exploitable : un exploiteur à un coup d'avance gagne au moins ${(b3site.adj.bb100 - b3site.adj.ci).toFixed(0)} bb/100 (${b3site.adj.bb100.toFixed(0)} ± ${b3site.adj.ci.toFixed(0)}, borne basse). Il fait souvent tapis${tot ? ` ; la cible se couche alors ${Math.round((100 * (sh.fold ?? 0)) / tot)} % du temps (${tot} fois)` : ""}. Sur les rivers de B2, contre le solveur seul, l'exploiteur ne trouve presque rien : la faille est au flop et à la turn.`,
+    correction: "À examiner avant de corriger : découper le gain de l'exploiteur par street et par taille de mise. Pistes : faire répondre le conseiller aux grosses mises et aux tapis d'après la cote et une range adverse élargie (une mise inhabituelle ne vient pas seulement des mains fortes), ou passer la main au solveur de fin de main face à un tapis ; puis relancer B3." }, checks: ["B3 exploiteur contre le site"], n: 1, hands: 0 });
+}
 const biaisBase = a4.casBase.filter(c => !c.ok);
 const evKo = a4.evaluateurs.filter(e => e.desaccords > 0);
 if (biaisBase.length || evKo.length) seen.set("A4-base", { fiche: { gravite: 1, cas: biaisBase.map(c => c.id).join(", "),
@@ -177,6 +224,7 @@ L.push("");
 
 L.push("## Ce que ces tests ne montrent pas", "");
 L.push(
+  "- B3 : une borne basse, pas une note. L'exploiteur ne voit qu'un coup d'avance et trois tailles de mise : un adversaire plus malin trouverait peut-être plus. Le préflop n'est pas joué ; à la turn, le site est joué par le conseiller maison et non par le solveur de 30 s (trop lent pour des centaines de mains) ; une relance de la cible est comptée comme un call dans ses calculs. Un intervalle qui touche zéro ne veut pas dire « inexploitable ».",
   "- B4 : le préflop n'est pas joué (ranges de départ fixées par la ligne : pot simple), la turn est jouée par le conseiller maison et non par le solveur, le joueur « site » prend l'action la plus jouée (pas la stratégie mixte) ; les profils simples sont des caricatures : les battre ne dit rien contre de bons joueurs. La correction de la chance ne porte que sur les cartes du board (pas sur les décisions, faute de stratégies complètes) : elle réduit peu la variance. Un intervalle qui contient zéro veut dire « pas de différence démontrée ».",
   "- B2 : 12 spots choisis à la main (ranges plausibles, pas celles que la page déduit d'une vraie main) ; la référence est un CFR+ écrit à part, poussé plus loin mais pas à zéro (son exploitabilité est donnée) ; le flop n'est pas résolu par le site (conseiller maison) et n'est pas mesuré ici ; les temps dépendent de la machine et de sa charge.",
   "- B1 montre que les solveurs convergent sur de petits jeux ; il ne dit rien des vrais spots (arbres plus gros, ranges réelles), ni du préflop (GTOpen), ni du conseiller maison, ni du multiway (aucun équilibre garanti au-delà de 2 joueurs) : parties B2 à B5. Leduc est joué par le CFR générique du site, qui n'est pas celui de la décision synthétique ; le solveur de la décision synthétique en tête-à-tête est mesuré sur Kuhn et deux rivers.",
@@ -198,6 +246,6 @@ mkdirSync(dir, { recursive: true });
 const file = join(dir, `${stamp}.md`);
 writeFileSync(file, L.join("\n"));
 writeFileSync(join(dir, `${stamp}-ecarts.json`), JSON.stringify({ seed: SEED, hands: HANDS, divergences: a2.divergences }, null, 1));
-console.log(`B4 : ${b4 ? b4.lignes.map(l => `${l.B} ${l.adj.bb100.toFixed(1)}±${l.adj.ci.toFixed(1)}`).join(", ") : "sauté"} | B2 : ${b2tient}/${b2.length} sous 0,3 % | B1 : ${b1.filter(c => c.ok).length}/${b1.length} | A1 : ${a1.length - a1ko.length}/${a1.length} | A4 : ${a4ok}/${a4.cas.length} + ${a4.casBase.filter(c => c.ok).length}/${a4.casBase.length} sans biais | A2 : ${fr(a2.hands)} mains, ${fr(a2.divergences.length)} écarts (${fams.map(f => `${f} ${a2.divergences.filter(d => d.family === f).length}`).join(", ")}) | A3 : ${a3ok}/${a3.length}`);
+console.log(`B3 : ${b3 ? b3.lignes.map(l => `${l.cible} ${l.adj.bb100.toFixed(1)}±${l.adj.ci.toFixed(1)}`).join(", ") : "sauté"}, contrôles ${b3j.filter(l => l.ok).length}/${b3j.length} + ${b3r.filter(l => l.ok).length}/${b3r.length} | B4 : ${b4 ? b4.lignes.map(l => `${l.B} ${l.adj.bb100.toFixed(1)}±${l.adj.ci.toFixed(1)}`).join(", ") : "sauté"} | B2 : ${b2tient}/${b2.length} sous 0,3 % | B1 : ${b1.filter(c => c.ok).length}/${b1.length} | A1 : ${a1.length - a1ko.length}/${a1.length} | A4 : ${a4ok}/${a4.cas.length} + ${a4.casBase.filter(c => c.ok).length}/${a4.casBase.length} sans biais | A2 : ${fr(a2.hands)} mains, ${fr(a2.divergences.length)} écarts (${fams.map(f => `${f} ${a2.divergences.filter(d => d.family === f).length}`).join(", ")}) | A3 : ${a3ok}/${a3.length}`);
 console.log(`Rapport : tests-solveur/rapports/${stamp}.md`);
 process.exitCode = a1ko.length || a3ok < a3.length || b1.some(c => !c.ok) || (b4 && b4.self.maxAbs !== 0) ? 1 : 0;
