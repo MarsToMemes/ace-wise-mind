@@ -4,7 +4,7 @@
 //  - river : solveur de fin de main (solveEndgame), réglages du site, action la plus jouée par ta main (celle affichée).
 // Écart assumé : à la turn, le site utilise le solveur (jusqu'à 30 s par décision) ; ici, le conseiller maison.
 import { getRange, slotsFor } from "@/engines/matchupRanges";
-import { filterByLine, removeDead, type LineEvent } from "@/engines/postflopRanges";
+import { filterByLine, filterByBet, removeDead, type LineEvent } from "@/engines/postflopRanges";
 import { setSolverBaseGame } from "@/engines/solverSpots";
 import { advisePostflop } from "@/engines/postflopAdvisor";
 import { solveEndgame } from "@/engines/endgame/solve";
@@ -65,10 +65,26 @@ const clampTo = (v: View, kind: "bet" | "raise", to: number): Choice => {
   return L.check ? { kind: "check", how: "repli" } : { kind: "call", how: "repli" };
 };
 
-function advisor(v: View): Choice {
+/**
+ * Conseil maison pour cette vue. `pageLike` (analyse de B3 seulement) : comme la page, la range adverse est aussi
+ * resserrée par la mise de la street en cours (filterByBet, taille rapportée au pot d'avant la mise) ; le joueur de
+ * B4 et B3 ne le fait pas.
+ */
+export function adviceFor(v: View, pageLike = false) {
   const [r0, r1] = ranges(v);
   const o = (1 - v.me) as 0 | 1;
-  const mineR = removeDead(v.me === 0 ? r0 : r1, v.board), oppR = removeDead(v.me === 0 ? r1 : r0, [...v.board, ...v.hole]);
+  let oppR = removeDead(v.me === 0 ? r1 : r0, [...v.board, ...v.hole]);
+  const mineR = removeDead(v.me === 0 ? r0 : r1, v.board);
+  if (pageLike) {
+    const cur = v.history.filter(a => a.street === v.street);
+    const k = cur.map(a => a.who === o && (a.kind === "bet" || a.kind === "raise")).lastIndexOf(true);
+    if (k >= 0) {
+      const a = cur[k], prevTo = cur.slice(0, k).filter(x => x.who === o).reduce((m, x) => Math.max(m, x.to), 0);
+      const myTo = cur.slice(0, k).filter(x => x.who === v.me).reduce((m, x) => Math.max(m, x.to), 0);
+      const potBefore = v.streetStartPot + prevTo + myTo;
+      oppR = filterByBet(oppR, v.board, v.street, potBefore > 0 ? a.to / potBefore : 0.5);
+    }
+  }
   const lines = linesOf(v);
   const prevSt = v.street === "Turn" ? "Flop" : v.street === "River" ? "Turn" : null;
   const prev = (p: 0 | 1) => (prevSt ? lines[p].find(e => e.street === prevSt)?.act : undefined);
@@ -81,6 +97,11 @@ function advisor(v: View): Choice {
     opponents: 1, prevVillain: prev(o), prevHero: prev(v.me),
     villainCheckedThisStreet: cur.some(a => a.who === o && a.kind === "check"), rake: CASH_RAKE,
   } as never);
+  return adv;
+}
+
+function advisor(v: View): Choice {
+  const adv = adviceFor(v);
   const a = adv.action as string, size = adv.sizeBB ?? 0;
   if (a === "fold") return v.legal.check ? { kind: "check", how: "fold→check" } : { kind: "fold", how: "" };
   if (a === "check") return v.legal.check ? { kind: "check", how: "" } : { kind: "call", how: "check→call" };
