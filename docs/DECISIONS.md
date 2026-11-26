@@ -988,3 +988,28 @@ pas de différence démontrée. Contre « toujours call » : +1 030 ± 69, +1 82
 +1 650 ± 144, +2 075 ± 163, +2 648 ± 176. Contre « serré » : +20,9 ± 55,2 (pas de différence démontrée), +76,3 ± 59,3,
 +317,2 ± 92,7. Partie A du même lancement : A1 28 / 28, A2 20 000 mains (2 à 6 joueurs, environ 4 000 chacun), 0 écart
 moteur, page ou conseil ; A3 12 / 12 ; A4 16 / 16 et 8 / 8.
+
+## D45 — Range Explorer branché sur la bibliothèque, nœuds vides du préflop · retenu · 2026-11-26
+
+**Problème 1 (Explorer).** Cause : l'onglet Open affichait des tables écrites en dur (`positionRangeCatalog.ts` ;
+scénario BTN 100 bb de `scenarioRanges.ts`) — UTG 10,2 / MP 14,4 / CO 21,5 / SB 25,9 % — qui servaient aussi de range
+de secours au conseiller. Choix : une seule fonction d'accès, `getOpenRange(position)` (solverSpots.ts), lue par
+`solverRangeForSlot`, la range de secours de `matchupRanges` et l'Explorer (`lib/explorerOpen.ts`) ; tables d'ouverture
+supprimées ; main mixte comptée à sa fréquence ; % = combos pondérés sur 1 326. Sans bibliothèque chargée, plus
+d'ouverture inventée (range vide, source « estimée »). La bibliothèque n'est pas modifiée : la main 22 en MP vaut 101 %
+(arrondi à l'export ; 1 323 lignes sur 86 306 dans la table 100 bb) et l'Explorer l'affiche telle quelle (choix validé :
+écart nul avec la bibliothèque plutôt qu'une ligne remise à 100 % qui différerait du conseil préflop). SB : 46,8 %.
+Écartés : remettre chaque ligne à 100 % ; garder la table en dur comme secours.
+
+**Problème 2 (nœuds vides).** 91 nœuds sur 1 919 sans aucune main : la stratégie du solveur n'y arrive jamais (par
+ex. le BTN ne relance jamais à 17,2 après avoir payé). Les 91 sont des calls terminaux en tête-à-tête face à un tapis.
+Cause du FOLD affiché à côté de 68 % d'équité : la décision du moteur de base venait d'une règle de catégorie (« main
+moyenne face à une relance : fold ») qui ignore l'équité, et l'équité était calculée contre une range de profil
+(« range d'ouverture forte »), pas contre la range de tapis. Choix : pour un call terminal en tête-à-tête dont la
+range de tapis est connue de la bibliothèque (70 nœuds sur 91), équité ET décision depuis cette range et les mêmes
+montants : EV(call) = équité × (pot final − rake) − ce que tu paies (part éligible, égalités pour moitié) ; payer si
+EV > 0. Équité : tirage préflop à graine fixe, 20 000 tirages (≈ 22 ms, ±0,4 point). Tous les nœuds vides portent
+« Pas de solution pour cette ligne · conseil indicatif ». Hors périmètre (21 nœuds : la range de tapis vient elle-même
+d'une ligne jamais jouée), le conseil du moteur de base reste, avec l'étiquette. Mesures : AKo BTN 40,8 % pour 41,4 %
+requis, EV −1,1 bb → fold ; AKo SB 46,7 % pour 41,5 %, EV +10,3 bb → call (avant : fold).
+Écartés : la règle « équité > cote donc pas de fold » hors de ce périmètre (l'équité brute n'est pas l'EV).
