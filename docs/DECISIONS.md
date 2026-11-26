@@ -837,3 +837,26 @@ valeurs de référence publiées suffisent (Kuhn −1/18, Leduc ≈ −0,0856).
 et celle que mesure le site sont égales à 5 décimales.
 
 **Limites.** Rien sur les vrais spots, le préflop (GTOpen), le conseiller maison ni le multiway : B2 à B5.
+
+## D40 — Banc, partie B2 : tête-à-tête réel, turn et river · mesures · 2026-11-26
+
+**Méthode.** 12 spots (8 river, 4 turn ; boards secs, mouillés, pairés, à couleur, pots 3-bettés ; ranges plausibles
+de 50 à 310 mains par joueur ; rake cash). Stratégie affichée = solveur de fin de main avec la boucle d'arrêt de la
+décision synthétique (0,3 % du pot visé ; 1 500 itérations / 3 s à la river, 500 / 15 s à la turn), recopiée et
+contrôlée contre `solveEndgame` (mêmes itérations, même précision, à la variation du temps près). Exploitabilité exacte
+écrite à part (`tests-solveur/oracle/hu.ts` : abattage trié, retraits de cartes, rake, turn avec les 44 rivers) ;
+solveur de référence CFR+ écrit à part, même arbre (2 000 itérations river, 400 turn).
+
+**Résultats** (Mac sur secteur, éveillé) : river 8 / 8 sous 0,3 % (0,08 à 0,30 %, soit 0,02 à 0,06 bb) ; turn 1 / 4 :
+T1 0,66 %, T2 0,68 %, T3 0,95 % (arrêts sur la limite de 15 s, ≈ 125-133 itérations, ranges de 240 à 300 mains),
+T4 (pot 3-betté, 50-60 mains) 0,13 %. L'exploitabilité indépendante et celle du site sont égales (3 décimales) ; la
+valeur du jeu du site et de la référence diffèrent de 0,02 bb au plus ; à la première décision, les fréquences diffèrent
+de quelques points (8 points au plus, R8), pour des EV par action proches.
+
+**Conclusion.** La mesure passée (« sous 0,3 % du pot ») tient à la river ; pas à la turn avec des ranges de taille
+réelle, où la limite de temps arrête le calcul à 0,7 à 1 % du pot (0,08 à 0,11 bb par main dans ces spots). Correction
+possible (non appliquée) : plus de temps à la turn, calcul sur tous les cœurs, ou afficher la précision atteinte.
+
+**Limites.** Spots choisis à la main, ranges plausibles et non celles que la page déduit ; référence non poussée à zéro
+(0,27 à 0,40 % à la turn) ; flop non résolu par le site ; temps dépendants de la machine (une première passe faite
+pendant la veille du Mac sur batterie a été jetée).
