@@ -1,0 +1,462 @@
+{
+ "table": "cash100",
+ "total": 1919,
+ "empty": 91,
+ "nodes": [
+  {
+   "key": "UTG:F,MP:F,CO:F,BTN:R2.5,SB:C,BB:R7.5,BTN:F,SB:R17.2,BB:A100",
+   "line": "UTG fold, MP fold, CO fold, BTN relance 2,5, SB call, BB relance 7,5, BTN fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:F,MP:F,CO:R2.5,BTN:F,SB:C,BB:R7.5,CO:F,SB:R17.2,BB:A100",
+   "line": "UTG fold, MP fold, CO relance 2,5, BTN fold, SB call, BB relance 7,5, CO fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:F,MP:F,CO:R2.5,BTN:C,SB:F,BB:R7.5,CO:F,BTN:R17.2,BB:A100",
+   "line": "UTG fold, MP fold, CO relance 2,5, BTN call, SB fold, BB relance 7,5, CO fold, BTN relance 17,2, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:F,CO:R2.5,BTN:C,SB:C,BB:R7.5,CO:F,BTN:R17.2,SB:F,BB:A100",
+   "line": "UTG fold, MP fold, CO relance 2,5, BTN call, SB call, BB relance 7,5, CO fold, BTN relance 17,2, SB fold, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:F,CO:R2.5,BTN:C,SB:C,BB:R7.5,CO:F,BTN:R17.2,SB:A100,BB:F",
+   "line": "UTG fold, MP fold, CO relance 2,5, BTN call, SB call, BB relance 7,5, CO fold, BTN relance 17,2, SB tapis 100, BB fold",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:F,CO:R2.5,BTN:C,SB:R7.5,BB:F,CO:F,BTN:R17.2,SB:A100",
+   "line": "UTG fold, MP fold, CO relance 2,5, BTN call, SB relance 7,5, BB fold, CO fold, BTN relance 17,2, SB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:F,BTN:F,SB:C,BB:R7.5,MP:F,SB:R17.2,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO fold, BTN fold, SB call, BB relance 7,5, MP fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:F,BTN:C,SB:F,BB:R7.5,MP:F,BTN:R17.2,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO fold, BTN call, SB fold, BB relance 7,5, MP fold, BTN relance 17,2, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:F,BTN:C,SB:C,BB:R7.5,MP:F,BTN:F,SB:R17.2,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO fold, BTN call, SB call, BB relance 7,5, MP fold, BTN fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:F,BTN:C,SB:R7.5,BB:F,MP:F,BTN:R17.2,SB:A100",
+   "line": "UTG fold, MP relance 2,5, CO fold, BTN call, SB relance 7,5, BB fold, MP fold, BTN relance 17,2, SB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:F,SB:F,BB:R7.5,MP:F,CO:R17.2,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN fold, SB fold, BB relance 7,5, MP fold, CO relance 17,2, BB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:F,SB:C,BB:R7.5,MP:F,CO:F,SB:R17.2,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN fold, SB call, BB relance 7,5, MP fold, CO fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:F,SB:R7.5,BB:F,MP:F,CO:R17.2,SB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN fold, SB relance 7,5, BB fold, MP fold, CO relance 17,2, SB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:F,BB:R7.5,MP:F,CO:F,BTN:R17.2,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB fold, BB relance 7,5, MP fold, CO fold, BTN relance 17,2, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:C,BB:R7.5,MP:F,CO:F,BTN:F,SB:R17.2,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB call, BB relance 7,5, MP fold, CO fold, BTN fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:C,BB:R7.5,MP:F,CO:F,BTN:R17.2,SB:F,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB call, BB relance 7,5, MP fold, CO fold, BTN relance 17,2, SB fold, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:C,BB:R7.5,MP:F,CO:F,BTN:R17.2,SB:A100,BB:F",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB call, BB relance 7,5, MP fold, CO fold, BTN relance 17,2, SB tapis 100, BB fold",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:C,BB:R7.5,MP:F,CO:R17.2,BTN:F,SB:F,BB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB call, BB relance 7,5, MP fold, CO relance 17,2, BTN fold, SB fold, BB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:C,BB:R7.5,MP:F,CO:R17.2,BTN:F,SB:A100,BB:F",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB call, BB relance 7,5, MP fold, CO relance 17,2, BTN fold, SB tapis 100, BB fold",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:C,BB:R7.5,MP:F,CO:R17.2,BTN:A100,SB:F,BB:F",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB call, BB relance 7,5, MP fold, CO relance 17,2, BTN tapis 100, SB fold, BB fold",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:C,SB:R7.5,BB:F,MP:F,CO:F,BTN:R17.2,SB:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN call, SB relance 7,5, BB fold, MP fold, CO fold, BTN relance 17,2, SB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:F,MP:R2.5,CO:C,BTN:R7.5,SB:F,BB:F,MP:F,CO:R17.2,BTN:A100",
+   "line": "UTG fold, MP relance 2,5, CO call, BTN relance 7,5, SB fold, BB fold, MP fold, CO relance 17,2, BTN tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:F,BTN:F,SB:C,BB:R7.5,UTG:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO fold, BTN fold, SB call, BB relance 7,5, UTG fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:F,BTN:C,SB:F,BB:R7.5,UTG:F,BTN:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO fold, BTN call, SB fold, BB relance 7,5, UTG fold, BTN relance 17,2, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,BTN:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, BTN fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,BTN:R17.2,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, BTN relance 17,2, SB fold, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,BTN:R17.2,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP fold, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, BTN relance 17,2, SB tapis 100, BB fold",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:F,BTN:C,SB:R7.5,BB:F,UTG:F,BTN:R17.2,SB:A100",
+   "line": "UTG relance 2,5, MP fold, CO fold, BTN call, SB relance 7,5, BB fold, UTG fold, BTN relance 17,2, SB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:F,SB:F,BB:R7.5,UTG:F,CO:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN fold, SB fold, BB relance 7,5, UTG fold, CO relance 17,2, BB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:F,SB:C,BB:R7.5,UTG:F,CO:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN fold, SB call, BB relance 7,5, UTG fold, CO fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:F,SB:R7.5,BB:F,UTG:F,CO:R17.2,SB:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN fold, SB relance 7,5, BB fold, UTG fold, CO relance 17,2, SB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:C,SB:F,BB:R7.5,UTG:F,CO:F,BTN:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN call, SB fold, BB relance 7,5, UTG fold, CO fold, BTN relance 17,2, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,CO:F,BTN:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN call, SB call, BB relance 7,5, UTG fold, CO fold, BTN fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,CO:F,BTN:R17.2,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN call, SB call, BB relance 7,5, UTG fold, CO fold, BTN relance 17,2, SB fold, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,CO:F,BTN:R17.2,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN call, SB call, BB relance 7,5, UTG fold, CO fold, BTN relance 17,2, SB tapis 100, BB fold",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:C,SB:R7.5,BB:F,UTG:F,CO:F,BTN:R17.2,SB:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN call, SB relance 7,5, BB fold, UTG fold, CO fold, BTN relance 17,2, SB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:F,CO:C,BTN:R7.5,SB:F,BB:F,UTG:F,CO:R17.2,BTN:A100",
+   "line": "UTG relance 2,5, MP fold, CO call, BTN relance 7,5, SB fold, BB fold, UTG fold, CO relance 17,2, BTN tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:F,SB:F,BB:R7.5,UTG:F,MP:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN fold, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:F,SB:C,BB:R7.5,UTG:F,MP:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN fold, SB call, BB relance 7,5, UTG fold, MP fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:F,SB:C,BB:R7.5,UTG:F,MP:R17.2,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN fold, SB call, BB relance 7,5, UTG fold, MP relance 17,2, SB fold, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:F,SB:C,BB:R7.5,UTG:F,MP:R17.2,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN fold, SB call, BB relance 7,5, UTG fold, MP relance 17,2, SB tapis 100, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:F,SB:R7.5,BB:F,UTG:F,MP:R17.2,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN fold, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, SB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:F,BB:R7.5,UTG:F,MP:F,BTN:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB fold, BB relance 7,5, UTG fold, MP fold, BTN relance 17,2, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:F,BB:R7.5,UTG:F,MP:R17.2,BTN:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, BTN fold, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:F,BB:R7.5,UTG:F,MP:R17.2,BTN:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, BTN tapis 100, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,MP:F,BTN:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, MP fold, BTN fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,MP:F,BTN:R17.2,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, MP fold, BTN relance 17,2, SB fold, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,MP:F,BTN:R17.2,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, MP fold, BTN relance 17,2, SB tapis 100, BB fold",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,MP:R17.2,BTN:F,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, MP relance 17,2, BTN fold, SB fold, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,MP:R17.2,BTN:F,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, MP relance 17,2, BTN fold, SB tapis 100, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:C,BB:R7.5,UTG:F,MP:R17.2,BTN:A100,SB:F,BB:F",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB call, BB relance 7,5, UTG fold, MP relance 17,2, BTN tapis 100, SB fold, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:R7.5,BB:F,UTG:F,MP:F,BTN:R17.2,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB relance 7,5, BB fold, UTG fold, MP fold, BTN relance 17,2, SB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:R7.5,BB:F,UTG:F,MP:R17.2,BTN:F,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, BTN fold, SB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:C,SB:R7.5,BB:F,UTG:F,MP:R17.2,BTN:A100,SB:F",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN call, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, BTN tapis 100, SB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:F,BTN:R7.5,SB:F,BB:F,UTG:F,MP:R17.2,BTN:A100",
+   "line": "UTG relance 2,5, MP call, CO fold, BTN relance 7,5, SB fold, BB fold, UTG fold, MP relance 17,2, BTN tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:F,BB:R7.5,UTG:F,MP:F,CO:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB fold, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, BB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:F,BB:R7.5,UTG:F,MP:R17.2,CO:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:F,BB:R7.5,UTG:F,MP:R17.2,CO:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, CO tapis 100, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:C,BB:R7.5,UTG:F,MP:F,CO:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB call, BB relance 7,5, UTG fold, MP fold, CO fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:C,BB:R7.5,UTG:F,MP:F,CO:R17.2,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB call, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, SB fold, BB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:C,BB:R7.5,UTG:F,MP:F,CO:R17.2,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB call, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, SB tapis 100, BB fold",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:C,BB:R7.5,UTG:F,MP:R17.2,CO:F,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB call, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, SB fold, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:C,BB:R7.5,UTG:F,MP:R17.2,CO:F,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB call, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, SB tapis 100, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:C,BB:R7.5,UTG:F,MP:R17.2,CO:A100,SB:F,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB call, BB relance 7,5, UTG fold, MP relance 17,2, CO tapis 100, SB fold, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:R7.5,BB:F,UTG:F,MP:F,CO:R17.2,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB relance 7,5, BB fold, UTG fold, MP fold, CO relance 17,2, SB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:R7.5,BB:F,UTG:F,MP:R17.2,CO:F,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, CO fold, SB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:F,SB:R7.5,BB:F,UTG:F,MP:R17.2,CO:A100,SB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN fold, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, CO tapis 100, SB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:F,BB:R7.5,UTG:F,MP:F,CO:F,BTN:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB fold, BB relance 7,5, UTG fold, MP fold, CO fold, BTN relance 17,2, BB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:F,BB:R7.5,UTG:F,MP:F,CO:R17.2,BTN:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB fold, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, BTN fold, BB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:F,BB:R7.5,UTG:F,MP:F,CO:R17.2,BTN:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB fold, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, BTN tapis 100, BB fold",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:F,BB:R7.5,UTG:F,MP:R17.2,CO:F,BTN:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, BTN fold, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:F,BB:R7.5,UTG:F,MP:R17.2,CO:F,BTN:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, BTN tapis 100, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:F,BB:R7.5,UTG:F,MP:R17.2,CO:A100,BTN:F,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB fold, BB relance 7,5, UTG fold, MP relance 17,2, CO tapis 100, BTN fold, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:F,CO:F,BTN:F,SB:R17.2,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP fold, CO fold, BTN fold, SB relance 17,2, BB tapis 100",
+   "hero": "SB"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:F,CO:R17.2,BTN:F,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, BTN fold, SB fold, BB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:F,CO:R17.2,BTN:F,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, BTN fold, SB tapis 100, BB fold",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:F,CO:R17.2,BTN:A100,SB:F,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP fold, CO relance 17,2, BTN tapis 100, SB fold, BB fold",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:R17.2,CO:F,BTN:F,SB:F,BB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, BTN fold, SB fold, BB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:R17.2,CO:F,BTN:F,SB:A100,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, BTN fold, SB tapis 100, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:R17.2,CO:F,BTN:A100,SB:F,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP relance 17,2, CO fold, BTN tapis 100, SB fold, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:C,BB:R7.5,UTG:F,MP:R17.2,CO:A100,BTN:F,SB:F,BB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB call, BB relance 7,5, UTG fold, MP relance 17,2, CO tapis 100, BTN fold, SB fold, BB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:R7.5,BB:F,UTG:F,MP:F,CO:F,BTN:R17.2,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB relance 7,5, BB fold, UTG fold, MP fold, CO fold, BTN relance 17,2, SB tapis 100",
+   "hero": "BTN"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:R7.5,BB:F,UTG:F,MP:F,CO:R17.2,BTN:F,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB relance 7,5, BB fold, UTG fold, MP fold, CO relance 17,2, BTN fold, SB tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:R7.5,BB:F,UTG:F,MP:F,CO:R17.2,BTN:A100,SB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB relance 7,5, BB fold, UTG fold, MP fold, CO relance 17,2, BTN tapis 100, SB fold",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:R7.5,BB:F,UTG:F,MP:R17.2,CO:F,BTN:F,SB:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, CO fold, BTN fold, SB tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:R7.5,BB:F,UTG:F,MP:R17.2,CO:F,BTN:A100,SB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, CO fold, BTN tapis 100, SB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:C,SB:R7.5,BB:F,UTG:F,MP:R17.2,CO:A100,BTN:F,SB:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN call, SB relance 7,5, BB fold, UTG fold, MP relance 17,2, CO tapis 100, BTN fold, SB fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:R7.5,SB:F,BB:F,UTG:F,MP:F,CO:R17.2,BTN:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN relance 7,5, SB fold, BB fold, UTG fold, MP fold, CO relance 17,2, BTN tapis 100",
+   "hero": "CO"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:R7.5,SB:F,BB:F,UTG:F,MP:R17.2,CO:F,BTN:A100",
+   "line": "UTG relance 2,5, MP call, CO call, BTN relance 7,5, SB fold, BB fold, UTG fold, MP relance 17,2, CO fold, BTN tapis 100",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:C,BTN:R7.5,SB:F,BB:F,UTG:F,MP:R17.2,CO:A100,BTN:F",
+   "line": "UTG relance 2,5, MP call, CO call, BTN relance 7,5, SB fold, BB fold, UTG fold, MP relance 17,2, CO tapis 100, BTN fold",
+   "hero": "MP"
+  },
+  {
+   "key": "UTG:R2.5,MP:C,CO:R7.5,BTN:F,SB:F,BB:F,UTG:F,MP:R17.2,CO:A100",
+   "line": "UTG relance 2,5, MP call, CO relance 7,5, BTN fold, SB fold, BB fold, UTG fold, MP relance 17,2, CO tapis 100",
+   "hero": "MP"
+  }
+ ]
+}
