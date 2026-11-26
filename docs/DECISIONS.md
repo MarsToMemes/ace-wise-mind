@@ -890,3 +890,27 @@ Une seule source pour ces limites : `ENDGAME_LIMITS` (solve.ts), reprise par le 
 **Aperçu** (site local, 9♥9♣ en BB, turn K♠9♦4♣7♥, 394 contre 514 mains, 8 ouvriers) : premier conseil à ≈ 15 s,
 précision 0,60 % ; conseil final 0,25 % du pot, 449 itérations, 30,4 s (Check, fréquences affinées : check 36 → 43 %).
 Sans ouvriers ni affinage, la même main s'arrêtait vers 1,5-2 % (estimation) ; avec ouvriers et 15 s : 0,67 %.
+
+## D42 — Banc, partie B4 : matchs en duplicate · mesures · 2026-11-26
+
+**Méthode.** Joueur « site » à partir du flop en tête-à-tête (`tests-solveur/b4/joueur.ts`) : conseiller maison au flop
+et à la turn, solveur de fin de main à la river (réglages du site, action la plus jouée par ta main), ranges de la ligne
+jouée (pot simple, 6 paires de positions), rake cash dans les calculs. Le même fichier est empaqueté (esbuild) avec le
+code actuel et avec celui du 24 nov. (`f85a236`, extrait de git dans un dossier temporaire puis supprimé). Mains jouées
+et contrôlées par l'arbitre (A1) ; chaque donne jouée deux fois, places échangées ; score = (gain de A − gain de B) / 2
+sans rake (les blindes des joueurs couchés s'annulent : une version contre elle-même donne exactement 0, contrôlé) ;
+correction de la chance façon AIVAT, partielle (cartes du board) ; 9 fils de calcul.
+
+**Choix.** Turn jouée par le conseiller maison (le solveur prend jusqu'à 30 s par décision : impossible sur des milliers
+de mains) ; action principale plutôt que stratégie mixte (c'est ce que la page affiche). AIVAT complète écartée : elle
+demande la probabilité de chaque décision des deux joueurs, que le conseiller maison ne donne pas.
+
+**Résultats** (graine 20261126, 3 000 donnes = 6 000 mains par match, bb/100, intervalle à 95 %, corrigé de la chance) :
+actuelle contre ancienne −2,8 ± 3,3 (pas de différence démontrée) ; contre « toujours call » +289,9 ± 34,5 ; contre
+« serré » +25,5 ± 33,1 (pas de différence démontrée) ; contre « agressif » +614,7 ± 72,6. Aucune action refusée par
+l'arbitre, aucun repli (146 173 décisions). La correction de la chance ne retire que 7 à 24 % de la variance ; pour
+±5 bb/100, il faudrait ≈ 2 600 mains entre versions, ≈ 260 000 à 1 300 000 contre les profils simples.
+
+**Lecture.** Les corrections de D35 et D38 ne montrent pas de gain mesurable en tête-à-tête contre l'ancienne version
+(elles changent surtout des cas rares) ; le site bat nettement les profils qui paient tout ou misent tout le temps ; contre
+un profil serré, 6 000 mains ne suffisent pas pour conclure.

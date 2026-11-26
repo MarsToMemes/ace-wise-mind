@@ -12,6 +12,7 @@ import { runCas } from "./a3/cas";
 import { runA4 } from "./a4/equite";
 import { runB1 } from "./b1/petitsJeux";
 import { runB2 } from "./b2/spots";
+import { runB4 } from "./b4/run";
 
 const root = resolve(process.cwd());
 const args = process.argv.slice(2);
@@ -31,7 +32,7 @@ const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate
 const L: string[] = [];
 const fr = (x: number) => x.toLocaleString("fr-FR");
 
-L.push(`# Banc de test du solveur — partie A (moteur de table, équité), B1 (petits jeux) et B2 (tête-à-tête réel)`, "", `Rapport du ${now.toLocaleString("fr-FR")}. Graine de A2 : **${SEED}**, ${fr(HANDS)} mains.`, "");
+L.push(`# Banc de test du solveur — partie A (moteur de table, équité), B1 (petits jeux), B2 (tête-à-tête réel) et B4 (matchs)`, "", `Rapport du ${now.toLocaleString("fr-FR")}. Graine de A2 : **${SEED}**, ${fr(HANDS)} mains.`, "");
 L.push("Partie A : justesse du moteur de table, de ce que la page affiche et de l'équité, par comparaison à un arbitre indépendant. Partie B1 : convergence des solveurs sur des petits jeux à solution connue. Rien ici ne prouve qu'une stratégie du site est un équilibre sur les vrais spots (parties B2 à B5).", "");
 
 // --- A1 ---
@@ -124,6 +125,24 @@ if (b2.length) {
   L.push("");
 }
 
+// --- B4 ---
+const B4_DEALS = Number(process.env.B4_DEALS ?? 3000), B4_OLD = process.env.B4_ANCIENNE ?? "f85a236";
+const b4 = process.env.B4 === "0" ? null : await runB4({ seed: SEED, deals: B4_DEALS, old: B4_OLD, selfDeals: 200,
+  matches: [["actuelle", "ancienne"], ["actuelle", "toujours call"], ["actuelle", "serré"], ["actuelle", "agressif"]] });
+if (b4) {
+  const f1 = (x: number) => x.toFixed(1).replace(".", ",");
+  const need = (sd: number) => fr(Math.ceil(((1.96 * sd * 100) / 5) ** 2));
+  L.push(`## B4 — Matchs en duplicate : ${b4.lignes.length} matchs, ${fr(B4_DEALS)} donnes chacun`, "");
+  L.push(`Joueur « site » : à partir du flop en tête-à-tête, conseiller maison au flop et à la turn, solveur de fin de main à la river (réglages du site, action la plus jouée par ta main), ranges de la ligne jouée (pot simple, ${"6"} paires de positions), rake cash dans les calculs. Écart avec le site : à la turn, le site utilise le solveur (jusqu'à 30 s), ici le conseiller maison. Version précédente : ${B4_OLD} (24 nov. 2026), extraite de git. Chaque donne est jouée deux fois, places échangées ; score = (gain de A − gain de B) / 2, sans rake, en bb pour 100 mains ; ± = intervalle de confiance à 95 %. Correction de la chance façon AIVAT, partielle (cartes du board seulement). ${b4.workers} fils de calcul.`, "");
+  L.push(`Contrôle : la version actuelle contre elle-même sur ${b4.self.deals} donnes donne ${b4.self.maxAbs === 0 ? "exactement 0 (OK)" : `jusqu'à ${b4.self.maxAbs} bb (**ÉCHEC**)`}.`, "");
+  L.push("| A contre B | Mains | Brut (bb/100) | Corrigé de la chance (bb/100) | Verdict (corrigé) | σ par main brut / corrigé | Variance restante | Mains pour ±5 bb/100 (brut / corrigé) | Refus de l'arbitre | Replis |", "|---|---|---|---|---|---|---|---|---|---|");
+  for (const l of b4.lignes) {
+    const verdict = Math.abs(l.adj.bb100) <= l.adj.ci ? "pas de différence démontrée" : l.adj.bb100 > 0 ? "A gagne" : "B gagne";
+    L.push(`| ${l.A} contre ${l.B} | ${fr(l.hands)} | ${f1(l.raw.bb100)} ± ${f1(l.raw.ci)} | ${f1(l.adj.bb100)} ± ${f1(l.adj.ci)} | ${verdict} | ${f1(l.raw.sdPerHand)} / ${f1(l.adj.sdPerHand)} bb | ${Math.round(l.reduction * 100)} % | ${need(l.raw.sdPerHand)} / ${need(l.adj.sdPerHand)} | ${fr(l.illegal)} sur ${fr(l.decisions)} | ${fr(l.fallbacks)} |`);
+  }
+  L.push("");
+}
+
 // --- classement ---
 L.push("## Bugs trouvés, du plus grave au moins grave (corrections proposées, NON appliquées)", "");
 L.push("Gravité : 1 = montant ou légalité faux pour le jeu ; 2 = conseil ou saisie impossible ; 3 = conseil hors règle mais sans effet sur les montants ; 4 = règle différente (convention à trancher).", "");
@@ -158,6 +177,7 @@ L.push("");
 
 L.push("## Ce que ces tests ne montrent pas", "");
 L.push(
+  "- B4 : le préflop n'est pas joué (ranges de départ fixées par la ligne : pot simple), la turn est jouée par le conseiller maison et non par le solveur, le joueur « site » prend l'action la plus jouée (pas la stratégie mixte) ; les profils simples sont des caricatures : les battre ne dit rien contre de bons joueurs. La correction de la chance ne porte que sur les cartes du board (pas sur les décisions, faute de stratégies complètes) : elle réduit peu la variance. Un intervalle qui contient zéro veut dire « pas de différence démontrée ».",
   "- B2 : 12 spots choisis à la main (ranges plausibles, pas celles que la page déduit d'une vraie main) ; la référence est un CFR+ écrit à part, poussé plus loin mais pas à zéro (son exploitabilité est donnée) ; le flop n'est pas résolu par le site (conseiller maison) et n'est pas mesuré ici ; les temps dépendent de la machine et de sa charge.",
   "- B1 montre que les solveurs convergent sur de petits jeux ; il ne dit rien des vrais spots (arbres plus gros, ranges réelles), ni du préflop (GTOpen), ni du conseiller maison, ni du multiway (aucun équilibre garanti au-delà de 2 joueurs) : parties B2 à B5. Leduc est joué par le CFR générique du site, qui n'est pas celui de la décision synthétique ; le solveur de la décision synthétique en tête-à-tête est mesuré sur Kuhn et deux rivers.",
   "- A4 : le moteur de base est mesuré avec des mains adverses données directement ; les ranges qu'il construit lui-même (profils « fort », « polarisé »…) ne sont pas jugées ici. L'équité du préflop (equityVsRange, tête-à-tête) et le solveur multiway exact ne sont pas mesurés ici. Les cas tirés au hasard sont volontairement extrêmes (adversaires qui se gênent beaucoup) : ils montrent le défaut, pas sa taille en jeu, que donnent les cas à ranges réalistes.",
@@ -178,6 +198,6 @@ mkdirSync(dir, { recursive: true });
 const file = join(dir, `${stamp}.md`);
 writeFileSync(file, L.join("\n"));
 writeFileSync(join(dir, `${stamp}-ecarts.json`), JSON.stringify({ seed: SEED, hands: HANDS, divergences: a2.divergences }, null, 1));
-console.log(`B2 : ${b2tient}/${b2.length} sous 0,3 % | B1 : ${b1.filter(c => c.ok).length}/${b1.length} | A1 : ${a1.length - a1ko.length}/${a1.length} | A4 : ${a4ok}/${a4.cas.length} + ${a4.casBase.filter(c => c.ok).length}/${a4.casBase.length} sans biais | A2 : ${fr(a2.hands)} mains, ${fr(a2.divergences.length)} écarts (${fams.map(f => `${f} ${a2.divergences.filter(d => d.family === f).length}`).join(", ")}) | A3 : ${a3ok}/${a3.length}`);
+console.log(`B4 : ${b4 ? b4.lignes.map(l => `${l.B} ${l.adj.bb100.toFixed(1)}±${l.adj.ci.toFixed(1)}`).join(", ") : "sauté"} | B2 : ${b2tient}/${b2.length} sous 0,3 % | B1 : ${b1.filter(c => c.ok).length}/${b1.length} | A1 : ${a1.length - a1ko.length}/${a1.length} | A4 : ${a4ok}/${a4.cas.length} + ${a4.casBase.filter(c => c.ok).length}/${a4.casBase.length} sans biais | A2 : ${fr(a2.hands)} mains, ${fr(a2.divergences.length)} écarts (${fams.map(f => `${f} ${a2.divergences.filter(d => d.family === f).length}`).join(", ")}) | A3 : ${a3ok}/${a3.length}`);
 console.log(`Rapport : tests-solveur/rapports/${stamp}.md`);
-process.exitCode = a1ko.length || a3ok < a3.length || b1.some(c => !c.ok) ? 1 : 0;
+process.exitCode = a1ko.length || a3ok < a3.length || b1.some(c => !c.ok) || (b4 && b4.self.maxAbs !== 0) ? 1 : 0;
