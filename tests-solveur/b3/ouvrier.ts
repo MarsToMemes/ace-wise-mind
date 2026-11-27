@@ -5,6 +5,7 @@ import { deal, duplicate, BASELINES, initRanges, type Player } from "../b4/match
 import { init, decide, ranges, type View } from "../b4/joueur";
 import { makeLBR, newStats, type Policy } from "./lbr";
 import { sitePolicy, simplePolicy, pstats, keyOfChoice, type Hole } from "./politique";
+import { analyseDeals } from "./analyse";
 
 const wd = workerData as { cash100: string };
 const cash = JSON.parse(readFileSync(wd.cash100, "utf8"));
@@ -37,8 +38,9 @@ function riverCheck(n: { same: number; diff: number; nodes: number; fails: strin
   };
 }
 
-parentPort!.on("message", (t: { id: number; op: "play" | "check"; target: string; seed: number; ks: number[]; aivat: boolean }) => {
+parentPort!.on("message", (t: { id: number; op: "play" | "check" | "analyse"; target: string; seed: number; ks: number[]; aivat: boolean }) => {
   try {
+    if (t.op === "analyse") { parentPort!.postMessage({ id: t.id, ...analyseDeals(t.seed, t.ks) }); return; }
     if (t.op === "check") {
       const n = { same: 0, diff: 0, nodes: 0, fails: [] as string[] };
       const stats = newStats(), chk = riverCheck(n);
