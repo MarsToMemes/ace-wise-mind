@@ -1,6 +1,7 @@
 // B4 — Le joueur « site » : ce que la décision synthétique conseille, en tête-à-tête, à partir du flop. Ce fichier est
 // empaqueté une fois par version du site (esbuild, « @ » → src de cette version) : le même joueur, deux versions du code.
-//  - flop et turn : conseiller maison (advisePostflop), avec les ranges de la ligne jouée et le rake cash ;
+//  - flop et turn : conseiller maison (advisePostflop), avec les ranges de la ligne jouée (resserrées par la mise de la street
+//    en cours, comme sur la page, D46) et le rake cash ;
 //  - river : solveur de fin de main (solveEndgame), réglages du site, action la plus jouée par ta main (celle affichée).
 // Écart assumé : à la turn, le site utilise le solveur (jusqu'à 30 s par décision) ; ici, le conseiller maison.
 import { getRange, slotsFor } from "@/engines/matchupRanges";
@@ -66,11 +67,11 @@ const clampTo = (v: View, kind: "bet" | "raise", to: number): Choice => {
 };
 
 /**
- * Conseil maison pour cette vue. `pageLike` (analyse de B3 seulement) : comme la page, la range adverse est aussi
- * resserrée par la mise de la street en cours (filterByBet, taille rapportée au pot d'avant la mise) ; le joueur de
- * B4 et B3 ne le fait pas.
+ * Conseil maison pour cette vue. Comme la page (Index.tsx, thisStreet), la range adverse est aussi resserrée par la
+ * mise de la street en cours (filterByBet, taille rapportée au pot d'avant la mise) — D46 ; `pageLike = false` rend
+ * l'ancien joueur du banc (sans ce resserrement), pour comparaison.
  */
-export function adviceFor(v: View, pageLike = false) {
+export function adviceFor(v: View, pageLike = true) {
   const [r0, r1] = ranges(v);
   const o = (1 - v.me) as 0 | 1;
   let oppR = removeDead(v.me === 0 ? r1 : r0, [...v.board, ...v.hole]);

@@ -53,7 +53,7 @@ export function analyseDeals(seed: number, ks: number[]) {
           const c = decide(v);
           if (lastLbr && v.toCall > 0 && lastLbr.street === v.street) {
             const part = sharesVs(v.hole, v.board, [lbrHole])[0];
-            const adv = v.street === "River" ? null : adviceFor(v), advP = v.street === "River" ? null : adviceFor(v, true);
+            const adv = v.street === "River" ? null : adviceFor(v, false), advP = v.street === "River" ? null : adviceFor(v, true);
             reponses.push({
               street: v.street, taille: lastLbr.label, act: c.kind, allIn: lastLbr.allIn || v.toCall >= v.remaining - 1e-9,
               prix: v.toCall / (v.pot + v.toCall), part, gainPayer: part * (v.pot + v.toCall) - v.toCall,
