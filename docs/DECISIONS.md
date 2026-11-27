@@ -1037,3 +1037,12 @@ tirage face à un tapis au flop est donc couché) ; à plusieurs, la règle ne s
 
 **Écartés.** Assouplir les filtres de ligne (garder plus d'air) : coefficients réglés à la main, nouveau point faible pour
 un exploiteur. Classer par l'équité contre la range prêtée : c'est justement ce modèle qui était exploité.
+
+**Mesures** (graine 20261125, mêmes donnes ; rapport 2026-11-27-1316 ; bb/100, intervalle à 95 %, corrigé de la chance).
+Exploiteur contre le site, joueur du banc mis à niveau : avant **+580 ± 130**, après **+467 ± 117** (−113, soit −19 % ;
+les intervalles se recouvrent : baisse probable, pas démontrée). Il a changé de jeu : 400 tapis (298 avant), auxquels le
+site se couche 96 % du temps — la défense minimale face à un tapis de 17 × le pot ne paie que ≈ 5 % de la range, et un
+tapis qui a de l'équité quand il est payé reste rentable contre elle. B4 : actuelle contre l'ancienne −14,1 ± 17,5 (pas
+de différence démontrée), contre « toujours call » +289,9 ± 34,5, « serré » +60,0 ± 29,8 (gagne ; +25,5 ± 33,1 avant),
+« agressif » +571,7 ± 66,5. B2 12 / 12, B1 5 / 5, A1 28 / 28, A2 sans écart, A3 12 / 12, A4 16 / 16 et 8 / 8, B5 sans
+écart de compte. River lue en un seul calcul, garde-fou compris : 72 mains sur 72 identiques à `decide`.
