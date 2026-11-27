@@ -5,6 +5,7 @@
 
 import { rakeOf, type RakeRule } from "@/core/rake";
 import { Combo } from "@/engines/rangeVsRange";
+import { allInDefense, isTerminalCall, defenseText, type AllInDefense } from "@/engines/allInDefense";
 import { PostStreet, LineAct, rangeAdvantage, handPercentile, handEquityMulti, scaleEqThreshold, relStrength } from "@/engines/postflopRanges";
 import { detectDraws } from "@/lib/pokerEngine";
 import { analyzeBoard } from "@/engines/boardTexture";
@@ -62,6 +63,8 @@ export interface PostflopAdvice {
   reasons: string[];
   plan: string[];
   stats: { rangeEquity: number; handEquity: number; eqEdge: number; nutEdge: number; percentile: number; spr: number; required?: number };
+  /** Face à un tapis en tête-à-tête : défense minimale (D46) ; sert aussi de garde-fou au solveur de fin de main. */
+  defense?: AllInDefense;
 }
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
@@ -125,6 +128,16 @@ export function advisePostflop(inp: PostflopInput): PostflopAdvice {
     };
     const callLabel = `Call ${toCallBB} BB${toCallBB >= heroStackBB - 1e-6 ? " (tapis)" : ""}`;
     reasons.push(`Ton équité ${nOpp > 1 ? `contre les ${nOpp} adversaires` : "contre sa range"} : ${stats.handEquity} % ; il te faut ${reqPct} % pour payer.`);
+    // face à un tapis en tête-à-tête (payer clôt les enchères) : défense minimale, quelle que soit la range prêtée (D46)
+    if (isTerminalCall({ toCallBB, heroStackBB, canRaise: inp.canRaise, opponents: inp.opponents })) {
+      const defense = allInDefense(hole, inp.heroRange, board, potBB, toCallBB);
+      reasons.push(defenseText(defense));
+      if (defense.inTop) {
+        plan.push("C'est la dernière décision.");
+        return { action: "call", verb: "CALL", label: callLabel, sizeBB: toCallBB, allIn: toCallBB >= heroStackBB - 1e-6, pct: 100, mix: [{ label: "Call", pct: 100 }], role, reasons, plan, stats: { ...stats, required: reqPct }, defense };
+      }
+      return { action: "fold", verb: "FOLD", label: "Coucher", allIn: false, pct: 100, mix: [{ label: "Fold", pct: 100 }], role, reasons, plan, stats: { ...stats, required: reqPct }, defense };
+    }
     // face à un tapis (ou quand ton tapis ne couvre pas la mise) : seuls payer ou se coucher sont possibles
     if (noRaise && (role === "nuts" || (role === "value" && hEq >= T(0.75) && street === "Flop"))) {
       reasons.push("Ta main est en haut de ta range, mais plus aucune relance n'est possible ici : tu paies.");

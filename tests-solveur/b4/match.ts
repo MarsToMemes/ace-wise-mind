@@ -172,7 +172,7 @@ export function playGame(d: Deal, players: [Player, Player], aivat: boolean): Ga
     const ch = me.decide(v, rr, ctx);
     if (other !== me) other.observe?.(v, ch);
     out.decisions++;
-    if (ch.how && ch.how !== "solveur") out.fallbacks++;
+    if (ch.how && ch.how !== "solveur" && ch.how !== "garde-fou") out.fallbacks++;
     let kind: Kind = ch.kind;
     if (t.apply({ seat, kind, to: ch.to !== undefined ? cents(ch.to) : undefined })) {
       // action refusée par l'arbitre : comptée, puis remplacée par check ou call

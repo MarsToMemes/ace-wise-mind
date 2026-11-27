@@ -12,6 +12,7 @@ import { solveEndgame } from "@/engines/endgame/solve";
 import { expandRange } from "@/engines/rangeVsRange";
 import { topPercentRange } from "@/engines/preflopEquity";
 import { CASH_RAKE } from "@/core/rake";
+import { allInDefense, isTerminalCall } from "@/engines/allInDefense";
 
 export type Kind = "fold" | "check" | "call" | "bet" | "raise";
 export interface HAct { street: "Flop" | "Turn" | "River"; who: 0 | 1; kind: Kind; to: number }
@@ -131,7 +132,17 @@ export function riverInput(v: View) {
 function riverSolver(v: View): Choice | null {
   const res = solveEndgame(riverInput(v) as never);
   if (!res) return null;
-  return riverChoice(v, res.actions.reduce((b, x) => (x.freq > b.freq ? x : b)));
+  return riverGuard(v, riverChoice(v, res.actions.reduce((b, x) => (x.freq > b.freq ? x : b))));
+}
+
+/**
+ * Garde-fou « défense minimale » de la page (D46, DecisionVerdict) : face à un tapis en tête-à-tête, le solveur ne se
+ * couche pas avec une main du haut de ta range. `mine` : ta range (calculée une fois quand on lit toute une range, B3).
+ */
+export function riverGuard(v: View, c: Choice, mine?: ReturnType<typeof expandRange>): Choice {
+  if (c.kind !== "fold" || !isTerminalCall({ toCallBB: v.toCall, heroStackBB: v.effRemaining, canRaise: !!v.legal.raise, opponents: 1 })) return c;
+  const r = mine ?? (() => { const [r0, r1] = ranges(v); return removeDead(v.me === 0 ? r0 : r1, v.board); })();
+  return allInDefense(v.hole, r, v.board, v.pot, v.toCall).inTop ? { kind: "call", how: "garde-fou" } : c;
 }
 
 /** Action la plus jouée par la main au solveur de la river → choix joué (partagé avec B3, qui lit toute la range d'un coup). */

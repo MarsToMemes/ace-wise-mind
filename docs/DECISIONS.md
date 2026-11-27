@@ -1013,3 +1013,27 @@ EV > 0. Équité : tirage préflop à graine fixe, 20 000 tirages (≈ 22 ms, ±
 d'une ligne jamais jouée), le conseil du moteur de base reste, avec l'étiquette. Mesures : AKo BTN 40,8 % pour 41,4 %
 requis, EV −1,1 bb → fold ; AKo SB 46,7 % pour 41,5 %, EV +10,3 bb → call (avant : fold).
 Écartés : la règle « équité > cote donc pas de fold » hors de ce périmètre (l'équité brute n'est pas l'EV).
+
+## D46 — Défense minimale face à un tapis (faille du banc B3) · retenu · 2026-11-27
+
+**Constat (analyse de B3).** L'exploiteur gagnait surtout par ses tapis : au flop et à la turn, le site payait trop
+(équité estimée ≈ 60-65 % contre la range qu'il prête à l'adversaire, ≈ 22-34 % contre les vrais tapis) ; à la river, le
+solveur se couchait 95 % du temps face aux tapis (part réelle des mains couchées ≈ 62 %) : les filtres de ligne retirent
+presque tout l'air de la range adverse (un call le garde à 12 %), le solveur la croit donc très forte. Cause commune :
+les ranges adverses viennent de règles fixes sur la ligne jouée, qu'un adversaire qui les connaît exploite.
+
+**Choix.** Face à un tapis en tête-à-tête (payer clôt les enchères), la décision ne dépend plus de la range prêtée :
+on paie avec la meilleure part de sa range, et seulement elle ; cette part vaut pot d'avant la mise / pot avec la mise
+(défense minimale : ≈ 5 % face à un tapis de 17 × le pot au flop, ≈ 33 % face à 2 × le pot à la river). Classement : force
+à l'abattage sur le board actuel, dans ta range (`allInDefense.ts`). Conseiller (flop, turn, river sans solveur) : la règle
+remplace la comparaison équité / cote. Solveur de fin de main (turn, river) : garde-fou dans la décision synthétique — si
+le solveur se couche avec une main du haut de la range, CALL, avec l'explication ; dans l'autre sens, le solveur n'est
+pas modifié. Banc : le joueur « site » resserre aussi la range adverse selon la mise de la street, comme la page, et
+applique le garde-fou (lecture de toute la range comprise, contrôlée main par main).
+
+**Limites.** Juste quand l'adversaire peut bluffer de façon équilibrée ; contre quelqu'un qui ne bluffe jamais, on paie
+encore trop (prix de l'inexploitabilité dans les deux sens). Les tirages sont classés par leur force actuelle (un gros
+tirage face à un tapis au flop est donc couché) ; à plusieurs, la règle ne s'applique pas.
+
+**Écartés.** Assouplir les filtres de ligne (garder plus d'air) : coefficients réglés à la main, nouveau point faible pour
+un exploiteur. Classer par l'équité contre la range prêtée : c'est justement ce modèle qui était exploité.

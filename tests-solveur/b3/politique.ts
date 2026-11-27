@@ -3,12 +3,13 @@
 //  - joueur simple ou site au flop et à la turn : on lui pose la question main par main (sa décision est déterministe :
 //    le conseiller maison tire ses simulations avec une graine fixe) ;
 //  - site à la river : le solveur résout le même jeu pour toutes les mains de sa range ; on le résout une fois et on lit
-//    l'action la plus jouée par chaque main, exactement comme solveEndgame puis decide (contrôlé main par main dans le
+//    l'action la plus jouée par chaque main, exactement comme solveEndgame puis decide, garde-fou D46 compris (contrôlé main par main dans le
 //    rapport). Une main absente de la range du solveur change le jeu (solveEndgame l'ajoute avec un petit poids) : on la
 //    demande à decide, une par une.
 import { Solver } from "@/engines/endgame/cfr";
 import { ENDGAME_LIMITS } from "@/engines/endgame/solve";
-import { decide, riverInput, riverChoice, type View, type Choice } from "../b4/joueur";
+import { decide, riverInput, riverChoice, riverGuard, ranges, type View, type Choice } from "../b4/joueur";
+import { removeDead } from "@/engines/postflopRanges";
 
 export type Hole = [string, string];
 export const keyOf = (a: string, b: string) => (a < b ? a + b : b + a);
@@ -30,13 +31,14 @@ function riverOnce(v: View) {
   }
   const st = s.averageStrategy(target), n = s.hs[hero].n;
   const inRange = new Set(inp.ranges[hero].filter(c => c.w > 0).map(c => keyOf(c.cards[0], c.cards[1])));
+  const [r0, r1] = ranges(v), mine = removeDead(v.me === 0 ? r0 : r1, v.board);   // pour le garde-fou (D46)
   return (h: Hole): Choice | null => {
     const k = keyOf(h[0], h[1]);
     const hi = s.hs[hero].key.get(k);
     if (!inRange.has(k) || hi === undefined) return null;
     let b = 0;
     for (let a = 1; a < target.actions.length; a++) if (st[a * n + hi] > st[b * n + hi]) b = a;
-    return riverChoice(v, target.actions[b]);
+    return riverGuard({ ...v, hole: h }, riverChoice(v, target.actions[b]), mine);
   };
 }
 

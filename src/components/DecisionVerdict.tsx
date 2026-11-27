@@ -13,6 +13,7 @@ import type { EndgameState } from "@/hooks/use-endgame-solve";
 import type { ActKind } from "@/engines/endgame/tree";
 import { pickMain } from "@/engines/multiway/display";
 import { EMPTY_NODE_LABEL, type EmptyNodeAdvice } from "@/engines/emptyNodeAdvice";
+import { defenseText } from "@/engines/allInDefense";
 import type { Coverage } from "@/engines/solverSpots";
 import type { RakeRule } from "@/core/rake";
 
@@ -144,8 +145,16 @@ export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stac
     const r = endgame.result;
     // multiway : la plus rentable si le calcul n'a pas fini de régler ta main (D32)
     const pick = r.players && r.players > 2 ? pickMain(r.actions, pot) : null;
-    const main = pick ? pick.main : r.actions.reduce((b, a) => (a.freq > b.freq ? a : b), r.actions[0]);
+    let main = pick ? pick.main : r.actions.reduce((b, a) => (a.freq > b.freq ? a : b), r.actions[0]);
     source = r.players && r.players > 2 ? `Solveur multiway (${r.players} joueurs)` : "Solveur de fin de main";
+    // garde-fou « défense minimale » (D46) : face à un tapis en tête-à-tête, une main du haut de ta range ne se couche pas,
+    // même si le solveur le fait avec les ranges qu'il prête à l'adversaire (faille mesurée par le banc B3)
+    const defense = postflop?.defense;
+    const guardCall = defense?.inTop && main.kind === "fold" && !(r.players && r.players > 2) ? r.actions.find(a => a.kind === "call") : undefined;
+    if (guardCall && defense) {
+      main = guardCall;
+      source = "Solveur de fin de main · garde-fou";
+    }
     verb = ENDGAME_VERB(main.kind, main.label);
     sizeLine = main.label;
     mix = r.actions.map(a => ({ label: a.label, pct: Math.round(a.freq * 100) })).filter(m => m.pct > 0);
@@ -155,6 +164,7 @@ export const DecisionVerdict = ({ street, engine, done, polar, pot, toCall, stac
       `Toute ta range ici : ${r.range.filter(l => l.freq >= 0.02).map(l => `${l.label.replace(/ = .*/, "")} ${Math.round(l.freq * 100)} %${l.with.length ? ` (${l.with.join(", ")})` : ""}`).join(" · ")}.`,
     ];
     if (pick?.note) reasons.unshift(pick.note);
+    if (guardCall && defense) reasons.unshift(`Garde-fou : le solveur se couche ici avec les ranges qu'il prête à l'adversaire. ${defenseText(defense)}`);
     if (pick?.close) reasons.push(pick.close);
     if (!r.heroInRange) reasons.push("Ta main n'est presque jamais dans ta range ici : le résultat est indicatif.");
   } else if (street !== "Preflop" && postflop) {
