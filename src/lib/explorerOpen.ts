@@ -21,3 +21,32 @@ export function explorerOpen(pos: string, g: SolverGame | null): ExplorerOpen | 
   }
   return { matrix, pct: o.pct, acts: o.acts };
 }
+
+const R = "AKQJT98765432";
+const fr1 = (x: number) => x.toFixed(1).replace(".", ",");
+const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? "s" : ""}`;
+
+/**
+ * Ce que dit la bibliothèque sur cette ouverture, calculé (aucun conseil écrit à la main) : % et combos, paire la plus
+ * basse et as les plus bas ouverts au moins une fois sur deux, mains mixtes, tailles choisies.
+ */
+export function openFacts(v: ExplorerOpen, g: SolverGame): string[] {
+  const open = (h: string) => { const f = v.matrix[h]?.frequencies; return (f?.raise ?? 0) + (f?.jam ?? 0); };
+  const last = (hs: string[]) => hs.filter(h => open(h) >= 50).pop();
+  const pair = last([...R].map(r => r + r));
+  const axs = last([...R.slice(1)].map(r => `A${r}s`)), axo = last([...R.slice(1)].map(r => `A${r}o`));
+  const mixed = Object.keys(v.matrix).filter(h => open(h) > 5 && open(h) < 95).length;
+  const raises = v.acts.filter(a => a.startsWith("R")).map(a => `${a.slice(1).replace(".", ",")} bb`);
+  const jams = Object.values(v.matrix).filter(d => (d.frequencies.jam ?? 0) > 0).length;
+  return [
+    `Ouvre ${fr1(v.pct)} % des mains (${fr1((v.pct / 100) * 1326)} combos sur 1 326, mains mixtes comptées à leur fréquence).`,
+    pair ? `Paires ouvertes au moins une fois sur deux : de AA jusqu'à ${pair}.` : "Aucune paire ouverte une fois sur deux.",
+    `As assortis jusqu'à ${axs ?? "—"}, as dépareillés jusqu'à ${axo ?? "—"} (ouverts au moins une fois sur deux).`,
+    `${plural(mixed, "main")} jouée${mixed > 1 ? "s" : ""} en mixte (entre 5 et 95 %) : survole une case pour voir sa fréquence.`,
+    `Relance à ${raises.join(" ou ") || "—"}, ${jams ? `tapis avec ${plural(jams, "main")}` : "jamais de tapis"}.`,
+  ];
+}
+
+/** Source de la grille d'ouverture : la table du solveur et sa précision. */
+export const openSource = (g: SolverGame) =>
+  `Bibliothèque du solveur GTOpen · cash ${g.stack} bb${g.iterations ? ` · ${g.iterations} itérations` : ""}${g.gap !== undefined ? ` · écart ${g.gap.toFixed(4).replace(".", ",")} bb par main` : ""}.`;

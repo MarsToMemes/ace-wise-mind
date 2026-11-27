@@ -1,6 +1,7 @@
 // Données du Range Explorer propres à chaque position : libellés, conseils, grilles de 3-bet et défense de la BB.
 // L'OUVERTURE n'est plus ici : elle vient de la bibliothèque du solveur (getOpenRange, solverSpots.ts), seule source
-// pour le conseiller et l'Explorer. `openFrequencyPct` n'est plus affiché (le % vient de la bibliothèque).
+// pour le conseiller et l'Explorer. Pas de chiffre ni de conseil d'ouverture ici : l'Explorer les calcule depuis la
+// bibliothèque (lib/explorerOpen.ts, openFacts).
 //
 // Combos par classe de mains : paire 6, assortie 4, dépareillée 12 (1 326 au total).
 
@@ -103,99 +104,49 @@ export const BB_DEFENSE_MATRIX: RangeMap = Object.fromEntries([
 export interface PositionRangeInfo {
   position: "UTG" | "MP" | "CO" | "BTN" | "SB" | "BB";
   label: string;
-  archetype: string;
-  openFrequencyPct: number;
+  /** Libellé court, sans chiffre (BB : la défense). */
+  archetype?: string;
   /** Grille propre à la position hors ouverture (BB : défense). L'ouverture vient de la bibliothèque du solveur. */
   matrix?: RangeMap;
   matrix3bet?: RangeMap;
   threeBetContext?: string;
-  insights: string[];
+  /** Conseils écrits à la main : seulement hors ouverture (BB). */
+  insights?: string[];
   /** Note de calibration affichée sous la matrice */
   calibration?: string;
 }
-
-const CALIBRATION = "Baseline GTO 6-max 100bb cash NLHE, rake 5%/3bb cap. À adapter selon votre format (FR, heads-up) et niveau adverse.";
 
 export const POSITION_RANGE_CATALOG: Record<string, PositionRangeInfo> = {
   UTG: {
     position: "UTG",
     label: "Under The Gun",
-    archetype: "Tight (~16% RFI)",
-    openFrequencyPct: 16,
     matrix3bet: UTG_3BET_MATRIX,
     threeBetContext: "Hero facing UTG open 2.5bb · 100bb",
-    calibration: CALIBRATION,
-    insights: [
-      "Range la plus tight de la table",
-      "Forte densité de top pair / overpair",
-      "Faible fréquence de bluff",
-      "Suited connectors 76s+ uniquement",
-      "Haut potentiel de domination vs Ax/Kx",
-    ],
   },
   MP: {
     position: "MP",
     label: "Middle Position / Hijack",
-    archetype: "Medium-tight (~22% RFI)",
-    openFrequencyPct: 22,
     matrix3bet: MP_3BET_MATRIX,
     threeBetContext: "Hero CO facing MP open 2.5bb · 100bb",
-    calibration: CALIBRATION,
-    insights: [
-      "Plus large que UTG",
-      "Suited broadways complets",
-      "Wheel suited Ax (A5s, A4s) ajoutés",
-      "Composition équilibrée value/spéculatif",
-    ],
   },
   CO: {
     position: "CO",
     label: "Cutoff",
-    archetype: "Wide steal (~28% RFI)",
-    openFrequencyPct: 28,
     matrix3bet: CO_3BET_MATRIX,
     threeBetContext: "Hero BTN facing CO open 2.5bb · 100bb",
-    calibration: CALIBRATION,
-    insights: [
-      "Steal range large",
-      "Tous les suited Ax open",
-      "Plus de suited connectors et gappers",
-      "ATo+, KJo+ inclus",
-      "Densité de bluff plus élevée",
-    ],
   },
   BTN: {
     position: "BTN",
     label: "Button",
-    archetype: "Very wide (~48% RFI)",
-    openFrequencyPct: 48,
-    calibration: CALIBRATION,
-    insights: [
-      "Range d'ouverture la plus large",
-      "Toutes les paires + tous les suited Ax/Kx",
-      "Suited Q5s+, J7s+, T7s+, 97s+",
-      "Offsuit large : A7o+, K9o+, Q9o+, J9o+, T9o, 98o",
-      "Agressivité positionnelle maximale",
-    ],
   },
   SB: {
     position: "SB",
     label: "Small Blind",
-    archetype: "Wide RFI (~40%)",
-    openFrequencyPct: 40,
-    calibration: CALIBRATION,
-    insights: [
-      "OOP postflop — légèrement plus tight que BTN",
-      "Stratégie limp/raise mixte selon dynamique",
-      "Tendance 3bet ou fold face aux raises",
-      "Désavantage positionnel postflop",
-    ],
   },
   BB: {
     position: "BB",
     label: "Big Blind",
-    archetype: "Defense ~55% vs BTN 2.5bb",
-    openFrequencyPct: 0,
+    archetype: "Défense face à l'ouverture du BTN (2,5 bb)",
     matrix: BB_DEFENSE_MATRIX,
     calibration: "Defense vs BTN open 2.5bb · 6-max 100bb cash. Adaptez selon la position de l'open (vs UTG : range bien plus tight).",
     insights: [

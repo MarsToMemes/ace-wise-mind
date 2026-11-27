@@ -17,7 +17,7 @@ import { TeachAccordion } from "@/components/TeachAccordion";
 import { TEACH_RANGES } from "@/lib/teachContent";
 import { loadMyRanges } from "@/engines/myRanges";
 import { MyRangesDialog } from "@/components/MyRangesDialog";
-import { explorerOpen } from "@/lib/explorerOpen";
+import { explorerOpen, openFacts, openSource } from "@/lib/explorerOpen";
 import { loadSolverGame, cashCoverage, type SolverGame } from "@/engines/solverSpots";
 
 type RangeType = "open" | "3bet" | "defense" | "jam" | "scenarios";
@@ -419,7 +419,9 @@ export function RangeExplorer() {
                         ))}
                     </div>
                     <div className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/50">
-                      EV: <span className="font-mono">+0.00 bb</span> · {hovered.notes ?? "Solver baseline"}
+                      {libOpen && !hasUserOpen
+                        ? "Bibliothèque du solveur : fréquence de chaque action pour cette main (pas d'EV dans la table)."
+                        : hovered.notes ?? (hasUserOpen ? "Ma range." : "Table de base, hors bibliothèque du solveur.")}
                     </div>
                   </div>
                 ) : (
@@ -434,7 +436,7 @@ export function RangeExplorer() {
               <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Filter className="w-3 h-3 text-primary" />
-                  <span className="text-xs font-semibold">{info.label} · {info.archetype}</span>
+                  <span className="text-xs font-semibold">{info.label}{info.archetype ? ` · ${info.archetype}` : ""}</span>
                   {libOpen && (
                     <Badge variant="secondary" className="text-[10px] ml-auto">
                       {libOpen.pct.toFixed(1)}% RFI
@@ -442,16 +444,16 @@ export function RangeExplorer() {
                   )}
                 </div>
                 <ul className="space-y-1">
-                  {info.insights.map((tip, i) => (
+                  {(libOpen && !hasUserOpen && libGame ? openFacts(libOpen, libGame.g) : info.insights ?? []).map((tip, i) => (
                     <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
                       <span className="text-primary mt-0.5">•</span>
                       <span>{tip}</span>
                     </li>
                   ))}
                 </ul>
-                {info.calibration && (
+                {(libOpen && !hasUserOpen && libGame ? openSource(libGame.g) : info.calibration) && (
                   <div className="mt-2 pt-2 border-t border-primary/20 text-[10px] text-muted-foreground italic leading-relaxed">
-                    {info.calibration}
+                    {libOpen && !hasUserOpen && libGame ? openSource(libGame.g) : info.calibration}
                   </div>
                 )}
               </div>
@@ -462,7 +464,7 @@ export function RangeExplorer() {
         </div>
 
         <div className="px-4 py-2 border-t border-border text-[10px] text-muted-foreground bg-background/40">
-          Baseline GTO priors · used by engine for postflop range estimation
+          Open : bibliothèque du solveur, la même que le conseiller · 3-bet, Def, Jam, Spots : tables de base, hors bibliothèque
         </div>
       </aside>
     </>
