@@ -12,11 +12,23 @@ export interface Stat { bb100: number; ci: number; sdPerHand: number }
 
 const root = resolve(process.cwd());
 
+// modules ajoutés au site après une ancienne version : remplacés par un module vide dans le paquet de cette version
+const OPTIONAL: Record<string, string> = { "engines/allInDefense": "tests-solveur/b4/sansDefense.ts" };
+
 export async function bundle(entry: string, src: string, out: string) {
   await build({
     entryPoints: [entry], bundle: true, platform: "node", format: "cjs", outfile: out, logLevel: "error",
     alias: { "@": src }, nodePaths: [join(root, "node_modules")], jsx: "automatic", loader: { ".css": "empty", ".svg": "empty", ".png": "empty" },
     define: { "import.meta.env": "{}" },
+    plugins: [{
+      name: "modules-optionnels",
+      setup(b) {
+        b.onResolve({ filter: /^@\/engines\/allInDefense$/ }, a => {
+          const rel = a.path.slice(2);
+          return existsSync(join(src, `${rel}.ts`)) ? { path: join(src, `${rel}.ts`) } : { path: join(root, OPTIONAL[rel]) };
+        });
+      },
+    }],
   });
 }
 

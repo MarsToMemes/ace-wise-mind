@@ -140,6 +140,7 @@ function riverSolver(v: View): Choice | null {
  * couche pas avec une main du haut de ta range. `mine` : ta range (calculée une fois quand on lit toute une range, B3).
  */
 export function riverGuard(v: View, c: Choice, mine?: ReturnType<typeof expandRange>): Choice {
+  if (!allInDefense || !isTerminalCall) return c;                     // ancienne version, sans défense minimale
   if (c.kind !== "fold" || !isTerminalCall({ toCallBB: v.toCall, heroStackBB: v.effRemaining, canRaise: !!v.legal.raise, opponents: 1 })) return c;
   const r = mine ?? (() => { const [r0, r1] = ranges(v); return removeDead(v.me === 0 ? r0 : r1, v.board); })();
   return allInDefense(v.hole, r, v.board, v.pot, v.toCall).inTop ? { kind: "call", how: "garde-fou" } : c;
